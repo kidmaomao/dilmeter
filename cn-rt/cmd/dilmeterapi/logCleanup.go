@@ -259,12 +259,16 @@ func validateLogCleanupPaths(dir string, files []managedLogFile) ([]string, erro
 		if err != nil {
 			return nil, err
 		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) || filepath.IsAbs(relative) || filepath.Dir(relative) != "." {
-			return nil, errUnsafeLogPath
-		}
 		info, err := os.Lstat(path)
 		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || !isManagedLogName(info.Name()) {
+			return nil, errUnsafeLogPath
+		}
+		resolvedPath, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return nil, errUnsafeLogPath
+		}
+		relative, err := filepath.Rel(root, resolvedPath)
+		if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) || filepath.IsAbs(relative) || filepath.Dir(relative) != "." {
 			return nil, errUnsafeLogPath
 		}
 		if currentActiveLogNames()[strings.ToLower(info.Name())] {
