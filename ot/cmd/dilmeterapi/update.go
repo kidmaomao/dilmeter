@@ -20,6 +20,7 @@ import (
 
 const maxUpdateDownloadBytes int64 = 500 << 20
 const officialUpdateBaseURL = "https://github.com/kidmaomao/dilmeter/releases/latest/download"
+const mirrorUpdateBaseURL = "https://gear.noginogi.sbs/downloads"
 
 // Used only by builds whose BuildVariant is exactly local-update-test.
 var UpdateBaseURL = ""
@@ -116,6 +117,23 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 func fetchUpdateManifest(ctx context.Context) (updateManifest, error) {
 	manifestURL := updateManifestEndpoint(AppName)
+	manifest, err := fetchUpdateManifestURL(ctx, manifestURL)
+	if err == nil || ctx.Err() != nil || !strings.HasPrefix(manifestURL, officialUpdateBaseURL+"/") {
+		return manifest, err
+	}
+	// The source repository may be private or GitHub may be unreachable.
+	// Keep public updates available without changing repository visibility.
+	mirrorURL := fmt.Sprintf("%s/%s.json?check=%d", mirrorUpdateBaseURL, url.PathEscape(AppName), time.Now().Unix())
+	mirror, mirrorErr := fetchUpdateManifestURL(ctx, mirrorURL)
+	if mirrorErr != nil {
+		return updateManifest{}, fmt.Errorf("GitHub: %v; 下载站: %w", err, mirrorErr)
+	}
+	return mirror, nil
+}
+
+func fetchUpdateManifestURL(ctx context.Context, manifestURL string) (updateManifest, error) {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
 	parsedManifestURL, err := url.Parse(manifestURL)
 	if err != nil {
 		return updateManifest{}, err

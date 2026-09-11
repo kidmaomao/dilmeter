@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot ".."))
-$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.4.1" }
+$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.4.2" }
 if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid DILMETER_APP_VERSION: $version"
 }
@@ -60,6 +60,7 @@ foreach ($stage in @($cnStage, $rtStage)) {
 
 Copy-Item -LiteralPath (Join-Path $projectRoot $cnExe) -Destination $cnStage -Force
 Copy-Item -LiteralPath $cnGuide.FullName -Destination (Join-Path $cnStage $cnGuide.Name) -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "release-notes-current.txt") -Destination (Join-Path $cnStage "release-notes.txt") -Force
 & (Join-Path $PSScriptRoot "create_release_zip.ps1") -SourceDirectory $cnStage -ZipPath (Join-Path $releaseDir "DilmeterCN.zip")
 & (Join-Path $PSScriptRoot "make_update_manifest.ps1") -AppName "DilmeterCN" -Version $version -ZipPath (Join-Path $releaseDir "DilmeterCN.zip") -NotesPath (Join-Path $projectRoot "release-notes-current.txt")
 
@@ -68,6 +69,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "third_party\windivert\WinDivert-
 Copy-Item -LiteralPath (Join-Path $projectRoot "third_party\windivert\WinDivert-2.2.2-A\x64\WinDivert64.sys") -Destination $rtStage -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot "third_party\windivert\WinDivert-2.2.2-A\LICENSE") -Destination (Join-Path $rtStage "WinDivert-LICENSE.txt") -Force
 Copy-Item -LiteralPath $rtGuide.FullName -Destination (Join-Path $rtStage $cnGuide.Name) -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot "release-notes-current.txt") -Destination (Join-Path $rtStage "release-notes.txt") -Force
 & (Join-Path $PSScriptRoot "create_release_zip.ps1") -SourceDirectory $rtStage -ZipPath (Join-Path $releaseDir "DilmeterRT.zip")
 & (Join-Path $PSScriptRoot "make_update_manifest.ps1") -AppName "DilmeterRT" -Version $version -ZipPath (Join-Path $releaseDir "DilmeterRT.zip") -NotesPath (Join-Path $projectRoot "release-notes-current.txt")
 

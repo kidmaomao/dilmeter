@@ -346,7 +346,7 @@ export default defineComponent({
         if (isDesignPreview) document.documentElement.classList.add("design-preview-root");
         const socketConnected = ref(false);
         const appName = ref("DilmeterCN");
-        const appVersion = ref("1.4.1");
+        const appVersion = ref("1.4.2");
         const runtimeStatus = ref<AppRuntimeStatus>({
             state: isStandalone ? "replay" : "starting",
             message: isStandalone ? "本地日志模式" : "正在连接桌面监测器…",

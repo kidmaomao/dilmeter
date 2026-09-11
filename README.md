@@ -10,6 +10,8 @@ Dilmeter 是面向《洛奇》的 Windows 桌面伤害统计与战斗提醒工�
 
 CN 与 RT 固定使用随程序提供的 CN 名称和图标数据，可离线启动。OT 默认同样携带 CN 数据，并保留外置资源包覆盖能力。
 
+当前版本为 **1.4.2**，更新文案见 [1.4.2 更新公告](docs/release-notes/v1.4.2.md)。CN、RT、OT 本地包输出到 `artifacts/release-v1.4.2`，公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
+
 ## 仓库结构
 
 ```text
@@ -64,7 +66,7 @@ GitHub Actions 的 `Release Dilmeter` 流程会构建三个版本并创建或更
 - `DilmeterOT.zip`
 - `DilmeterCN.json`、`DilmeterRT.json`、`DilmeterOT.json`
 
-新版本客户端直接从 GitHub 最新 Release 读取更新清单并下载经过 SHA-256 校验的 ZIP。NogiNogi 下载页也会自动识别同一 Release；GitHub 暂不可用时继续使用站内发布包。
+新版本客户端优先从 GitHub 最新 Release 读取更新清单并下载经过 SHA-256 校验的 ZIP；GitHub 不可用或仓库保持私有时，自动使用 NogiNogi 下载站的更新清单。NogiNogi 下载页也会自动识别同一 Release；GitHub 暂不可用时继续使用站内发布包。同步站内清单时，下载 URL 应指向站内 ZIP，文件大小和 SHA-256 必须与发布包一致。
 
 ## 资料与许可
 
