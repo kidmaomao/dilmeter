@@ -19,15 +19,15 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: |
             cn-rt/front/package-lock.json
             ot/front/package-lock.json
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: 1.24.11
           cache-dependency-path: |
@@ -92,7 +92,8 @@ jobs:
           $releaseDir = Join-Path $PWD "artifacts\release-v$version"
           $assets = Get-ChildItem -LiteralPath $releaseDir -File | Where-Object { $_.Name -match '^Dilmeter(?:CN|RT|OT)\.(?:zip|json)$' }
           if ($assets.Count -ne 6) { throw "Expected 6 release assets, found $($assets.Count)" }
-          if (gh release view $tag *> $null) {
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @($assets.FullName) --clobber
           } else {
             gh release create $tag @($assets.FullName) --target "${{ github.sha }}" --title "Dilmeter $tag" --notes-file "cn-rt/release-notes-current.txt"
