@@ -1,0 +1,547 @@
+:root {
+    --ui-theme-canvas: #050606;
+    --ui-theme-surface: #171917;
+    --ui-theme-raised: #292c29;
+    --ui-theme-control: #101210;
+    --ui-theme-border: #5f625c;
+    --ui-theme-text: #f0f1ef;
+    --ui-theme-muted: #a8aaa5;
+    --ui-color-accent: #65b8dd;
+    --ui-theme-on-accent: #102d38;
+    --ui-color-scheme: dark;
+    --ui-theme-surface-hover: color-mix(in srgb, var(--ui-theme-raised) 76%, var(--ui-color-accent));
+    --ui-theme-selected: color-mix(in srgb, var(--ui-color-accent) 72%, var(--ui-theme-surface));
+    --ui-theme-border-soft: color-mix(in srgb, var(--ui-theme-border) 52%, var(--ui-theme-surface));
+    --ui-theme-inset: color-mix(in srgb, var(--ui-theme-control) 82%, #000);
+}
+
+.main-dilmeter-app {
+    color: var(--ui-theme-text) !important;
+    color-scheme: var(--ui-color-scheme);
+    background: var(--ui-theme-canvas) !important;
+}
+
+.main-dilmeter-app .v-application__wrap,
+.main-dilmeter-app .v-main {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-canvas) !important;
+}
+
+.main-dilmeter-app .app-toolbar {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-surface)) !important;
+    border-color: var(--ui-theme-border) !important;
+}
+
+.main-dilmeter-app :where(
+    .update-check-button,
+    .skill-bar-settings-button,
+    .ui-color-picker,
+    .server-switcher select,
+    .server-settings-button,
+    .reminder-overlay-toggle,
+    .reminder-save-settings,
+    .aim-reminder-save,
+    .skill-cooldown-save
+) {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-control)) !important;
+    border-color: var(--ui-theme-border) !important;
+}
+
+.main-dilmeter-app :where(
+    .app-version,
+    .server-switcher,
+    .accelerator-switch,
+    .dps-recording-switch,
+    .reminder-inline-settings em,
+    .reminder-inline-settings b
+) {
+    color: var(--ui-theme-muted) !important;
+}
+
+.main-dilmeter-app :where(
+    .ui-color-picker select,
+    .server-switcher select,
+    .reminder-inline-settings input[type="number"],
+    .reminder-inline-settings select
+) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-control) !important;
+    border-color: var(--ui-theme-border) !important;
+}
+
+.main-dilmeter-app .ui-color-picker {
+    background: var(--ui-theme-surface) !important;
+}
+
+.main-dilmeter-app .skill-bar-settings-button .v-icon {
+    color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app .skill-bar-settings-button:hover {
+    background: linear-gradient(var(--ui-theme-surface-hover), var(--ui-theme-control)) !important;
+    border-color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app .ui-color-picker select:focus,
+.main-dilmeter-app .server-switcher select:focus {
+    border-color: var(--ui-color-accent) !important;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-color-accent) 42%, transparent);
+}
+
+.main-dilmeter-app :where(input[type="checkbox"], input[type="radio"], input[type="range"]) {
+    accent-color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app .report-page {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-canvas) !important;
+}
+
+.main-dilmeter-app .report-page :where(
+    span,
+    strong,
+    small,
+    label,
+    h2,
+    h3,
+    dt,
+    dd,
+    button,
+    input,
+    select,
+    textarea
+) {
+    color: var(--ui-theme-text) !important;
+    text-shadow: none !important;
+}
+
+.main-dilmeter-app :where(
+    .report-controls,
+    .reminder-profile-toolbar,
+    .team-chart-toolbar,
+    .top-stat-grid,
+    .table-frame,
+    .condition-panel,
+    .player-buff-settings,
+    .reminder-settings-page,
+    .buff-alert-settings,
+    .skill-cooldown-settings,
+    .debuff-alert-settings,
+    .boss-mechanic-settings,
+    .condition-timeline-panel,
+    .player-buff-search-row,
+    .favorite-condition-section,
+    .condition-category-list,
+    .team-dps-ranking
+) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-surface) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-theme-border) 24%, transparent) !important;
+}
+
+.main-dilmeter-app :where(
+    .combat-window,
+    .team-chart-dialog,
+    .team-privacy-dialog,
+    .local-tts-dialog
+) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-canvas) !important;
+    border-color: var(--ui-theme-border) !important;
+}
+
+.main-dilmeter-app :where(
+    .window-titlebar,
+    .team-chart-titlebar,
+    .condition-panel-header,
+    .player-buff-manage-group > summary,
+    .condition-category > summary,
+    .favorite-condition-section > header,
+    .skill-head > span
+) {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-surface)) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.main-dilmeter-app :where(
+    .top-stat-value,
+    .combat-summary-panel,
+    .condition-panel,
+    .debuff-boss-manager,
+    .debuff-alert-rule,
+    .boss-mechanic-rule,
+    .buff-alert-picker,
+    .buff-alert-editor,
+    .skill-cooldown-editor,
+    .buff-alert-search-results,
+    .player-buff-search-results,
+    .player-buff-chip-list,
+    .favorite-condition-grid,
+    .condition-category > .condition-grid,
+    .condition-timeline-panel,
+    .team-chart-canvas,
+    .team-dps-ranking,
+    .rank-number,
+    .rank-bar,
+    .rank-share,
+    .notice-line
+) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-raised) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.main-dilmeter-app :where(
+    .control-field select,
+    .reminder-profile-toolbar select,
+    .reminder-profile-toolbar input,
+    .debuff-alert-settings input,
+    .debuff-alert-settings select,
+    .boss-mechanic-settings input,
+    .boss-mechanic-settings select,
+    .local-tts-dialog input,
+    .local-tts-dialog select,
+    .local-tts-dialog textarea,
+    .buff-alert-settings input,
+    .buff-alert-settings select,
+    .skill-cooldown-settings input,
+    .skill-cooldown-settings select,
+    .player-buff-search-row input
+) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-control) !important;
+    border-color: var(--ui-theme-border) !important;
+}
+
+.main-dilmeter-app :where(
+    .game-button,
+    .profile-action,
+    .buff-time-adjustment button,
+    .condition-settings-button,
+    .condition-target-toggle label,
+    .common-debuff-button,
+    .debuff-order-controls button,
+    .local-tts-open,
+    .buff-alert-add,
+    .buff-alert-remove,
+    .buff-alert-preview,
+    .buff-alert-file-picker,
+    .player-buff-search-row button,
+    .buff-alert-search-results > button,
+    .player-buff-search-results > button,
+    .player-buff-chip,
+    .condition-empty button,
+    .team-chart-granularity button,
+    .combat-tab
+) {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-control)) !important;
+    border-color: var(--ui-theme-border) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-theme-canvas) 62%, transparent) !important;
+}
+
+.main-dilmeter-app :where(
+    .game-button:hover:not(:disabled),
+    .profile-action:hover:not(:disabled),
+    .condition-settings-button:hover,
+    .condition-target-toggle label:hover,
+    .combat-tab:hover:not(.active),
+    .team-chart-granularity button:hover
+) {
+    background: linear-gradient(var(--ui-theme-surface-hover), var(--ui-theme-control)) !important;
+}
+
+.main-dilmeter-app :where(
+    .game-button.active,
+    .game-button.confirm,
+    .condition-settings-button.active,
+    .condition-target-toggle label.active,
+    .combat-tab.active,
+    .player-buff-chip.selected,
+    .team-chart-granularity button.active
+) {
+    color: var(--ui-theme-on-accent) !important;
+    background: var(--ui-theme-selected) !important;
+    border-color: var(--ui-color-accent) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-theme-on-accent) 28%, transparent) !important;
+}
+
+.main-dilmeter-app .condition-card {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-surface)) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+    outline-color: var(--ui-theme-border) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-theme-border) 42%, transparent) !important;
+}
+
+.main-dilmeter-app :where(
+    .condition-card:hover,
+    .condition-card.selected,
+    .condition-card:focus-within
+) {
+    background: linear-gradient(var(--ui-theme-surface-hover), var(--ui-theme-surface)) !important;
+    border-color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app :where(
+    .condition-timeline-bars,
+    .skill-icon,
+    .condition-icon-wrap,
+    .skill-alert-icon
+) {
+    background: var(--ui-theme-inset) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+    box-shadow: 0 0 0 1px var(--ui-theme-border) !important;
+}
+
+.main-dilmeter-app .condition-timeline-segment {
+    background: var(--ui-color-accent) !important;
+    border-color: color-mix(in srgb, var(--ui-color-accent) 66%, #000) !important;
+}
+
+/* The DPS skill ranking keeps Mabinogi's light track and green damage fill in every UI theme. */
+.main-dilmeter-app .report-page .skill-row {
+    color: #f8f8f8 !important;
+    background: linear-gradient(#f5f8f9, #e2e8eb 55%, #cbd4d9) !important;
+    border-color: #121516 !important;
+    outline-color: #748087 !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.58) !important;
+}
+
+.main-dilmeter-app .report-page .skill-progress-track span {
+    background: linear-gradient(#a8f328, #82dc04 55%, #60b900) !important;
+    box-shadow:
+        inset 0 1px rgba(255, 255, 255, 0.38),
+        inset 0 -1px rgba(39, 99, 0, 0.34),
+        1px 0 rgba(39, 99, 0, 0.62) !important;
+}
+
+.main-dilmeter-app .report-page .skill-row > span,
+.main-dilmeter-app .report-page .skill-row .skill-name-text {
+    color: #f8f8f8 !important;
+    -webkit-text-stroke: 0.35px #0b0b0b;
+    paint-order: stroke fill;
+    text-shadow:
+        -1px -1px 0 #0b0b0b,
+        0 -1px 0 #0b0b0b,
+        1px -1px 0 #0b0b0b,
+        -1px 0 0 #0b0b0b,
+        1px 0 0 #0b0b0b,
+        -1px 1px 0 #0b0b0b,
+        0 1px 0 #0b0b0b,
+        1px 1px 0 #0b0b0b !important;
+}
+
+.main-dilmeter-app :where(
+    .app-version,
+    .control-field,
+    .reminder-profile-heading span,
+    .buff-time-adjustment small,
+    .team-chart-toolbar span,
+    .team-chart-dialog footer,
+    .condition-panel-title span,
+    .debuff-alert-settings header span,
+    .debuff-alert-settings > p,
+    .boss-mechanic-settings header span,
+    .skill-cooldown-settings > p,
+    .buff-alert-settings > p,
+    .condition-card-main > small,
+    .condition-timeline-heading span,
+    .condition-timeline-axis,
+    .team-chart-granularity
+) {
+    color: var(--ui-theme-muted) !important;
+}
+
+.main-dilmeter-app :where(
+    .reminder-profile-heading .v-icon,
+    .team-chart-titlebar .v-icon,
+    .condition-panel-title .boss-health-readout,
+    .buff-time-adjustment button,
+    .boss-mechanic-identity .v-icon,
+    .condition-coverage
+) {
+    color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app :where(
+    .ui-color-swatch,
+    .condition-alert-button.active
+) {
+    background: var(--ui-color-accent) !important;
+    border-color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app .skill-scroll {
+    scrollbar-color: var(--ui-theme-border) var(--ui-theme-control) !important;
+}
+
+.main-dilmeter-app .skill-scroll::-webkit-scrollbar-track {
+    background: var(--ui-theme-control) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.main-dilmeter-app .skill-scroll::-webkit-scrollbar-thumb {
+    background: var(--ui-theme-border) !important;
+    border-color: var(--ui-theme-control) !important;
+}
+
+.main-dilmeter-app :where(button:disabled, input:disabled, select:disabled) {
+    color: color-mix(in srgb, var(--ui-theme-muted) 58%, transparent) !important;
+    opacity: .62;
+}
+
+.main-dilmeter-app .notice-success { color: #4caf50 !important; }
+.main-dilmeter-app .notice-warning { color: #e5a51b !important; }
+.main-dilmeter-app .notice-error { color: #e65c5c !important; }
+.main-dilmeter-app :where(.profile-action.danger, .buff-alert-remove) {
+    color: #e65c5c !important;
+    border-color: #c85a5a !important;
+}
+
+.main-dilmeter-app .team-chart-component :where(
+    .team-dps-ranking,
+    .rank-number,
+    .rank-bar,
+    .rank-share,
+    .team-chart-canvas
+) {
+    background-color: var(--ui-theme-surface) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+/* Team Chart's two primary view buttons live outside both chart components,
+   so they need their own semantic-theme mapping instead of the legacy black
+   dialog styles. */
+.main-dilmeter-app .team-chart-view-switch button {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-control)) !important;
+    border-color: var(--ui-theme-border) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-theme-canvas) 62%, transparent) !important;
+}
+
+.main-dilmeter-app .team-chart-view-switch button:hover:not(.active) {
+    background: linear-gradient(var(--ui-theme-surface-hover), var(--ui-theme-control)) !important;
+}
+
+.main-dilmeter-app .team-chart-view-switch button.active {
+    color: var(--ui-theme-on-accent) !important;
+    background: var(--ui-theme-selected) !important;
+    border-color: var(--ui-color-accent) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-theme-on-accent) 28%, transparent) !important;
+}
+
+/* The skill timeline is a dense custom grid rather than a Vuetify surface.
+   Override the report-wide text rule so all fourteen UI palettes reach its
+   muted labels, selected controls, sticky cells, and scrollable canvas. */
+.main-dilmeter-app .skill-timeline-component {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-canvas) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component :where(
+    .skill-timeline-player select,
+    .skill-timeline-zoom button,
+    .skill-timeline-more
+) {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-control)) !important;
+    border-color: var(--ui-theme-border) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component :where(
+    .skill-timeline-zoom button:hover,
+    .skill-timeline-more:hover
+) {
+    background: linear-gradient(var(--ui-theme-surface-hover), var(--ui-theme-control)) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component .skill-timeline-zoom button.active {
+    color: var(--ui-theme-on-accent) !important;
+    background: var(--ui-theme-selected) !important;
+    border-color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component .skill-timeline-more {
+    border-color: var(--ui-color-accent) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component .skill-timeline-scroll {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-inset) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component .skill-timeline-sticky-label {
+    color: var(--ui-theme-text) !important;
+    background: linear-gradient(90deg, var(--ui-theme-raised), var(--ui-theme-surface)) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component .skill-timeline-axis {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-surface) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component :where(
+    .skill-timeline-player label,
+    .skill-timeline-zoom,
+    .skill-timeline-summary,
+    .skill-timeline-axis span,
+    .row-label small,
+    .skill-timeline-empty,
+    .skill-timeline-empty span,
+    .skill-timeline-note
+) {
+    color: var(--ui-theme-muted) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component :where(
+    .axis-label,
+    .row-label strong,
+    .skill-timeline-empty strong
+) {
+    color: var(--ui-theme-text) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component .skill-timeline-row {
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.main-dilmeter-app .skill-timeline-component .skill-timeline-empty {
+    background: var(--ui-theme-surface) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.v-overlay-container :where(.v-card, .update-dialog-card) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-surface) !important;
+    border-color: var(--ui-theme-border) !important;
+}
+
+.v-overlay-container :where(.v-card-title, .v-card-actions) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-raised) !important;
+}
+
+.v-overlay-container :where(.v-card-text, .update-notes) {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-surface) !important;
+    border-color: var(--ui-theme-border-soft) !important;
+}
+
+.v-overlay-container .v-btn {
+    color: var(--ui-theme-text) !important;
+    background: var(--ui-theme-control) !important;
+    border: 1px solid var(--ui-theme-border) !important;
+}
+
+.v-overlay-container .v-btn.bg-primary {
+    color: var(--ui-theme-on-accent) !important;
+    background: var(--ui-color-accent) !important;
+}

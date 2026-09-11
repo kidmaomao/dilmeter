@@ -1,0 +1,34 @@
+# Build output and release artifacts
+/artifacts/
+*.exe
+*.zip
+*.tar.gz
+*.log
+*.pcapng
+*.ndjson
+
+# Frontend dependencies and generated bundles
+**/front/node_modules/
+**/front/dist*/
+**/cmd/dilmeterapi/static*/
+
+# Generated Windows resources
+**/cmd/dilmeterapi/rsrc_windows_*.syso
+
+# Runtime data
+/cn-rt/data/
+/cn-rt/logs/
+/ot/data/
+/ot/logs/
+**/config.yaml
+
+# Local tools, caches and editor state
+/.cache/
+/.tools/
+/.vscode/
+**/tmp/
+**/.DS_Store
+
+# Visual QA output
+**/design-qa-artifacts/
+**/qa/

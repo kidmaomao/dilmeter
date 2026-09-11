@@ -1,0 +1,34 @@
+{
+  "RT_GROUP_ICON": {
+    "#2": {
+      "0000": "../../../assets/app-icon.ico"
+    }
+  },
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": "../test-rt.manifest"
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": {
+          "file_version": "1.4.1.0",
+          "product_version": "1.4.1.0"
+        },
+        "info": {
+          "0804": {
+            "CompanyName": "DilmeterRT",
+            "FileDescription": "DilmeterRT 洛奇路由模式伤害监测器",
+            "FileVersion": "1.4.1.0",
+            "InternalName": "DilmeterRT",
+            "LegalCopyright": "Community utility",
+            "OriginalFilename": "DilmeterRT-v1.4.1.exe",
+            "ProductName": "DilmeterRT",
+            "ProductVersion": "1.4.1.0"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,99 @@
+name: Release Dilmeter
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version without the leading v
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            cn-rt/front/package-lock.json
+            ot/front/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.24.11
+          cache-dependency-path: |
+            cn-rt/go.sum
+            ot/go.sum
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}".Trim()
+          if (-not $version) { $version = "${{ github.ref_name }}" -replace '^v', '' }
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { throw "Invalid version: $version" }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install build tools
+        shell: pwsh
+        run: go install github.com/tc-hib/go-winres@v0.3.3
+
+      - name: Update Windows version metadata
+        shell: pwsh
+        run: ./scripts/set-winres-version.ps1 -Version "${{ steps.version.outputs.value }}"
+
+      - name: Install frontend dependencies
+        shell: pwsh
+        run: |
+          npm ci --prefix cn-rt/front
+          npm ci --prefix ot/front
+
+      - name: Build CN and RT
+        shell: pwsh
+        env:
+          DILMETER_APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          cmd /c cn-rt\build.bat
+          cmd /c cn-rt\build_backend.bat
+          cmd /c cn-rt\build_rt.bat
+
+      - name: Build OT
+        shell: pwsh
+        env:
+          DILMETER_APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          cmd /c ot\build.bat
+          cmd /c ot\build_backend.bat
+
+      - name: Package release
+        shell: pwsh
+        env:
+          DILMETER_APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          cmd /c cn-rt\package_release.bat
+          cmd /c ot\package_release.bat
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ steps.version.outputs.value }}"
+          $tag = "v$version"
+          $releaseDir = Join-Path $PWD "artifacts\release-v$version"
+          $assets = Get-ChildItem -LiteralPath $releaseDir -File | Where-Object { $_.Name -match '^Dilmeter(?:CN|RT|OT)\.(?:zip|json)$' }
+          if ($assets.Count -ne 6) { throw "Expected 6 release assets, found $($assets.Count)" }
+          if (gh release view $tag *> $null) {
+            gh release upload $tag @($assets.FullName) --clobber
+          } else {
+            gh release create $tag @($assets.FullName) --target "${{ github.sha }}" --title "Dilmeter $tag" --notes-file "cn-rt/release-notes-current.txt"
+          }

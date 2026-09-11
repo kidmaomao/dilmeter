@@ -1,0 +1,58 @@
+{
+  "name": "dilmeter-front",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "serve": "vite serve",
+    "build": "vite build",
+    "verify:effective-damage": "node scripts/verify-effective-damage.ts",
+    "verify:raw-dps": "node scripts/verify-raw-dps.ts",
+    "verify:packet-dps": "node scripts/verify-packet-dps.mjs",
+    "verify:battle-record": "node scripts/verify-battle-record.mjs",
+    "verify:local-buff-owner": "node scripts/verify-local-buff-owner.ts",
+    "verify:condition-timeline": "node scripts/verify-condition-timeline.ts",
+    "verify:battle-target-time": "node scripts/verify-battle-target-time.ts",
+    "verify:battle-target-selection": "node scripts/verify-battle-target-selection.ts",
+    "verify:buff-expiry": "node scripts/verify-buff-expiry.ts",
+    "verify:skill-cooldown": "node scripts/verify-skill-cooldown.ts",
+    "verify:skill-bar": "node scripts/verify-skill-bar.ts",
+    "verify:reminder-profiles": "node scripts/verify-reminder-profiles.ts",
+    "verify:debuff-alert": "node scripts/verify-debuff-alert.ts",
+    "verify:local-player-privacy": "node scripts/verify-local-player-privacy.ts",
+    "verify:socket-url": "node scripts/verify-socket-url.ts",
+    "verify:boss-mechanic-alert": "node scripts/verify-boss-mechanic-alert.ts",
+    "verify:effect-timer": "node scripts/verify-effect-timer.ts",
+    "verify:ui-color-theme": "node scripts/verify-ui-color-theme.ts",
+    "verify:native-ready": "node scripts/verify-native-ready.mjs",
+    "verify:background-reactivity": "node scripts/verify-background-reactivity.mjs",
+    "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@mdi/font": "^7.4.47",
+    "@vitejs/plugin-vue": "~6.0.4",
+    "@vue/eslint-config-typescript": "~14.7.0",
+    "eslint": "^10.0.1",
+    "eslint-plugin-vue": "~10.8.0",
+    "typescript": "~5.9.3",
+    "vite": "~7.3.1",
+    "vite-plugin-checker": "^0.12.0",
+    "vite-plugin-vuetify": "~2.1.3",
+    "vite-plugin-wasm": "^3.5.0",
+    "vue-tsc": "~3.2.5"
+  },
+  "dependencies": {
+    "@protobuf-ts/runtime": "~2.11.1",
+    "binary-search-bounds": "^2.0.5",
+    "brotli-dec-wasm": "^2.3.1",
+    "highcharts": "^12.5.0",
+    "vue": "~3.5.28",
+    "vuetify": "~3.12.1"
+  },
+  "volta": {
+    "node": "20.19.5"
+  }
+}
