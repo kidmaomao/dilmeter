@@ -67,6 +67,7 @@ export type SnapshotEntity = {
     totalApplyDamage: number;
     applyDamages: SnapshotDamage[];
     conditionMap: Record<number, SnapshotCondition>;
+    conditionRefreshGuardAt?: Record<number, number>;
     conditionHistory: SnapshotConditionState[];
     equipItemMap: Record<number, SnapshotItem>;
     statMap: Record<number, number>;
@@ -84,6 +85,15 @@ export type SnapshotGroup = {
 };
 
 export type WorkerSnapshot = {
+    localEntityId?: string;
+    localEntityReliable?: boolean;
+    selectedTargetId?: string;
+    activeEntityMap?: Record<string, boolean>;
+    resumeState?: {
+        pendingHealthDamages: Record<string, any[]>;
+        lastHealthMap: Record<string, number>;
+        pendingStatMap: Record<string, Record<number, number>>;
+    };
     entities: Record<string, SnapshotEntity>;
     groups: Record<string, SnapshotGroup>;
     damages: any[]; // protocols.eventDamage[]

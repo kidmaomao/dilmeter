@@ -416,6 +416,28 @@ export class ActorManager {
         this.forceUpdateAll();
     }
 
+    /** Release the previous window's pending work before replacing its actors. */
+    public prepareSnapshot(): void {
+        for (const actor of this.pendingReactiveActors) actor.flushPendingUpdate();
+        this.pendingReactiveActors.clear();
+        for (const id of Object.keys(this.activeEntityMap)) delete this.activeEntityMap[id];
+        for (const id of Object.keys(this.pendingConditionMap)) delete this.pendingConditionMap[id];
+        for (const id of Object.keys(this.pendingStatMap)) delete this.pendingStatMap[id];
+        this.pendingConditionRefreshGuardAt = {};
+        this.pendingHealthDamages = {};
+        this.lastHealthMap = {};
+    }
+
+    public restoreSnapshotResumeState(state: {
+        pendingHealthDamages: Record<string, protocols.eventDamage[]>;
+        lastHealthMap: Record<string, number>;
+        pendingStatMap: Record<string, Record<number, number>>;
+    }): void {
+        this.pendingHealthDamages = state.pendingHealthDamages;
+        this.lastHealthMap = state.lastHealthMap;
+        Object.assign(this.pendingStatMap, state.pendingStatMap);
+    }
+
     public clear() {
 		this.eventVersion += 1;
         this.selectedTargetId = "";
@@ -1026,6 +1048,7 @@ export class EntityActor extends BaseActor {
         applyDamages: EntityDamage[];
         conditionMap: Record<number, EntityCondition>;
         conditionHistory: EntityConditionState[];
+        conditionRefreshGuardAt?: Record<number, number>;
         equipItemMap: Record<number, EntityItem>;
         statMap?: Record<number, number>;
         appearedAt?: number;
@@ -1042,6 +1065,7 @@ export class EntityActor extends BaseActor {
         this._finisherId = s.finisherId;
         this._conditionMap = s.conditionMap as Record<number, EntityCondition>;
         this._conditionHistory = s.conditionHistory as EntityConditionState[];
+        this._conditionRefreshGuardAt = s.conditionRefreshGuardAt ?? {};
         this._equipItemMap = s.equipItemMap as Record<number, EntityItem>;
         this._statMap = { ...(s.statMap ?? {}) };
         this._appearedAt = Number(s.appearedAt) || 0;

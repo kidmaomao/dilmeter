@@ -18,6 +18,12 @@ export function hydrateFromSnapshot(
     actorMgr.pauseReactivity();
 
     try {
+        actorMgr.prepareSnapshot();
+        actorMgr.localEntityId = snapshot.localEntityId ?? actorMgr.localEntityId;
+        actorMgr.localEntityReliable = snapshot.localEntityReliable ?? actorMgr.localEntityReliable;
+        actorMgr.selectedTargetId = snapshot.selectedTargetId ?? "";
+        Object.assign(actorMgr.activeEntityMap, snapshot.activeEntityMap ?? {});
+        if (snapshot.resumeState) actorMgr.restoreSnapshotResumeState(snapshot.resumeState);
         // 2. 清除舊的 map（保留 shallowReactive 物件本身）
         for (const k in actorMgr.entityMap) delete actorMgr.entityMap[k];
         for (const k in actorMgr.groupMap) delete actorMgr.groupMap[k];
@@ -63,10 +69,10 @@ export function hydrateFromSnapshot(
         }
 
         // 5. 還原 raw damage log
-        actorMgr.damages.push(...snapshot.damages);
-        actorMgr.skillActions.push(...(snapshot.skillActions ?? []));
-        actorMgr.effectiveDamages.push(...(snapshot.effectiveDamages ?? []));
-        actorMgr.healthLosses.push(...(snapshot.healthLosses ?? []));
+        appendSnapshotRows(actorMgr.damages, snapshot.damages);
+        appendSnapshotRows(actorMgr.skillActions, snapshot.skillActions ?? []);
+        appendSnapshotRows(actorMgr.effectiveDamages, snapshot.effectiveDamages ?? []);
+        appendSnapshotRows(actorMgr.healthLosses, snapshot.healthLosses ?? []);
 
         // Older .dilmetercn records stored owner-remapped puppet/pet hits in
         // collectorDamages but omitted them from the player's applyDamages.
@@ -108,6 +114,11 @@ export function hydrateFromSnapshot(
     for (const d of includedCollectorDamages) {
         dcMgr.onDamage(d as any);
     }
+}
+
+function appendSnapshotRows<T>(target: T[], rows: readonly T[]): void {
+    // Unbounded push(...rows) exceeds the JS argument limit on large fights.
+    for (let i = 0; i < rows.length; i += 4096) target.push(...rows.slice(i, i + 4096));
 }
 
 function damageIdentity(damage: {

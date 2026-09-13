@@ -133,6 +133,7 @@ type nativeSkillCooldownRule struct {
 	SoundMode                 string  `json:"soundMode"`
 	CustomSoundID             string  `json:"customSoundId"`
 	ProgressThresholdPercent  float64 `json:"progressThresholdPercent"`
+	QuantityThreshold         float64 `json:"quantityThreshold"`
 	X                         int     `json:"x"`
 	Y                         int     `json:"y"`
 }
@@ -320,6 +321,7 @@ type nativeReminderRuntime struct {
 	toahThresholdReached    bool
 	toahFullChargeReached   bool
 	toahGeneration          uint64
+	dorcha                  dorchaQuantityState
 
 	lastBuffStateKey   string
 	lastDebuffStateKey string
@@ -378,6 +380,8 @@ func (runtime *nativeReminderRuntime) loop() {
 		case settings := <-runtime.settingsCh:
 			runtime.settingsMu.Lock()
 			runtime.settings = normalizeNativeReminderSettings(settings)
+			// Preserve the quantity and silently re-evaluate edited thresholds.
+			runtime.dorcha.Below = runtime.dorcha.Observed && runtime.dorcha.Quantity < nativeDorchaThreshold(runtime.settings.SkillCooldowns.Rules[dorchaMasterySkillID].QuantityThreshold)
 			runtime.settingsMu.Unlock()
 			runtime.preferredBossID = runtime.settings.PreferredBossID
 			setNativeReminderOverlaysLocked(nativeReminderSettingsLocked(runtime.settings))
@@ -412,6 +416,9 @@ func (runtime *nativeReminderRuntime) loop() {
 func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	switch value := current.(type) {
 	case *event.EventLocalEntity:
+		if value.Reset || value.Id != runtime.localID {
+			runtime.dorcha = dorchaQuantityState{}
+		}
 		if value.Reset {
 			for _, entity := range runtime.entities {
 				entity.Active = false
@@ -476,6 +483,10 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 			case 198:
 				if value.Id == runtime.localID {
 					runtime.observeToahProgress(stat.Value, nativeEventAtMs(value.At, 0))
+				}
+			case dorchaStatID:
+				if value.Private && value.Id == runtime.localID {
+					runtime.observeDorchaQuantity(stat.Value, nativeEventAtMs(value.At, 0))
 				}
 			}
 		}
@@ -686,14 +697,14 @@ func (runtime *nativeReminderRuntime) evaluate(now time.Time) {
 }
 
 func (runtime *nativeReminderRuntime) observeSkillAction(action *event.EventSkillAction) {
-	if action == nil || action.SkillId == 27012 {
+	if action == nil || action.SkillId == 27012 || action.SkillId == dorchaMasterySkillID {
 		return
 	}
 	runtime.observeSkillCooldown(action.SkillId, nativeEventAtMs(action.At, action.AtMs), action.IsFallback, runtime.nativeSkillSourceIsPet(action.SkillId, action.SourceId))
 }
 
 func (runtime *nativeReminderRuntime) observeSkillCooldownAdjustment(adjustment *event.EventSkillCooldown) {
-	if adjustment == nil || (runtime.localID != "" && adjustment.Id != "" && adjustment.Id != runtime.localID) {
+	if adjustment == nil || adjustment.SkillId == dorchaMasterySkillID || (runtime.localID != "" && adjustment.Id != "" && adjustment.Id != runtime.localID) {
 		return
 	}
 	rule, configured := runtime.settings.SkillCooldowns.Rules[adjustment.SkillId]
@@ -769,7 +780,7 @@ func (runtime *nativeReminderRuntime) observeSkillDamage(damage *event.EventDama
 
 func (runtime *nativeReminderRuntime) observeSkillCooldown(skillID uint16, usedAtMs int64, fallback bool, petSkills ...bool) {
 	rule, exists := runtime.settings.SkillCooldowns.Rules[skillID]
-	if !exists || !rule.Enabled || skillID == 27012 {
+	if !exists || !rule.Enabled || skillID == 27012 || skillID == dorchaMasterySkillID {
 		return
 	}
 	if usedAtMs <= 0 {
@@ -1622,7 +1633,7 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 	nowMs := now.UnixMilli()
 	items := make([]nativeSkillOverlayItem, 0, len(runtime.settings.SkillCooldowns.Rules))
 	for skillID, rule := range runtime.settings.SkillCooldowns.Rules {
-		if !rule.Enabled {
+		if !rule.Enabled || skillID == dorchaMasterySkillID {
 			continue
 		}
 		cooldown := runtime.skillCooldowns[skillID]
@@ -1742,6 +1753,9 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 		})
 	}
 	sort.Slice(stackAlerts, func(i, j int) bool { return stackAlerts[i].CCID < stackAlerts[j].CCID })
+	if quantity := runtime.dorchaQuantityOverlay(); quantity != nil {
+		stackAlerts = append(stackAlerts, *quantity)
+	}
 
 	settings := nativeSkillOverlaySettings{
 		IconSize: runtime.settings.SkillCooldowns.IconSize, OverlayEnabled: runtime.settings.Buff.OverlayEnabled,
@@ -1924,6 +1938,10 @@ type nativeBossMechanicOverlayItem struct {
 }
 
 type nativeBuffStackOverlayItem struct {
+	SkillID      uint16 `json:"skillId,omitempty"`
+	QuantityText string `json:"quantityText,omitempty"`
+	QuantityUnit string `json:"quantityUnit,omitempty"`
+	Persistent   bool   `json:"persistent,omitempty"`
 	CCID         uint32 `json:"ccId"`
 	Name         string `json:"name"`
 	Stack        int    `json:"stack"`
@@ -2129,6 +2147,7 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 		rule.ShortCooldownSeconds = clampNativeReminderFloat(rule.ShortCooldownSeconds, 0.1, 86400, 1)
 		rule.CumulativeCooldownSeconds = clampNativeReminderFloat(rule.CumulativeCooldownSeconds, 0.1, 86400, 10)
 		rule.ProgressThresholdPercent = clampNativeReminderFloat(rule.ProgressThresholdPercent, 1, 100, 95)
+		rule.QuantityThreshold = nativeDorchaThreshold(rule.QuantityThreshold)
 		rule.SoundMode = nativeSkillSoundMode(rule.SoundMode)
 		rule.OwnerMode = nativeSkillOwnerMode(rule.OwnerMode)
 		rule.X = clampNativeReminderInt(rule.X, -32000, 32000, 600)

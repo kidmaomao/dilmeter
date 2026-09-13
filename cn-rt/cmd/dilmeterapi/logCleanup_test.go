@@ -16,6 +16,7 @@ func TestScanManagedLogFilesOnlyIncludesKnownDirectRegularFiles(t *testing.T) {
 	managedNames := []string{
 		"log_2026-05-01_10-00-00.txt",
 		"packet_log_2026-05-01_10-00-00.ndjson",
+		"packet_log_2026-05-01_10-00-00.ndjson.checkpoints",
 		"packet_capture_1780000000.pcapng",
 	}
 	for _, name := range managedNames {

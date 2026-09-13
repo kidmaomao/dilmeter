@@ -172,14 +172,16 @@ func isManagedLogName(name string) bool {
 	lower := strings.ToLower(name)
 	return (strings.HasPrefix(lower, "log_") && strings.HasSuffix(lower, ".txt")) ||
 		(strings.HasPrefix(lower, "packet_log_") && strings.HasSuffix(lower, ".ndjson")) ||
+		(strings.HasPrefix(lower, "packet_log_") && strings.HasSuffix(lower, ".ndjson.checkpoints")) ||
 		(strings.HasPrefix(lower, "packet_capture_") && strings.HasSuffix(lower, ".pcapng"))
 }
 
 func currentActiveLogNames() map[string]bool {
 	return map[string]bool{
-		strings.ToLower(fmt.Sprintf("log_%v.txt", constants.SERVER_START_AT_STR)):           true,
-		strings.ToLower(fmt.Sprintf("packet_log_%v.ndjson", constants.SERVER_START_AT_STR)): true,
-		strings.ToLower(fmt.Sprintf("packet_capture_%v.pcapng", constants.SERVER_START_AT)): true,
+		strings.ToLower(fmt.Sprintf("log_%v.txt", constants.SERVER_START_AT_STR)):                       true,
+		strings.ToLower(fmt.Sprintf("packet_log_%v.ndjson", constants.SERVER_START_AT_STR)):             true,
+		strings.ToLower(fmt.Sprintf("packet_log_%v.ndjson.checkpoints", constants.SERVER_START_AT_STR)): true,
+		strings.ToLower(fmt.Sprintf("packet_capture_%v.pcapng", constants.SERVER_START_AT)):             true,
 	}
 }
 

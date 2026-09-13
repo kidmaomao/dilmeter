@@ -78,6 +78,11 @@ func applyNativeReminderDragOverride(message *nativeSkillOverlayMessage) {
 				message.Items[index].X, message.Items[index].Y = snapshot.X, snapshot.Y
 			}
 		}
+		for index := range message.StackAlerts {
+			if message.StackAlerts[index].SkillID == uint16(id) {
+				message.StackAlerts[index].X, message.StackAlerts[index].Y = snapshot.X, snapshot.Y
+			}
+		}
 	case "aim":
 		if message.AimReminder != nil {
 			message.AimReminder.X, message.AimReminder.Y = snapshot.X, snapshot.Y

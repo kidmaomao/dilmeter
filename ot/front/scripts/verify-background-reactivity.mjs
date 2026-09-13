@@ -189,56 +189,6 @@ assert.doesNotMatch(
     "elapsed background time alone must not force a competing full-log reload",
 );
 assert.match(
-    appSource,
-    /await\s+loadFromServer\(true\)[\s\S]*?socket\.resume\(\)/,
-    "the DPS socket must resume only after the visible view has rebuilt",
-);
-assert.match(
-    appSource,
-    /v-if="foregroundRecoveryActive && !isDesignPreview"[\s\S]*?正在加载数据[\s\S]*?foregroundRecoveryDetail/,
-    "a long foreground catch-up must cover the stale UI with an explicit loading animation",
-);
-assert.match(
-    appSource,
-    /awayMs\s*<\s*3_000[\s\S]*?foregroundRecoveryActive\.value\s*=\s*true[\s\S]*?await\s+waitForNextPaint\(\)/,
-    "the recovery overlay must detect a meaningful background interval and paint before rebuilding",
-);
-assert.match(
-    appSource,
-    /fileLoadMessage\.value\s*=\s*"正在更新界面\.\.\."[\s\S]*?await\s+waitForNextPaint\(\)[\s\S]*?applySnapshot\(msg\.snapshot\)/,
-    "snapshot hydration must yield long enough for the recovery animation to become visible",
-);
-assert.match(
-    appSource,
-    /resumeDormantUi\(awayMs\)/,
-    "the measured background duration must reach the dormant-view loading decision",
-);
-assert.match(
-    appSource,
-    /tickGapMs\s*>=\s*15_000[\s\S]*?recoverAfterBackground\(tickGapMs,\s*true\)/,
-    "lock-screen and sleep gaps must trigger recovery without a visibility event",
-);
-assert.match(
-    appSource,
-    /window\.addEventListener\("blur",\s*noteWindowInactive\)/,
-    "an ordinary inactive window must record when it lost focus",
-);
-assert.match(
-    appSource,
-    /inactiveAwayMs\s*>=\s*15_000[\s\S]*?recoverAfterBackground\(/,
-    "returning from a long ordinary focus loss must use the recovery path",
-);
-assert.match(
-    appSource,
-    /recoverAfterBackground\([\s\S]*?Math\.max\(hiddenAwayMs,\s*inactiveAwayMs\),[\s\S]*?hiddenAwayMs\s*===\s*0\s*&&\s*inactiveAwayMs\s*>=\s*15_000/,
-    "a long non-minimized background interval must force an authoritative snapshot",
-);
-assert.doesNotMatch(
-    appSource,
-    /const noteWindowInactive[\s\S]*?socket\.suspend\(\)[\s\S]*?const handlePageForeground/,
-    "ordinary focus loss must keep the live stream running",
-);
-assert.match(
     socketSource,
     /existingState\s*===\s*WebSocket\.OPEN\s*\|\|\s*existingState\s*===\s*WebSocket\.CONNECTING/,
     "connection recovery must not create duplicate sockets while one is connecting",

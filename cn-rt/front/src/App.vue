@@ -12,7 +12,7 @@
         <v-main>
             <transition name="foreground-recovery-fade">
                 <div
-                    v-if="foregroundRecoveryActive && !isDesignPreview"
+                    v-if="historyLoading && !isDesignPreview"
                     class="foreground-recovery-overlay"
                     role="status"
                     aria-live="polite"
@@ -20,9 +20,9 @@
                 >
                     <div class="foreground-recovery-card">
                         <v-progress-circular indeterminate color="primary" :size="58" :width="5" />
-                        <strong>正在加载数据</strong>
-                        <span>{{ fileLoadMessage || "正在追赶后台数据..." }}</span>
-                        <small>{{ foregroundRecoveryDetail }}</small>
+                        <strong>正在加载所选场次</strong>
+                        <span>{{ fileLoadMessage || "正在读取场次记录..." }}</span>
+                        <small>只读取你选中的这段战斗记录，完成后自动打开。</small>
                         <v-progress-linear :model-value="fileLoadProgress" color="primary" height="7" rounded />
                     </div>
                 </div>
@@ -90,7 +90,7 @@
                 <span v-if="!isRecordReplay && runtimeStatus.interface" class="text-caption ml-2">{{ runtimeStatus.interface }}</span>
             </v-alert>
 
-            <v-sheet v-if="isFileLoading && !isDesignPreview" class="d-flex align-center pa-2" style="gap: 10px">
+            <v-sheet v-if="isFileLoading && !silentLiveLoading && !isDesignPreview" class="d-flex align-center pa-2" style="gap: 10px">
                 <v-icon icon="mdi-file-import-outline" size="small" />
                 <span class="text-caption">{{ fileLoadMessage }}</span>
                 <v-progress-linear :model-value="fileLoadProgress" color="primary" height="8" rounded />
@@ -105,6 +105,11 @@
                 :is-file-loading="isFileLoading"
                 :is-standalone="isStandalone"
                 :dps-visible="dpsMonitoringEnabled"
+                :battle-catalog="battleCatalog"
+                :loaded-session-key="loadedSessionKey"
+                :is-record-replay="isRecordReplay"
+                @select-archived-session="loadArchivedSession"
+                @return-live="loadFromServer"
                 @refresh-info="loadFromServer"
                 @view-records="recordBrowserOpen = true"
                 @clear-data="clearData"
@@ -282,6 +287,10 @@ import {
     saveUiColorTheme,
     uiColorThemeStyle as buildUiColorThemeStyle,
 } from "@/uiColorTheme";
+import { LiveBattleCursor, applyLiveDelta, needsLiveRecovery, type LiveBattleCatalog, type LiveBattleTarget } from "@/liveBattles";
+import { bossDisplayName } from "@/bossDisplay";
+import { ActorManager } from "@/eventActor";
+import { DamageCollectorManager } from "@/actionCollector";
 import { hydrateFromSnapshot } from "@/worker/hydrateActorManager";
 import type { WorkerOutMessage, WorkerSnapshot } from "@/worker/workerProtocol";
 
@@ -346,7 +355,7 @@ export default defineComponent({
         if (isDesignPreview) document.documentElement.classList.add("design-preview-root");
         const socketConnected = ref(false);
         const appName = ref("DilmeterCN");
-        const appVersion = ref("1.4.2");
+        const appVersion = ref("1.4.3");
         const runtimeStatus = ref<AppRuntimeStatus>({
             state: isStandalone ? "replay" : "starting",
             message: isStandalone ? "本地日志模式" : "正在连接桌面监测器…",
@@ -360,17 +369,13 @@ export default defineComponent({
         const isFileLoading = ref(false);
         const fileLoadProgress = ref(0);
         const fileLoadMessage = ref("");
-        const foregroundRecoveryActive = ref(false);
-        const foregroundRecoveryAwayMs = ref(0);
-        const foregroundRecoveryDetail = computed(() => {
-            const seconds = Math.max(1, Math.round(foregroundRecoveryAwayMs.value / 1000));
-            if (seconds >= 60) {
-                const minutes = Math.floor(seconds / 60);
-                const remainder = seconds % 60;
-                return `已识别到后台停留 ${minutes} 分${remainder ? ` ${remainder} 秒` : ""}，完成同步后自动恢复。`;
-            }
-            return `已识别到后台停留 ${seconds} 秒，完成同步后自动恢复。`;
-        });
+        const historyLoading = ref(false);
+        const silentLiveLoading = ref(false);
+        const battleCatalog = ref<LiveBattleCatalog | null>(null);
+        const loadedSessionKey = ref("");
+        const liveCursor = new LiveBattleCursor();
+        let catalogPending = false;
+        let catalogTimer: number | undefined;
         const loadError = ref("");
         const updateInfo = ref<UpdateInfo | null>(null);
         const updatePending = ref(false);
@@ -414,15 +419,8 @@ export default defineComponent({
         let buffOverlayMoveSequence = 0;
         let debuffOverlayMoveSequence = 0;
         let liveRefreshPending = false;
-        let pageHiddenAtMs = 0;
-        let windowInactiveAtMs = 0;
-        let pageHiddenNativeTickCount = 0;
-        let nativeReactiveTickCount = 0;
-        let lastNativeReactiveTickAtMs = 0;
-        let lastRecoveryRefreshAtMs = 0;
         let uiDormantNeedsReload = false;
         let uiResumePending = false;
-        let foregroundRecoveryStartedAtMs = 0;
         let nativeReactiveTickListener: EventListener | undefined;
         let hostWindowStateListener: EventListener | undefined;
 
@@ -443,10 +441,16 @@ export default defineComponent({
         });
 
         const socket = new SocketClient("/ws");
-        socket.onConnect = (isConnected) => (socketConnected.value = isConnected);
+        socket.onConnect = (isConnected) => {
+            socketConnected.value = isConnected;
+            if (isConnected && !isRecordReplay.value && !liveRefreshPending && !isFileLoading.value) {
+                void loadFromServer(true);
+            }
+        };
         socket.onEvent = (events) => {
             if (isRecordReplay.value) return;
             for (const event of events) {
+                if (!liveCursor.accept(event)) continue;
                 if (event.EventId === eventIdMessageBox) {
                     msgBoxOpen.value = true;
                     msgBoxText.value += `${(event as eventMessageBox).Message}\n`;
@@ -521,42 +525,25 @@ export default defineComponent({
             actorManager.value.clear();
             dcManager.value.clear();
             clearTimeRange();
+            loadedSessionKey.value = "";
         };
 
         const applySnapshot = (snapshot: WorkerSnapshot) => {
+            // Materialize off to the side so a failed restore leaves the
+            // previously displayed report intact and collectible as one unit.
+            const nextCollector = new DamageCollectorManager();
+            const nextActors = new ActorManager(nextCollector);
+            hydrateFromSnapshot(snapshot, nextActors, nextCollector);
+            actorManager.value.prepareSnapshot();
             appEvent.value.dispatchEvent(new CustomEvent("clear"));
             clearTimeRange();
-            hydrateFromSnapshot(snapshot, actorManager.value, dcManager.value);
+            dcManager.value = nextCollector;
+            actorManager.value = nextActors;
         };
 
         const waitForNextPaint = () => new Promise<void>((resolve) => {
             window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
         });
-
-        const beginForegroundRecovery = async (awayMs: number): Promise<boolean> => {
-            if (awayMs < 3_000 || foregroundRecoveryActive.value) return foregroundRecoveryActive.value;
-            foregroundRecoveryAwayMs.value = awayMs;
-            foregroundRecoveryStartedAtMs = Date.now();
-            foregroundRecoveryActive.value = true;
-            fileLoadProgress.value = Math.max(2, fileLoadProgress.value);
-            fileLoadMessage.value = "正在追赶后台数据...";
-            // Paint the loading layer before snapshot hydration can occupy the UI thread.
-            await waitForNextPaint();
-            return true;
-        };
-
-        const finishForegroundRecovery = async (shown: boolean) => {
-            if (!shown || !foregroundRecoveryActive.value) return;
-            fileLoadProgress.value = 100;
-            fileLoadMessage.value = "数据已同步，正在恢复界面...";
-            await waitForNextPaint();
-            const remainingMs = Math.max(0, 700 - (Date.now() - foregroundRecoveryStartedAtMs));
-            if (remainingMs > 0) {
-                await new Promise<void>((resolve) => window.setTimeout(resolve, remainingMs));
-            }
-            foregroundRecoveryActive.value = false;
-            foregroundRecoveryAwayMs.value = 0;
-        };
 
         const loadJsonData = (ndjson: string, replayMode: boolean): Promise<void> => {
             return new Promise<void>((resolve, reject) => {
@@ -577,11 +564,11 @@ export default defineComponent({
                             try {
                                 fileLoadMessage.value = "正在更新界面...";
                                 fileLoadProgress.value = Math.max(96, fileLoadProgress.value);
-                                if (foregroundRecoveryActive.value) await waitForNextPaint();
-                                isRecordReplay.value = replayMode;
+                                if (!silentLiveLoading.value) await waitForNextPaint();
                                 applySnapshot(msg.snapshot);
+                                isRecordReplay.value = replayMode;
                                 fileLoadProgress.value = 100;
-                                if (foregroundRecoveryActive.value) await waitForNextPaint();
+                                if (!silentLiveLoading.value) await waitForNextPaint();
                                 isFileLoading.value = false;
                                 worker.terminate();
                                 resolve();
@@ -610,6 +597,7 @@ export default defineComponent({
 
         const loadText = async (text: string, sourceName: string) => {
             loadError.value = "";
+            loadedSessionKey.value = "";
             const record = parseBattleRecord(text);
             if (record) {
                 isRecordReplay.value = true;
@@ -625,42 +613,104 @@ export default defineComponent({
             await loadJsonData(text, true);
         };
 
-        const loadFromServer = async (resumeLiveStream: boolean | Event = false): Promise<boolean> => {
-            if (liveRefreshPending || isFileLoading.value) return false;
+        const refreshBattleCatalog = async () => {
+            if (isStandalone || isDesignPreview || catalogPending || document.hidden) return;
+            catalogPending = true;
+            try {
+                const response = await fetch("/api/live_battles", { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+                if (!response.ok) return;
+                battleCatalog.value = await response.json() as LiveBattleCatalog;
+                // Only a new live window replaces the resident details. Listing
+                // archived targets never reads their damage logs.
+                if (!isRecordReplay.value && battleCatalog.value.currentSessionKey
+                    && (battleCatalog.value.currentSessionKey !== liveCursor.sessionKey
+                        || battleCatalog.value.sequence > liveCursor.sequence)) {
+                    await loadFromServer(true);
+                }
+            } catch { /* Retain the previous catalog during a transient reconnect. */ }
+            finally { catalogPending = false; }
+        };
+
+        const loadFromServer = async (incremental: boolean | Event = false): Promise<boolean> => {
+            if (liveRefreshPending || isFileLoading.value || isStandalone || isDesignPreview) return false;
             liveRefreshPending = true;
+            silentLiveLoading.value = true;
             isFileLoading.value = true;
-            fileLoadProgress.value = 0;
-            fileLoadMessage.value = "正在读取 DPS 日志...";
+            loadError.value = "";
             const previousHandler = socket.onEvent;
             const temporaryEvents: eventBase[] = [];
             let loaded = false;
             try {
-                socket.onEvent = (events) => temporaryEvents.push(...events);
-                // A dormant UI reconnects only after its temporary event sink
-                // is installed. Events arriving beyond the log's EOF are then
-                // replayed after hydration instead of being lost.
-                if (resumeLiveStream === true) socket.resume();
-                const res = await fetch("/api/packet_log", { cache: "reload" });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                socket.onEvent = (events) => {
+                    for (const event of events) temporaryEvents.push(event);
+                };
+                socket.resume();
+                const response = await fetch(liveCursor.requestUrl(incremental === true && !isRecordReplay.value), {
+                    cache: "no-store", signal: AbortSignal.timeout(30_000),
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const sessionKey = response.headers.get("X-Dilmeter-Session") || "";
+                const sequence = Number(response.headers.get("X-Dilmeter-Sequence")) || 0;
+                const delta = response.headers.get("X-Dilmeter-Delta") === "true";
+                const ndjson = await response.text();
+                if (delta) {
+                    await applyLiveDelta(ndjson, (events) => previousHandler?.(events),
+                        () => new Promise<void>((resolve) => window.setTimeout(resolve, 0)));
+                    liveCursor.sequence = Math.max(liveCursor.sequence, sequence);
+                } else {
+                    await loadJsonData(ndjson, false);
+                    liveCursor.sequence = sequence;
+                }
+                liveCursor.sessionKey = sessionKey;
+                loadedSessionKey.value = sessionKey;
+                isRecordReplay.value = false;
                 loadedRecordName.value = "";
-                await loadJsonData(await res.text(), false);
                 loaded = true;
-            } catch (e) {
-                loadError.value = `返回实时失败：${e}`;
+            } catch (error) {
+                loadError.value = `同步近期战斗失败：${error}`;
             } finally {
                 socket.onEvent = previousHandler;
-                if (!isRecordReplay.value && temporaryEvents.length > 0) {
-                    // Replay through the complete live-event pipeline. Calling
-                    // ActorManager directly would silently lose skill-CD and Boss
-                    // mechanic signals that arrived while the snapshot was built.
-                    previousHandler?.(temporaryEvents);
+                if (!isRecordReplay.value) {
+                    // The disk snapshot already includes every sequence at or
+                    // below its watermark. Only the genuinely new tail applies.
+                    for (let offset = 0; offset < temporaryEvents.length; offset += 512) {
+                        previousHandler?.(temporaryEvents.slice(offset, offset + 512)
+                            .filter((event) => !loaded || Number(event.Sequence) > 0 || event.EventId < 0));
+                    }
                 }
-                actorManager.value.flushPendingUpdates?.();
-                dcManager.value.flushPendingUpdates?.();
+                flushPendingUiUpdates();
                 liveRefreshPending = false;
                 isFileLoading.value = false;
+                silentLiveLoading.value = false;
             }
             return loaded;
+        };
+
+        const loadArchivedSession = async (target: LiveBattleTarget) => {
+            if (isFileLoading.value || liveRefreshPending) return;
+            isFileLoading.value = true;
+            historyLoading.value = true;
+            fileLoadProgress.value = 0;
+            fileLoadMessage.value = "正在读取所选场次...";
+            loadError.value = "";
+            try {
+                await waitForNextPaint();
+                const response = await fetch(`/api/live_battles?session=${encodeURIComponent(target.sessionKey)}`, {
+                    cache: "no-store", signal: AbortSignal.timeout(30_000),
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                await loadJsonData(await response.text(), true);
+                loadedSessionKey.value = target.sessionKey;
+                loadedRecordName.value = `${bossDisplayName(target, raceNameMap.value)} · ${new Date(target.startedAt * 1000).toLocaleTimeString()}`;
+                appEvent.value.dispatchEvent(new CustomEvent(BATTLE_RECORD_LOADED_EVENT, {
+                    detail: { bossEntityId: target.entityId, playerEntityId: "" },
+                }));
+            } catch (error) {
+                loadError.value = `读取所选场次失败：${error}`;
+            } finally {
+                historyLoading.value = false;
+                isFileLoading.value = false;
+            }
         };
 
         const flushPendingUiUpdates = () => {
@@ -668,102 +718,38 @@ export default defineComponent({
             dcManager.value.flushPendingUpdates?.();
         };
 
-        const resumeDormantUi = async (awayMs = 0) => {
-            if (uiResumePending) return;
-            if (isStandalone || isRecordReplay.value) {
-                socket.resume();
-                return;
-            }
-            if (liveRefreshPending || isFileLoading.value) {
-                window.setTimeout(() => void resumeDormantUi(awayMs), 250);
-                return;
-            }
+        const resumeDormantUi = async () => {
+            if (uiResumePending || liveRefreshPending || isFileLoading.value) return;
             uiResumePending = true;
-            const recoveryShown = await beginForegroundRecovery(awayMs);
-            fileLoadMessage.value = "正在加载 DPS 统计...";
             try {
-                // Reconnect into a temporary sink while the foreground log is
-                // rebuilt. Native reminders never use this socket; the queued
-                // tail exists only to make the eventual DPS snapshot complete.
                 const loaded = await loadFromServer(true);
                 uiDormantNeedsReload = !loaded;
             } finally {
                 socket.resume();
                 uiResumePending = false;
-                await finishForegroundRecovery(recoveryShown);
             }
         };
 
-        const refreshAfterBackground = async (awayMs: number) => {
-            const recoveryShown = await beginForegroundRecovery(awayMs);
-            try {
-                await loadFromServer();
-            } finally {
-                await finishForegroundRecovery(recoveryShown);
-            }
-        };
-
-        const recoverAfterBackground = (awayMs: number, forceSnapshot = false) => {
+        const recoverAfterBackground = () => {
             flushPendingUiUpdates();
-            // A current WebView2 runtime remains live because the host keeps its
-            // controller active. This resync is an authoritative fallback for old
-            // runtimes, sleep/resume and directly opened Chrome tabs. Several
-            // foreground signals can arrive together, so only one resync is allowed.
-            const currentMs = Date.now();
-            const nativeTicksWhileHidden = nativeReactiveTickCount - pageHiddenNativeTickCount;
-            const nativeHeartbeatStayedActive = nativeTicksWhileHidden >= 2
-                && currentMs - lastNativeReactiveTickAtMs <= 2_000;
-            pageHiddenNativeTickCount = nativeReactiveTickCount;
-            const socketWasOpen = socket.isOpen;
-            if (uiDormantNeedsReload || socket.isSuspended) {
-                void resumeDormantUi(awayMs);
-                return;
-            }
-            socket.ensureConnected();
-            if (
-                awayMs >= 15_000
-                && (
-                    forceSnapshot
-                    || !nativeHeartbeatStayedActive
-                    || !socketWasOpen
-                )
-                && currentMs - lastRecoveryRefreshAtMs >= 10_000
-                && !isStandalone
-                && !isRecordReplay.value
-            ) {
-                lastRecoveryRefreshAtMs = currentMs;
-                void refreshAfterBackground(awayMs);
+            if (isStandalone || isRecordReplay.value || document.hidden) return;
+            if (uiDormantNeedsReload || needsLiveRecovery(socket.isSuspended, socket.isOpen)) {
+                void resumeDormantUi();
+            } else {
+                socket.ensureConnected();
+                void refreshBattleCatalog();
             }
         };
 
         const notePageBackground = () => {
-            if (pageHiddenAtMs > 0) return;
-            pageHiddenAtMs = Date.now();
-            pageHiddenNativeTickCount = nativeReactiveTickCount;
             if (!isStandalone && !isRecordReplay.value) {
                 uiDormantNeedsReload = true;
                 socket.suspend();
             }
         };
-
-        const noteWindowInactive = () => {
-            if (windowInactiveAtMs > 0) return;
-            windowInactiveAtMs = Date.now();
-        };
-
         const handlePageForeground = () => {
-            if (document.hidden) return;
-            const currentMs = Date.now();
-            const hiddenAwayMs = pageHiddenAtMs > 0 ? currentMs - pageHiddenAtMs : 0;
-            const inactiveAwayMs = windowInactiveAtMs > 0 ? currentMs - windowInactiveAtMs : 0;
-            pageHiddenAtMs = 0;
-            windowInactiveAtMs = 0;
-            recoverAfterBackground(
-                Math.max(hiddenAwayMs, inactiveAwayMs),
-                hiddenAwayMs === 0 && inactiveAwayMs >= 15_000,
-            );
+            if (!document.hidden) recoverAfterBackground();
         };
-
         const handlePageVisibilityChange = () => {
             if (document.hidden) notePageBackground();
             else handlePageForeground();
@@ -1104,19 +1090,8 @@ export default defineComponent({
             window.addEventListener("dilmeter-buff-alert-settings", refreshAppBuffSettings as EventListener);
             refreshAppDebuffSettings();
             nativeReactiveTickListener = (() => {
-                const tickAtMs = Date.now();
-                const tickGapMs = lastNativeReactiveTickAtMs > 0
-                    ? tickAtMs - lastNativeReactiveTickAtMs
-                    : 0;
-                nativeReactiveTickCount += 1;
-                lastNativeReactiveTickAtMs = tickAtMs;
                 flushPendingUiUpdates();
-                // Lock screen / sleep does not always generate a WebView
-                // visibility or host minimize event. A gap in the native clock
-                // is the reliable signal in that case.
-                if (tickGapMs >= 15_000 && pageHiddenAtMs === 0) {
-                    recoverAfterBackground(tickGapMs, true);
-                }
+                // A slow UI tick never initiates another reconstruction.
             }) as EventListener;
             window.addEventListener("dilmeter-native-tick", nativeReactiveTickListener);
             hostWindowStateListener = ((event: CustomEvent<{ minimized?: boolean; awayMs?: number }>) => {
@@ -1124,15 +1099,12 @@ export default defineComponent({
                     notePageBackground();
                     return;
                 }
-                pageHiddenAtMs = 0;
-                windowInactiveAtMs = 0;
-                recoverAfterBackground(Math.max(0, Number(event.detail?.awayMs) || 0));
+                recoverAfterBackground();
             }) as EventListener;
             window.addEventListener("dilmeter-host-window-state", hostWindowStateListener);
             document.addEventListener("visibilitychange", handlePageVisibilityChange);
             window.addEventListener("pagehide", notePageBackground);
             window.addEventListener("pageshow", handlePageForeground);
-            window.addEventListener("blur", noteWindowInactive);
             window.addEventListener("focus", handlePageForeground);
 
             if (!isStandalone) {
@@ -1150,6 +1122,8 @@ export default defineComponent({
                 void loadGameServerSettings();
                 void refreshRuntimeStatus();
                 statusTimer = window.setInterval(refreshRuntimeStatus, 1500);
+                void refreshBattleCatalog();
+                catalogTimer = window.setInterval(refreshBattleCatalog, 2000);
             }
 
             let databaseResourceError: unknown;
@@ -1191,6 +1165,8 @@ export default defineComponent({
         });
 
         onUnmounted(() => {
+            socket.suspend();
+            if (catalogTimer !== undefined) window.clearInterval(catalogTimer);
             if (statusTimer !== undefined) window.clearInterval(statusTimer);
             if (settingsSavedTimer !== undefined) window.clearTimeout(settingsSavedTimer);
             if (debuffSettingsSavedTimer !== undefined) window.clearTimeout(debuffSettingsSavedTimer);
@@ -1202,7 +1178,6 @@ export default defineComponent({
             document.removeEventListener("visibilitychange", handlePageVisibilityChange);
             window.removeEventListener("pagehide", notePageBackground);
             window.removeEventListener("pageshow", handlePageForeground);
-            window.removeEventListener("blur", noteWindowInactive);
             window.removeEventListener("focus", handlePageForeground);
             if (isDesignPreview) document.documentElement.classList.remove("design-preview-root");
         });
@@ -1233,8 +1208,11 @@ export default defineComponent({
             isFileLoading,
             fileLoadProgress,
             fileLoadMessage,
-            foregroundRecoveryActive,
-            foregroundRecoveryDetail,
+            historyLoading,
+            silentLiveLoading,
+            battleCatalog,
+            loadedSessionKey,
+            loadArchivedSession,
             loadError,
             isRecordReplay,
             loadedRecordName,

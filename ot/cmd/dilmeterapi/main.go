@@ -37,7 +37,7 @@ var logger = util.NewLogger("dilmeterapi")
 var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterOT"
-var AppVersion = "1.4.2"
+var AppVersion = "1.4.3"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {
@@ -177,6 +177,7 @@ func startWebsocketServer(ctx context.Context, cfg config, newClientCb func(*web
 	mux := http.NewServeMux()
 	mux.Handle("/ws", websocket.Handler(newClientCb))
 	mux.HandleFunc("/api/packet_log", httpHandlerPacketLog)
+	mux.HandleFunc("/api/live_battles", handleLiveBattles)
 	mux.HandleFunc("/api/battle_records", handleBattleRecords)
 	mux.HandleFunc("/api/log_cleanup", handleLogCleanup)
 	mux.HandleFunc("/api/dps_recording", handleDPSRecording)
@@ -365,6 +366,16 @@ func startPacketWriter(ctx context.Context, ch <-chan []event.IEvent) error {
 	}
 	defer fd.Close()
 
+	index, err := newLiveBattleIndex(packetLogFilePath)
+	if err != nil {
+		return err
+	}
+	currentLiveBattles.Store(index)
+	defer func() {
+		currentLiveBattles.CompareAndSwap(index, nil)
+		index.checkpoints.Close()
+	}()
+
 	flushTicker := time.NewTicker(5 * time.Second)
 	defer flushTicker.Stop()
 
@@ -391,7 +402,7 @@ func startPacketWriter(ctx context.Context, ch <-chan []event.IEvent) error {
 
 				b = append(b, '\n')
 
-				_, err = fd.Write(b)
+				err = index.append(fd, e, b)
 				if err != nil {
 					logger.Println("packetWriter write failed:", err)
 					return err

@@ -22,6 +22,7 @@ export type eventBase = {
     EventId: eventId;
     At: number;
     Id: string;
+    Sequence?: number;
 }
 
 export type eventEntityAppear = eventBase & {

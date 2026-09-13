@@ -44,6 +44,7 @@ type eventPublisher struct {
 	connectionEpoch        uint64
 	lastSentEventAt        time.Time
 	pendingEvents          []event.IEvent
+	eventSequence          uint64
 }
 
 type eventClient struct {
@@ -773,6 +774,10 @@ func (t *eventPublisher) publish(e event.IEvent) {
 	// blocking이 되면 안된다
 
 	t.Lock()
+	if value, ok := e.(interface{ GetEventBase() *event.EventBase }); ok {
+		t.eventSequence++
+		value.GetEventBase().Sequence = t.eventSequence
+	}
 
 	sendNowCond1 := time.Since(t.lastSentEventAt) >= _EVENT_FLUSH_INTERVAL
 	sendNowCond2 := len(t.pendingEvents) >= _MAX_PENDING_EVENTS
@@ -1224,7 +1229,7 @@ func (t *eventPublisher) publishBossLaserPacket(p *packet.GamePacket) bool {
 		return false
 	}
 	switch p.Op {
-	case packet.OpCode(0xafe7), packet.OpCode(0xafe8), packet.OpCode(0xafef):
+	case packet.OpCode(0xafe7), packet.OpCode(0xafe8), packet.OpCode(0xafef), packet.OpCode(0xaff0):
 		t.publishBossLaserSignal(p)
 		return true
 	default:
@@ -1235,8 +1240,9 @@ func (t *eventPublisher) publishBossLaserPacket(p *packet.GamePacket) bool {
 func (t *eventPublisher) publishBossLaserSignal(p *packet.GamePacket) {
 	// These cast opcodes are shared by several shard actions. The reference
 	// client identifies the rotating beam only for the exact Divine Sword
-	// payload: Short(52401), Byte(0).  0xafef also carries several unrelated
-	// 524xx shard skills, so string/value-only matching is unsafe here.
+	// payload: Short(52401), Byte(0). CN captures from 2026-09-12 use
+	// 0xaff0 (45040) with the same payload. Both it and 0xafef also carry
+	// unrelated shard skills, so string/value-only matching is unsafe here.
 	if p == nil || len(p.Msg) < 2 || p.Msg[0] == nil || p.Msg[1] == nil ||
 		p.Msg[0].Type() != packet.MessageElemTypeShort ||
 		p.Msg[1].Type() != packet.MessageElemTypeByte ||

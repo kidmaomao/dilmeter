@@ -143,14 +143,15 @@
         <section v-if="visibleStackAlerts.length" class="buff-stack-overlay-list" aria-label="Buff 层数提醒">
             <article
                 v-for="alert in visibleStackAlerts"
-                :key="`${alert.ccId}-${alert.generation}`"
+                :key="`${alert.skillId ? 'skill-' + alert.skillId : alert.ccId}-${alert.generation}`"
                 class="buff-stack-overlay-item"
+                :class="{ persistent: alert.persistent }"
                 :style="stackAlertPositionStyle(alert)"
             >
                 <div class="buff-stack-card">
                     <span>{{ alert.name }}</span>
-                    <strong>{{ alert.stack }}</strong>
-                    <small>层</small>
+                    <strong>{{ alert.quantityText ?? alert.stack }}</strong>
+                    <small>{{ alert.quantityUnit ?? "层" }}</small>
                 </div>
             </article>
         </section>
@@ -231,7 +232,7 @@ const visibleAimReminder = computed(() => aimReminder.value?.active || aimRemind
     ? aimReminder.value
     : undefined);
 const visibleMechanics = computed(() => mechanics.value.filter((item) => item.endsAtMs > nowMs.value));
-const visibleStackAlerts = computed(() => stackAlerts.value.filter((item) => item.endsAtMs > nowMs.value));
+const visibleStackAlerts = computed(() => stackAlerts.value.filter((item) => item.persistent || item.endsAtMs > nowMs.value));
 const visibleEffectTimers = computed(() => effectTimers.value.filter((item) => item.enabled && (item.alwaysVisible || item.endsAtMs > nowMs.value)));
 const visibleTargetHealth = computed(() => {
     const target = targetHealth.value;
@@ -1463,6 +1464,10 @@ html.skill-overlay-page .v-application,
     box-shadow: 0 0 22px rgba(69, 192, 255, .48), inset 0 0 20px rgba(0, 0, 0, .62);
     transform: scale(var(--boss-mechanic-scale));
     transform-origin: left top;
+}
+
+.buff-stack-overlay-item.persistent {
+    animation: boss-mechanic-enter .28s cubic-bezier(.2, .86, .25, 1) both;
 }
 
 .buff-stack-card span {

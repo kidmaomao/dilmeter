@@ -29,10 +29,13 @@ type IEvent interface {
 }
 
 type EventBase struct {
-	EventId EventId
-	At      int64
-	Id      string
+	EventId  EventId
+	At       int64
+	Id       string
+	Sequence uint64 `json:"Sequence,omitempty"`
 }
+
+func (t *EventBase) GetEventBase() *EventBase { return t }
 
 func (t *EventBase) GetEventId() EventId {
 	return t.EventId

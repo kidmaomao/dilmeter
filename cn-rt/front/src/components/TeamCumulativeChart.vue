@@ -1,5 +1,5 @@
 <template>
-    <div class="team-chart-component">
+    <div class="team-chart-component" :aria-label="mode === 'dps' ? '团队实时 DPS 曲线' : '团队累计伤害曲线'">
         <section class="team-dps-ranking" aria-label="团队成员 DPS 排名">
             <header><strong>成员 DPS 排名</strong><span>按本场共同战斗时长计算</span></header>
             <ol>
@@ -23,8 +23,14 @@
                 :key="option"
                 type="button"
                 :class="{ active: tickSeconds === option }"
+                :aria-pressed="tickSeconds === option"
                 @click="tickSeconds = option"
             >{{ option }} 秒</button>
+        </div>
+        <div v-if="mode === 'dps'" class="team-dps-summary">
+            <span>全团峰值 <strong>{{ formatCompact(dpsTimeline.peak.y) }}/秒</strong></span>
+            <span v-if="dpsTimeline.peak.y > 0">{{ formatElapsed(dpsTimeline.peak.custom.from) }}–{{ formatElapsed(dpsTimeline.peak.custom.to) }}</span>
+            <small>按 {{ dpsTimeline.stepSeconds }} 秒区间计算，末段按实际时长折算</small>
         </div>
         <div ref="chartElement" class="team-chart-canvas" />
     </div>
@@ -35,6 +41,7 @@ import { computed, onMounted, onUnmounted, ref, watch, type PropType } from "vue
 import Highcharts from "highcharts";
 import type { Options, SeriesOptionsType } from "highcharts";
 import type { EntityDamage } from "@/eventActor";
+import { buildTeamDpsTimeline, type TeamDpsPoint } from "@/teamDps";
 
 export type TeamChartPlayer = {
     entityId: string;
@@ -49,12 +56,14 @@ const props = defineProps({
     },
     startAt: { type: Number, required: true },
     endAt: { type: Number, required: true },
+    mode: { type: String as PropType<"damage" | "dps">, default: "damage" },
 });
 
 const chartElement = ref<HTMLElement>();
 const tickOptions = [1, 2, 5, 10];
 const tickSeconds = ref(1);
 let chart: Highcharts.Chart | undefined;
+const dpsTimeline = computed(() => buildTeamDpsTimeline(props.players, props.startAt, props.endAt, tickSeconds.value));
 
 const rankings = computed(() => {
     const duration = Math.max(1, props.endAt - props.startAt);
@@ -69,7 +78,17 @@ const rankings = computed(() => {
     return rows.map((row) => ({ ...row, ratio: row.dps / maxDps, share: row.total / teamTotal }));
 });
 
-function buildSeries(): SeriesOptionsType[] {
+function buildSeries(themeText: string): SeriesOptionsType[] {
+    if (props.mode === "dps") {
+        return [
+            { id: "team-total", type: "line", name: "全团 DPS", data: dpsTimeline.value.total,
+                color: themeText, lineWidth: 3, zIndex: 3, marker: { enabled: false } },
+            ...dpsTimeline.value.members.map((player, index) => ({
+                id: `player-${player.entityId}`, type: "line", name: player.label, data: player.points,
+                color: PALETTE[index % PALETTE.length], lineWidth: 1.5, marker: { enabled: false },
+            })),
+        ] as SeriesOptionsType[];
+    }
     const startAt = props.startAt;
     const endAt = Math.max(startAt, props.endAt);
     const duration = Math.max(0, endAt - startAt);
@@ -99,6 +118,7 @@ function buildSeries(): SeriesOptionsType[] {
             previousCumulative = cumulative;
         }
         return {
+            id: `player-${player.entityId}`,
             type: "area",
             name: player.label,
             data,
@@ -120,7 +140,7 @@ function buildOptions(): Options {
     const themeAccent = rootStyle.getPropertyValue("--ui-color-accent").trim() || "#8ee000";
     return {
         chart: {
-            type: "area",
+            type: props.mode === "dps" ? "line" : "area",
             animation: false,
             backgroundColor: "transparent",
             spacing: [14, 18, 10, 10],
@@ -143,7 +163,7 @@ function buildOptions(): Options {
         },
         yAxis: {
             min: 0,
-            title: { text: "全团累计伤害", style: { color: themeMuted, fontSize: "11px" } },
+            title: { text: props.mode === "dps" ? "实时 DPS（伤害 / 秒）" : "全团累计伤害", style: { color: themeMuted, fontSize: "11px" } },
             labels: {
                 style: { color: themeMuted, fontSize: "10px" },
                 formatter() { return formatCompact(Number(this.value)); },
@@ -159,12 +179,18 @@ function buildOptions(): Options {
         },
         tooltip: {
             shared: true,
+            outside: true,
             useHTML: true,
             backgroundColor: themeSurface,
             borderColor: themeBorder,
-            style: { color: themeText, fontSize: "11px" },
+            style: { color: themeText, fontSize: "11px", zIndex: 10030 },
             formatter() {
                 const points = this.points ?? [];
+                if (props.mode === "dps") {
+                    const interval = points[0]?.options.custom as TeamDpsPoint["custom"] | undefined;
+                    const rows = points.map((point) => `<span style="color:${point.color}">●</span> ${escapeHtml(point.series.name)}：<b>${formatCompact(point.y ?? 0)}/秒</b>`).join("<br>");
+                    return `<b>${formatElapsed(interval?.from ?? 0)}–${formatElapsed(interval?.to ?? 0)}</b><br>${rows}`;
+                }
                 const rows = points.slice().reverse().map((point) => {
                     const custom = point.options.custom as { dps?: number } | undefined;
                     return `<span style="color:${point.color}">■</span> ${escapeHtml(point.series.name)}：<b>${formatCompact(point.y ?? 0)}</b> <span style="color:${themeAccent}">(${formatCompact(custom?.dps ?? 0)}/秒)</span>`;
@@ -180,19 +206,20 @@ function buildOptions(): Options {
                 animation: false,
                 states: { inactive: { opacity: 0.28 } },
             },
-            series: { turboThreshold: 0 },
+            series: { turboThreshold: 0, animation: false },
         },
-        series: buildSeries(),
+        series: buildSeries(themeText),
     };
 }
 
 function renderChart() {
     if (!chartElement.value) return;
-    chart?.destroy();
-    chart = Highcharts.chart(chartElement.value, buildOptions());
+    if (chart) chart.update(buildOptions(), true, true, false);
+    else chart = Highcharts.chart(chartElement.value, buildOptions());
 }
 
-watch([tickSeconds, () => props.players, () => props.startAt, () => props.endAt], renderChart, { deep: true });
+watch([tickSeconds, () => props.mode, () => props.players, () => props.startAt, () => props.endAt], renderChart, { deep: true });
+watch(() => props.startAt, () => chart?.xAxis[0]?.setExtremes(undefined, undefined));
 const handleUiColorThemeChanged = () => renderChart();
 onMounted(() => {
     renderChart();
@@ -204,9 +231,11 @@ onUnmounted(() => {
 });
 
 function formatElapsed(seconds: number): string {
-    const value = Math.max(0, Math.round(seconds));
+    const precise = Math.max(0, Math.round(seconds * 10) / 10);
+    const value = Math.floor(precise);
     const minutes = Math.floor(value / 60);
-    return `${String(minutes).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+    const decimal = precise % 1 > 0 ? (precise % 1).toFixed(1).slice(1) : "";
+    return `${String(minutes).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}${decimal}`;
 }
 
 function formatCompact(value: number): string {
@@ -248,5 +277,8 @@ const PALETTE = ["#8ee000", "#31a9ff", "#ffb43c", "#cf72ff", "#ff5b65", "#38d0b2
 .team-chart-granularity span { margin-right: 4px; }
 .team-chart-granularity button { height: 24px; padding: 0 10px; color: #d8d8d8; background: linear-gradient(#393939, #202020); border: 1px solid #5e5e5e; cursor: pointer; }
 .team-chart-granularity button.active { color: #fff; border-color: #9bd74f; box-shadow: inset 0 0 0 1px #435f23; }
+.team-dps-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 8px; color: var(--ui-theme-muted, #bdbdbd); font-size: 11px; }
+.team-dps-summary strong { color: var(--ui-theme-text, #fff); font-size: 14px; }
+.team-dps-summary small { margin-left: auto; font-size: 10px; }
 .team-chart-canvas { height: 350px; border: 1px solid #444; background: linear-gradient(#181818, #101010); }
 </style>

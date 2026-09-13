@@ -671,7 +671,7 @@ func battleRecordRelatedFiles(dir, name string) []string {
 		return []string{}
 	}
 	stamp := strings.TrimSuffix(strings.TrimPrefix(name, "packet_log_"), ".ndjson")
-	candidates := []string{name, "log_" + stamp + ".txt"}
+	candidates := []string{name, name + ".checkpoints", "log_" + stamp + ".txt"}
 	if startedAt, ok := battleRecordTimeFromName(name); ok {
 		candidates = append(candidates, fmt.Sprintf("packet_capture_%d.pcapng", startedAt.Unix()))
 	}

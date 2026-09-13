@@ -80,6 +80,14 @@ export class PureActorManager {
     private lastHealthMap: Record<string, number> = {};
     private pendingStatMap: Record<string, Record<number, number>> = {};
     public selectedTargetId = "";
+    public localEntityId = "";
+    public localEntityReliable = false;
+    public activeEntityMap: Record<string, boolean> = {};
+
+    public snapshotResumeState() {
+        return { pendingHealthDamages: this.pendingHealthDamages,
+            lastHealthMap: this.lastHealthMap, pendingStatMap: this.pendingStatMap };
+    }
 
     public static readonly pcRaceSet = new Set<number>([
         8001, 8002, 9001, 9002, 10001, 10002,
@@ -92,7 +100,10 @@ export class PureActorManager {
         }
         if (event.EventId === protocols.eventIdLocalEntity) {
             const local = event as protocols.eventLocalEntity;
+            this.localEntityId = local.Id;
+            this.localEntityReliable = local.Reliable;
             if (local.Reset) {
+                this.activeEntityMap = {};
                 for (const entity of Object.values(this.entityMap)) {
                     entity.resetLiveConditions(local.At);
                     entity.resetLiveStats();
@@ -118,6 +129,7 @@ export class PureActorManager {
 
         switch (event.EventId) {
             case protocols.eventIdEntityDisappear:
+                this.activeEntityMap[event.Id] = false;
                 if (event.Id === this.selectedTargetId) this.selectedTargetId = "";
                 delete this.pendingHealthDamages[event.Id];
                 delete this.lastHealthMap[event.Id];
@@ -205,6 +217,7 @@ export class PureActorManager {
 
     public onEntityAppear(event: protocols.eventEntityAppear): void {
         const { Id, RaceId, Name } = event;
+        this.activeEntityMap[Id] = true;
         const groupKey = PureActorManager.groupTargetKey(event);
 
         if (!this.groupMap[groupKey]) {
@@ -540,6 +553,10 @@ export class PureEntityActor extends PureBaseActor {
         if (needUpdate) {
             this._conditionHistory.push({ At: event.At, List: current });
         }
+    }
+
+    public snapshotConditionRefreshGuard(): Record<number, number> {
+        return { ...this._conditionRefreshGuardAt };
     }
 
     public override onCharacterConditionDisable(

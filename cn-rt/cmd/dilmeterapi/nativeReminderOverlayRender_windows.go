@@ -330,7 +330,7 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 	}
 	stacks := make([]nativeBuffStackOverlayItem, 0, len(message.StackAlerts))
 	for _, item := range message.StackAlerts {
-		if item.EndsAtMs > nowMs {
+		if item.Persistent || item.EndsAtMs > nowMs {
 			stacks = append(stacks, item)
 		}
 	}
@@ -396,7 +396,8 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 		texts = append(texts, drawNativeStackReminder(canvas, item, offset, dpiScale, nowMs)...)
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 		width, height := max(110, int(math.Ceil(220*factor))), max(48, int(math.Ceil(96*factor)))
-		hitRegions = append(hitRegions, nativeReminderHitRegion{Kind: "stack", ID: strconv.FormatUint(uint64(item.CCID), 10), X: item.X, Y: item.Y,
+		kind, id := nativeStackReminderIdentity(item)
+		hitRegions = append(hitRegions, nativeReminderHitRegion{Kind: kind, ID: id, X: item.X, Y: item.Y,
 			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + width), Bottom: int32(item.Y + height)}})
 	}
 	setNativeReminderHitRegions(hitRegions)
@@ -599,7 +600,7 @@ func drawNativeStackReminder(canvas *image.RGBA, item nativeBuffStackOverlayItem
 	if age < 420 {
 		glowAlpha = byte(180 + 75*nativeReminderPulse(nowMs, 240))
 	}
-	if remaining < 600 {
+	if !item.Persistent && remaining < 600 {
 		glowAlpha = byte(float64(glowAlpha) * float64(remaining) / 600)
 	}
 	drawNativeReminderGlow(canvas, rect, color.RGBA{R: 70, G: 218, B: 255, A: glowAlpha}, max(5, int(9*factor)))
@@ -608,7 +609,15 @@ func drawNativeStackReminder(canvas *image.RGBA, item nativeBuffStackOverlayItem
 	if !nativeReminderOverlaysAreLocked() {
 		drawNativeUnlockedFrame(canvas, rect)
 	}
-	return []nativeReminderText{{text: item.Name, rect: imageRectToNative(image.Rect(left+8, top+5, rect.Max.X-8, top+max(24, int(30*factor)))), color: nativeColorRef(207, 243, 255), flags: dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(10, int(14*factor)), fontWeight: nativeFontBold}, {text: fmt.Sprintf("%d 层", item.Stack), rect: imageRectToNative(image.Rect(left+8, top+max(24, int(28*factor)), rect.Max.X-8, rect.Max.Y-5)), color: nativeColorRef(255, 255, 255), flags: dtRight | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(20, int(42*factor)), fontWeight: 900}}
+	if item.QuantityText != "" {
+		unitLeft := rect.Max.X - max(36, int(62*factor))
+		return []nativeReminderText{
+			{text: item.Name, rect: imageRectToNative(image.Rect(left+8, top+5, rect.Max.X-8, top+max(24, int(30*factor)))), color: nativeColorRef(207, 243, 255), flags: dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(10, int(14*factor)), fontWeight: nativeFontBold},
+			{text: item.QuantityText, rect: imageRectToNative(image.Rect(left+8, top+max(24, int(28*factor)), unitLeft-4, rect.Max.Y-5)), color: nativeColorRef(255, 255, 255), flags: dtRight | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(20, int(42*factor)), fontWeight: 900},
+			{text: item.QuantityUnit, rect: imageRectToNative(image.Rect(unitLeft, top+int(56*factor), rect.Max.X-8, rect.Max.Y-5)), color: nativeColorRef(207, 243, 255), flags: dtRight | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(10, int(18*factor)), fontWeight: nativeFontBold},
+		}
+	}
+	return []nativeReminderText{{text: item.Name, rect: imageRectToNative(image.Rect(left+8, top+5, rect.Max.X-8, top+max(24, int(30*factor)))), color: nativeColorRef(207, 243, 255), flags: dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(10, int(14*factor)), fontWeight: nativeFontBold}, {text: nativeStackReminderValue(item), rect: imageRectToNative(image.Rect(left+8, top+max(24, int(28*factor)), rect.Max.X-8, rect.Max.Y-5)), color: nativeColorRef(255, 255, 255), flags: dtRight | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(20, int(42*factor)), fontWeight: 900}}
 }
 
 func nativeReminderPulse(nowMs, periodMs int64) float64 {

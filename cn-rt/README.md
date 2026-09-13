@@ -1,6 +1,6 @@
 # DilmeterCN
 
-当前版本：**v1.4.2**。版本号会显示在软件顶部标题、Windows 窗口标题和 EXE 文件属性中。
+当前版本：**v1.4.3**。版本号会显示在软件顶部标题、Windows 窗口标题和 EXE 文件属性中。
 
 正式发布包含 **DilmeterCN**、**DilmeterRT** 与 **DilmeterOT**；OT 源码与打包脚本位于仓库相邻的 `ot` 目录。
 
@@ -9,7 +9,7 @@
 ## 直接使用
 
 1. 确认 Windows 已安装 [Npcap](https://npcap.com/#download)，安装时建议勾选 WinPcap API 兼容模式。
-2. 双击 `DilmeterCN-v1.4.2.exe`。不需要先启动洛奇。
+2. 双击 `DilmeterCN-v1.4.3.exe`。不需要先启动洛奇。
 3. 在窗口顶部选择 **CN服伊鲁夏** 或 **CN服亚特**；选择会自动保存。
 4. 程序显示“等待游戏”时可以保持开启；启动洛奇并进入服务器后，请在游戏内切换一次地图以触发捕捉。
 5. 战斗产生伤害后，在报告中选择首领与角色。
@@ -69,7 +69,7 @@ Windows 10/11 通常已经自带 Microsoft Edge WebView2 Runtime。若程序提�
 
 ```text
 build.bat           构建前端并复制到 Go 内置资源目录
-build_backend.bat   生成无命令行窗口的 DilmeterCN-v1.4.2.exe
+build_backend.bat   生成无命令行窗口的 DilmeterCN-v1.4.3.exe
 package_release.bat 使用 Windows 自带 tar 将 EXE 打包为 ZIP
 npm run verify:battle-record  验证战斗记录保存与导入往返一致
 ```
@@ -94,3 +94,12 @@ front/public/local-res/resourceversion/cn/cn_resourceversion.json
 ## 说明
 
 本工具只能在洛奇客户端已经连接服务器并产生相应网络数据时监测实时伤害。独立启动表示程序不依赖游戏进程才能打开，不代表游戏未运行时也能产生战斗数据。
+
+
+## 近期战斗与按需加载
+
+实时界面只保留当前连续战斗的明细。普通切换窗口不会重新读取整份日志；最小化或断线后优先补读尚未接收的新事件。正在进行的 Boss 战斗不会因为长机制阶段而被按分钟截断。
+
+本次运行内的旧场次保留在“战斗目标 → 此前场次”列表，选中后才读取该段记录并显示加载进度。选择“返回实时监测”回到近期数据；重启前的记录仍可通过“查看记录”打开。战斗原始日志继续保存在 data/logs，新生成的 .checkpoints 文件用于快速定位角色和状态上下文，会随关联日志一起清理。
+
+可运行 `npm run verify:live-battles` 验证场次恢复、增量去重与旧数据释放。

@@ -52,7 +52,7 @@ func nativeSkillOverlayMessageVisible(message nativeSkillOverlayMessage, nowMs i
 		}
 	}
 	for _, item := range message.StackAlerts {
-		if item.EndsAtMs > nowMs {
+		if item.Persistent || item.EndsAtMs > nowMs {
 			return true
 		}
 	}

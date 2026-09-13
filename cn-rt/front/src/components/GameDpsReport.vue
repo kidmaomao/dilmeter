@@ -17,11 +17,15 @@
                 </span>
                 <select
                     :value="selectedBossId"
-                    :disabled="bossOptions.length === 0"
+                    :disabled="isFileLoading || (bossOptions.length === 0 && archivedBossOptions.length === 0 && !isRecordReplay)"
                     @change="handleBattleTargetSelected"
                 >
                     <option v-if="bossOptions.length === 0" value="">尚无战斗数据</option>
+                    <option v-if="isRecordReplay" value="live:">返回实时监测</option>
                     <option v-for="boss in bossOptions" :key="boss.entityId" :value="boss.entityId">{{ boss.label }}</option>
+                    <optgroup v-if="archivedBossOptions.length" label="此前场次 · 选中后加载">
+                        <option v-for="boss in archivedBossOptions" :key="boss.value" :value="boss.value">{{ boss.label }}</option>
+                    </optgroup>
                 </select>
             </label>
             <label class="only-boss-switch" title="只列出客户端观察到的最大血量或累计承伤达到 1 亿的目标">
@@ -1123,7 +1127,12 @@
                                     <input v-model="rule.enabled" type="checkbox" @change="markSkillCooldownSettingsDirty" />
                                     启用提醒
                                 </label>
-                                <label v-if="rule.skillId === TOAH_SPIRIT_SKILL_ID">
+                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID">
+                                    多尔卡少于
+                                    <input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
+                                    <span>点时弹框</span>
+                                </label>
+                                <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID">
                                     提示进度
                                     <input
                                         v-model.number="rule.progressThresholdPercent"
@@ -1148,7 +1157,7 @@
                                     技能 CD（秒）
                                     <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
                                 </label>
-                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID" title="宠物技能不会被托亚灵满充刷新">
+                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID" title="宠物技能不会被托亚灵满充刷新">
                                     技能归属
                                     <select v-model="rule.ownerMode" @change="markSkillCooldownSettingsDirty">
                                         <option value="auto">自动识别</option>
@@ -1157,12 +1166,12 @@
                                     </select>
                                 </label>
                                 <div class="skill-cooldown-coordinates" title="以整个桌面左上角为 (0, 0)，坐标表示技能图标左上角">
-                                    <span>图标左上角</span>
+                                    <span>{{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "弹框左上角" : "图标左上角" }}</span>
                                     <label>X <input v-model.number="rule.x" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
                                     <label>Y <input v-model.number="rule.y" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
                                 </div>
                                 <label>
-                                    完成音效
+                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "提示音效" : "完成音效" }}
                                     <select v-model="rule.soundMode" @change="onSkillCooldownSoundModeChanged(rule)">
                                         <option value="default">默认提示音</option>
                                         <option value="none">不提示</option>
@@ -1187,9 +1196,9 @@
                                     :disabled="rule.soundMode === 'custom' && !rule.customSoundId"
                                     @click="previewSkillCooldownSound(rule, true)"
                                 >试听</button>
-                                <label title="勾选后，冷却期间灰色显示并显示倒计时；完成后恢复彩色">
+                                <label :title="rule.skillId === DORCHA_MASTERY_SKILL_ID ? '始终显示当前多尔卡数量；未勾选时仅在数量不足时显示' : '勾选后，冷却期间灰色显示并显示倒计时；完成后恢复彩色'">
                                     <input v-model="rule.alwaysVisible" type="checkbox" @change="markSkillCooldownSettingsDirty" />
-                                    {{ rule.skillId === TOAH_SPIRIT_SKILL_ID ? "能量槽一直显示" : "技能图标一直显示" }}
+                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : rule.skillId === TOAH_SPIRIT_SKILL_ID ? "能量槽一直显示" : "技能图标一直显示" }}
                                 </label>
                                 <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">预览位置与动画</button>
                                 <button type="button" class="buff-alert-remove" @click="removeSkillCooldownRule(rule.skillId)">
@@ -1259,10 +1268,13 @@
                         <span>{{ reportSession ? `${fmtBattleClock(reportSession.startAt)} ~ ${fmtBattleClock(reportSession.endAt)}` : "尚无时间范围" }}</span>
                     </div>
                     <div class="team-chart-view-switch" role="radiogroup" aria-label="团队绘图类型">
-                        <button type="button" :class="{ active: teamChartView === 'damage' }" @click="teamChartView = 'damage'">
+                        <button type="button" role="radio" :aria-checked="teamChartView === 'damage'" :class="{ active: teamChartView === 'damage' }" @click="teamChartView = 'damage'">
                             <v-icon icon="mdi-chart-areaspline" size="13" />累计输出
                         </button>
-                        <button type="button" :class="{ active: teamChartView === 'skills' }" @click="teamChartView = 'skills'">
+                        <button type="button" role="radio" :aria-checked="teamChartView === 'dps'" :class="{ active: teamChartView === 'dps' }" @click="teamChartView = 'dps'">
+                            <v-icon icon="mdi-chart-line" size="13" />实时 DPS
+                        </button>
+                        <button type="button" role="radio" :aria-checked="teamChartView === 'skills'" :class="{ active: teamChartView === 'skills' }" @click="teamChartView = 'skills'">
                             <v-icon icon="mdi-timeline-clock-outline" size="13" />技能时间轴
                         </button>
                     </div>
@@ -1275,7 +1287,8 @@
                     >{{ teamUseIds ? "隐藏队员" : "显示队员" }}</button>
                 </div>
                 <TeamCumulativeChart
-                    v-if="teamChartView === 'damage' && reportSession && teamChartPlayers.length"
+                    v-if="teamChartView !== 'skills' && reportSession && teamChartPlayers.length"
+                    :mode="teamChartView"
                     :players="teamChartPlayers"
                     :start-at="reportSession.startAt"
                     :end-at="reportSession.endAt"
@@ -1289,10 +1302,11 @@
                     :end-at="reportSession.endAt"
                     @update:personal-player-id="selectedPlayerId = $event"
                 />
-                <div v-else class="team-chart-empty">尚无可绘制的团队{{ teamChartView === "damage" ? "伤害" : "技能" }}记录。</div>
+                <div v-else class="team-chart-empty">尚无可绘制的团队{{ teamChartView === "skills" ? "技能" : "伤害" }}记录。</div>
                 <footer>
                     <span>{{ teamChartView === "damage"
                         ? "折线斜率反映阶段输出速度；各层高度叠加后，顶部即全团累计伤害。"
+                        : teamChartView === "dps" ? "粗线为全团 DPS，彩色细线为各成员 DPS；悬停查看该时间段的数值，拖选可放大，点击图例可隐藏曲线。"
                         : "按所选队员的技能总伤害分轨；打开“显示队员”后可切换查看其他队员。这里只展示实际造成伤害的施放时间。" }}</span>
                     <button type="button" class="game-button" @click="teamChartOpen = false">关闭</button>
                 </footer>
@@ -1337,6 +1351,12 @@ import {
     type SkillStat,
 } from "@/summaryCollector";
 import { getDisplayName, resourceNameVersion } from "@/store";
+import type { LiveBattleCatalog, LiveBattleTarget } from "@/liveBattles";
+import { BOSS_NAME_OVERRIDES, bossDisplayName } from "@/bossDisplay";
+import {
+    DORCHA_MASTERY_SKILL_ID, DORCHA_STAT_ID, normalizeDorchaThreshold,
+    formatDorchaQuantity, initialDorchaQuantityRuntime, applyDorchaQuantityObservation, dorchaQuantityOverlayItem,
+} from "@/dorcha";
 import { normalizeSkillDisplayName } from "@/skillDisplay";
 import { eventIdCharacterConditionDisable, eventIdCharacterConditionEnable, eventIdSkillAction, type eventCharacterConditionDisable, type eventCharacterConditionEnable, type eventDamage, type eventSkillAction, type eventSkillCooldown, type eventSkillState } from "@/protocols";
 import { CURRENT_HEALTH_STAT_ID, MAXIMUM_HEALTH_STAT_ID } from "@/effectiveDamage";
@@ -1456,16 +1476,24 @@ const props = withDefaults(defineProps<{
     isFileLoading?: boolean;
     isStandalone?: boolean;
     dpsVisible?: boolean;
+    battleCatalog?: LiveBattleCatalog | null;
+    loadedSessionKey?: string;
+    isRecordReplay?: boolean;
 }>(), {
     isFileLoading: false,
     isStandalone: false,
     dpsVisible: true,
+    battleCatalog: null,
+    loadedSessionKey: "",
+    isRecordReplay: false,
 });
-const { isFileLoading, isStandalone, dpsVisible } = toRefs(props);
+const { isFileLoading, isStandalone, dpsVisible, isRecordReplay } = toRefs(props);
 const emit = defineEmits<{
     (event: "refresh-info"): void;
     (event: "view-records"): void;
     (event: "clear-data"): void;
+    (event: "select-archived-session", target: LiveBattleTarget): void;
+    (event: "return-live"): void;
 }>();
 
 type NoticeType = "success" | "warning" | "error" | "info";
@@ -1525,14 +1553,6 @@ const raceNameMap = inject<Ref<Record<number, string>>>("raceNameMap")!;
 const skillNameMap = inject<Ref<Record<number, string>>>("skillNameMap")!;
 const condNameMap = inject<Ref<Record<number, string>>>("condNameMap")!;
 const region = inject<Ref<string>>("region")!;
-
-const BOSS_NAME_OVERRIDES: Record<number, string> = {
-    7600: "枯木的佩塔克",
-    7601: "枯木的佩塔克",
-    7602: "布隆塔纳斯",
-    7603: "雷内恩的米耶尔",
-    7615: "雷内恩的米耶尔：悔恨",
-};
 
 const PLAYER_BUFF_STORAGE_KEY = "dilmetercn.playerBuffIds.v1";
 const PLAYER_BUFF_FAVORITES_STORAGE_KEY = "dilmetercn.playerBuffFavoriteIds.v1";
@@ -1698,6 +1718,8 @@ const magnumAimSamples = ref<MagnumAimSample[]>([]);
 const finalShotActive = ref(false);
 let lastMagnumAimActionKey = "";
 const toahSpiritProgressRuntime = ref<ToahSpiritProgressRuntime>(initialToahSpiritProgressRuntime());
+const dorchaQuantityRuntime = ref(initialDorchaQuantityRuntime());
+let dorchaPreviewUntilMs = 0;
 const bossMechanicSettings = ref(loadBossMechanicAlertSettings());
 const bossMechanicSettingsDirty = ref(false);
 const bossMechanicSettingsSaved = ref(false);
@@ -1746,7 +1768,7 @@ const localTtsStatus = ref("");
 const localTtsError = ref(false);
 const localTtsTarget = ref<LocalTtsTarget | null>(null);
 const teamChartOpen = ref(false);
-const teamChartView = ref<"damage" | "skills">("damage");
+const teamChartView = ref<"damage" | "dps" | "skills">("damage");
 const teamUseIds = ref(false);
 const teamIdentityWarningOpen = ref(false);
 let buffOverlayChannel: BroadcastChannel | undefined;
@@ -1920,6 +1942,20 @@ const bossOptions = computed(() => {
         }];
 });
 
+const archivedBossOptions = computed(() => {
+    resourceNameVersion.value;
+    const forced = new Set(debuffAlertSettings.value.forcedBossRaceIds);
+    return (props.battleCatalog?.targets ?? [])
+        .filter((target) => target.sessionKey !== props.loadedSessionKey)
+        .filter((target) => !onlyBossTargets.value || forced.has(target.raceId)
+            || Math.max(target.maximumHealth, target.totalDamage) >= 100_000_000)
+        .map((target) => ({
+            target,
+            value: `history:${target.sessionKey}:${target.entityId}`,
+            label: `${bossName(target)} · ${formatBattleTargetTimeRange({ startAt: target.startedAt, endAt: target.endedAt })}`,
+        }));
+});
+
 const debuffBossTarget = computed(() => selectDebuffBossCandidate(
     bossOptions.value,
     selectedBossId.value,
@@ -1950,6 +1986,17 @@ watch(bossOptions, (items) => {
 
 function handleBattleTargetSelected(event: Event) {
     const targetId = (event.currentTarget as HTMLSelectElement | null)?.value ?? "";
+    if (targetId === "live:") {
+        (event.currentTarget as HTMLSelectElement).value = selectedBossId.value;
+        emit("return-live");
+        return;
+    }
+    const archived = archivedBossOptions.value.find((item) => item.value === targetId);
+    if (archived) {
+        (event.currentTarget as HTMLSelectElement).value = selectedBossId.value;
+        emit("select-archived-session", archived.target);
+        return;
+    }
     const next = lockBattleTargetSelection(targetId);
     manuallyLockedBossId.value = next.manuallyLockedId;
     selectedBossId.value = next.selectedId;
@@ -3107,6 +3154,8 @@ function applyReminderProfile(profileId: string) {
     skillCooldownRuntime.value = {};
     magnumAimPreview.value = null;
     toahSpiritProgressRuntime.value = initialToahSpiritProgressRuntime();
+    dorchaQuantityRuntime.value = initialDorchaQuantityRuntime();
+    dorchaPreviewUntilMs = 0;
     toahSpiritPreviewUntilMs = 0;
     announcedSkillReadySounds.clear();
     announcedBuffSounds.clear();
@@ -3930,6 +3979,27 @@ async function playBossMechanicSound(
     }
 }
 
+function localDorchaQuantity(): number | undefined {
+    const id = actorManager.value.localEntityId;
+    if (!id) return undefined;
+    const value = actorManager.value.entityMap[id]?.statMap?.[DORCHA_STAT_ID]
+        ?? actorManager.value.pendingStatMap[id]?.[DORCHA_STAT_ID];
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 15 ? value : undefined;
+}
+
+function refreshDorchaQuantity(atMs: number) {
+    if (dorchaPreviewUntilMs > atMs) return;
+    const previous = dorchaQuantityRuntime.value;
+    const next = applyDorchaQuantityObservation(previous, localDorchaQuantity(),
+        skillCooldownSettings.value.rules[DORCHA_MASTERY_SKILL_ID]?.quantityThreshold, atMs);
+    dorchaQuantityRuntime.value = next;
+    if (next.generation > previous.generation) {
+        skillCooldownRuntime.value[DORCHA_MASTERY_SKILL_ID] = {
+            usedAtMs: next.triggeredAtMs, readyAtMs: next.triggeredAtMs, generation: next.generation,
+        };
+    }
+}
+
 function localToahSpiritProgress(): number | undefined {
     const localEntityId = actorManager.value.localEntityId;
     if (!localEntityId) return undefined;
@@ -3998,7 +4068,7 @@ function handleSkillAction(event: Event) {
     // Toah Spirit uses the authoritative Stat 198 gauge rather than a fixed
     // cooldown. The execute packet must not replace its progress reminder with
     // an ordinary countdown.
-    if (action.SkillId === TOAH_SPIRIT_SKILL_ID) return;
+    if (action.SkillId === TOAH_SPIRIT_SKILL_ID || action.SkillId === DORCHA_MASTERY_SKILL_ID) return;
     const rule = skillCooldownSettings.value.rules[action.SkillId];
     if (!rule?.enabled) return;
     const previous = skillCooldownRuntime.value[action.SkillId];
@@ -4044,7 +4114,7 @@ function triggerEffectTimer(rule: EffectTimerRule, startedAtMs: number, targetId
 
 function handleSkillCooldownAdjustment(event: Event) {
     const adjustment = (event as CustomEvent<eventSkillCooldown>).detail;
-    if (!adjustment) return;
+    if (!adjustment || adjustment.SkillId === DORCHA_MASTERY_SKILL_ID) return;
     const rule = skillCooldownSettings.value.rules[adjustment.SkillId];
     if (!rule?.enabled) return;
     const previous = skillCooldownRuntime.value[adjustment.SkillId];
@@ -4207,6 +4277,18 @@ function previewSkillCooldown(skillId: number) {
     const previous = skillCooldownRuntime.value[skillId];
     const rule = skillCooldownSettings.value.rules[skillId];
     const now = Date.now();
+    if (skillId === DORCHA_MASTERY_SKILL_ID) {
+        const threshold = normalizeDorchaThreshold(rule?.quantityThreshold);
+        dorchaPreviewUntilMs = now + 3600;
+        dorchaQuantityRuntime.value = {
+            observed: true, quantity: Math.max(0, threshold - 1), below: true, threshold,
+            triggeredAtMs: now, generation: dorchaQuantityRuntime.value.generation + 1,
+        };
+        publishSkillCooldownOverlayState(true);
+        if (rule) void previewSkillCooldownSound(rule, false);
+        showNotice("正在预览多尔卡数量不足弹框，并试听已配置的提示音。", "info");
+        return;
+    }
     if (skillId === TOAH_SPIRIT_SKILL_ID) {
         const generation = (previous?.generation ?? toahSpiritProgressRuntime.value.generation) + 1;
         const threshold = Math.min(100, Math.max(1, Math.round(
@@ -4251,6 +4333,12 @@ function previewSkillCooldown(skillId: number) {
 }
 
 function skillCooldownRuntimeStatus(skillId: number) {
+    if (skillId === DORCHA_MASTERY_SKILL_ID) {
+        const value = dorchaPreviewUntilMs > skillCooldownClock.value ? dorchaQuantityRuntime.value.quantity : localDorchaQuantity();
+        if (value === undefined) return "等待捕捉自身多尔卡数量";
+        const threshold = normalizeDorchaThreshold(skillCooldownSettings.value.rules[skillId]?.quantityThreshold);
+        return `当前 ${formatDorchaQuantity(value)} / 15 · 少于 ${threshold} 点时提示`;
+    }
     if (skillId === TOAH_SPIRIT_SKILL_ID) {
         const runtime = toahSpiritProgressRuntime.value;
         if (!runtime.observed) return "等待捕捉托亚灵能量";
@@ -4310,6 +4398,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
     // user preview may publish one synthetic frame from the renderer.
     if (!isStandalone.value && !forceDesktopPreview) return;
     refreshToahSpiritProgress(atMs);
+    refreshDorchaQuantity(atMs);
     announceCompletedSkillCooldowns(atMs);
     const activeOrbRuntime = bossMechanicRuntime.value["miel-orb"];
     if (activeOrbRuntime?.mielOrb) {
@@ -4319,7 +4408,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
         }
     }
     const items = Object.values(skillCooldownSettings.value.rules)
-        .filter((rule) => rule.enabled)
+        .filter((rule) => rule.enabled && rule.skillId !== DORCHA_MASTERY_SKILL_ID)
         .map((rule) => {
             const runtime = skillCooldownRuntime.value[rule.skillId] ?? { usedAtMs: 0, readyAtMs: 0, generation: 0 };
             const item = {
@@ -4431,6 +4520,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
                 scalePercent: Math.min(200, Math.max(50, Math.round(Number(bossMechanicSettings.value.scalePercent) || 100))),
             };
         });
+    const quantityAlert = dorchaQuantityOverlayItem(dorchaQuantityRuntime.value, skillCooldownSettings.value.rules[DORCHA_MASTERY_SKILL_ID]);
     const message: SkillCooldownOverlayMessage = {
         type: "skill-cooldown-state",
         atMs,
@@ -4439,7 +4529,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
         targetHealth,
         effectTimers,
         mechanics,
-        stackAlerts,
+        stackAlerts: quantityAlert ? [...stackAlerts, quantityAlert] : stackAlerts,
         settings: {
             iconSize: skillCooldownSettings.value.iconSize,
             overlayEnabled: buffOverlaySettings.value.overlayEnabled,
@@ -5531,11 +5621,8 @@ function fmtCoverageDuration(seconds: number) {
     return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-function bossName(entity: EntityActor) {
-    return BOSS_NAME_OVERRIDES[entity.raceId]
-        || cleanName(raceNameMap.value[entity.raceId])
-        || cleanName(entity.name)
-        || `首领 ${entity.raceId}`;
+function bossName(entity: Pick<EntityActor, "raceId" | "name">) {
+    return bossDisplayName(entity, raceNameMap.value);
 }
 
 function targetHealthName(entity: EntityActor) {
@@ -5898,6 +5985,7 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
 .team-chart-toolbar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     min-height: 48px;
     padding: 7px 10px;

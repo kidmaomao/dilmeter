@@ -1,4 +1,5 @@
-import type { EffectTimerOverlayItem } from "@/effectTimer";
+import type { EffectTimerOverlayItem } from "./effectTimer";
+import { DEFAULT_DORCHA_THRESHOLD, normalizeDorchaThreshold } from "./dorcha";
 
 export type SkillCooldownSoundMode = "default" | "none" | "custom";
 export type SkillCooldownOwnerMode = "auto" | "player" | "pet";
@@ -22,6 +23,8 @@ export interface SkillCooldownRule {
     customSoundName: string;
     /** Toah Spirit (27012) reminder threshold; ignored by ordinary skills. */
     progressThresholdPercent: number;
+    /** Dorcha Mastery: warn only when quantity is strictly below this value. */
+    quantityThreshold: number;
     /** Screen coordinate of the skill icon's top-left corner. */
     x: number;
     y: number;
@@ -155,6 +158,10 @@ export interface BossMechanicOverlayItem {
 
 export interface BuffStackAlertOverlayItem {
     ccId: number;
+    skillId?: number;
+    quantityText?: string;
+    quantityUnit?: string;
+    persistent?: boolean;
     name: string;
     stack: number;
     startedAtMs: number;
@@ -625,6 +632,7 @@ export function makeSkillCooldownRule(skillId: number, x = 600, y = 180): SkillC
         customSoundId: "",
         customSoundName: "",
         progressThresholdPercent: DEFAULT_TOAH_PROGRESS_THRESHOLD,
+        quantityThreshold: DEFAULT_DORCHA_THRESHOLD,
         x: clampNumber(x, -32000, 32000, 600),
         y: clampNumber(y, -32000, 32000, 180),
     };
@@ -689,6 +697,7 @@ export function loadSkillCooldownSettings(): SkillCooldownSettings {
                     soundMode: value.soundMode === "none" || value.soundMode === "custom" ? value.soundMode : "default",
                     customSoundId: sanitizeText(value.customSoundId, 128),
                     customSoundName: sanitizeText(value.customSoundName, 180),
+                    quantityThreshold: normalizeDorchaThreshold(value.quantityThreshold),
                     progressThresholdPercent: clampNumber(
                         value.progressThresholdPercent,
                         1,
@@ -836,6 +845,7 @@ export function saveSkillCooldownSettings(settings: SkillCooldownSettings) {
         rule.ownerMode = rule.ownerMode === "player" || rule.ownerMode === "pet" ? rule.ownerMode : "auto";
         rule.customSoundId = sanitizeText(rule.customSoundId, 128);
         rule.customSoundName = sanitizeText(rule.customSoundName, 180);
+        rule.quantityThreshold = normalizeDorchaThreshold(rule.quantityThreshold);
         rule.progressThresholdPercent = clampNumber(
             rule.progressThresholdPercent,
             1,

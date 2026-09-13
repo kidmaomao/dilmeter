@@ -590,12 +590,13 @@ func refreshWebViewReminderHitRegions() {
 			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + size), Bottom: int32(item.Y + size)}})
 	}
 	for _, item := range message.StackAlerts {
-		if item.EndsAtMs <= nowMs {
+		if !item.Persistent && item.EndsAtMs <= nowMs {
 			continue
 		}
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 		width, height := max(110, int(math.Ceil(220*factor))), max(48, int(math.Ceil(96*factor)))
-		regions = append(regions, nativeReminderHitRegion{Kind: "stack", ID: strconv.FormatUint(uint64(item.CCID), 10), X: item.X, Y: item.Y,
+		kind, id := nativeStackReminderIdentity(item)
+		regions = append(regions, nativeReminderHitRegion{Kind: kind, ID: id, X: item.X, Y: item.Y,
 			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + width), Bottom: int32(item.Y + height)}})
 	}
 	setNativeReminderHitRegions(regions)
