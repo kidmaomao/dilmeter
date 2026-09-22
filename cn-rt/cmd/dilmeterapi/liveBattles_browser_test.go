@@ -42,12 +42,64 @@ func TestLiveBattleBrowserHarness(t *testing.T) {
 	defer currentLiveBattles.Store(previous)
 	var mu sync.Mutex
 	reminders, sounds := newDorchaReminderTestRuntime("none")
+	reminders.healer = newHealerMonitor(t.TempDir() + "/healer.json")
+	healerAt := time.Now().Unix()
+	reminders.onEvent(liveTestAppear("ally", "Oneforall", 10001, healerAt))
+	reminders.onEvent(liveTestAppear("unknown-ally", "第二位队友", 10001, healerAt))
+	reminders.healer.evaluate(reminders, time.Now(), true)
+	nativeReminderRuntimeHolder.Lock()
+	previousRuntime := nativeReminderRuntimeHolder.runtime
+	nativeReminderRuntimeHolder.runtime = reminders
+	nativeReminderRuntimeHolder.Unlock()
+	defer func() {
+		nativeReminderRuntimeHolder.Lock()
+		nativeReminderRuntimeHolder.runtime = previousRuntime
+		nativeReminderRuntimeHolder.Unlock()
+	}()
 	delete(reminders.settings.SkillCooldowns.Rules, dorchaMasterySkillID)
 	reminders.onEvent(initialQuantity)
 	requests := []string{}
 	stop := make(chan struct{})
 	var stopOnce sync.Once
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case now := <-ticker.C:
+				mu.Lock()
+				if os.Getenv("DILMETER_HEALER_BROWSER_TEST") == "1" {
+					at := now.Unix()
+					reminders.onEvent(healerHP("ally", at, 200, 1000))
+					reminders.onEvent(healerHP("unknown-ally", at, 800, 1000))
+				}
+				reminders.healer.evaluate(reminders, now, true)
+				mu.Unlock()
+			}
+		}
+	}()
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/healer_monitor", handleHealerMonitor)
+	mux.HandleFunc("/api/healer_overlay", handleHealerOverlay)
+	mux.HandleFunc("/api/healer_monitor/text_preview", handleHealerTextPreview)
+	previousAudioDir := customAudioDir
+	fixtureAudioDir := t.TempDir()
+	customAudioDir = func() string { return fixtureAudioDir }
+	defer func() { customAudioDir = previousAudioDir }()
+	mux.HandleFunc("/api/buff_sound/upload", handleCustomAudioUpload)
+	mux.HandleFunc("/api/buff_sound", func(w http.ResponseWriter, r *http.Request) {
+		var sound nativeReminderSoundRequest
+		if json.NewDecoder(r.Body).Decode(&sound) != nil {
+			http.Error(w, "invalid sound", 400)
+			return
+		}
+		mu.Lock()
+		*sounds = append(*sounds, sound)
+		mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("/api/skill_overlay/state", handleSkillOverlayState)
 	mux.HandleFunc("/api/live_battles", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
@@ -68,6 +120,28 @@ func TestLiveBattleBrowserHarness(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		var data any = map[string]any{}
 		switch r.URL.Path {
+		case "/api/test/healer":
+			mu.Lock()
+			at := time.Now().Unix()
+			switch r.URL.Query().Get("scenario") {
+			case "low", "recover":
+				health, duration := 250.0, int64(8)
+				if r.URL.Query().Get("scenario") == "recover" {
+					health, duration = 800, 45
+				}
+				reminders.onEvent(healerHP("ally", at, health, 1000))
+				reminders.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{EventId: 4, Id: "ally", At: at}, CCId: 680, DisableAt: at + duration})
+				reminders.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{EventId: 4, Id: "ally", At: at}, CCId: 192, DisableAt: at + 60})
+				reminders.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{EventId: 4, Id: "ally", At: at}, CCId: 681, DisableAt: at + duration})
+			case "reappear":
+				reminders.onEvent(liveTestAppear("rejoined", "Oneforall", 10001, at))
+				reminders.onEvent(healerHP("rejoined", at, 800, 1000))
+			case "reset":
+				reminders.onEvent(&event.EventLocalEntity{EventBase: event.EventBase{EventId: 11, Id: "player", At: at}, Reset: true})
+			}
+			reminders.healer.evaluate(reminders, time.Now(), true)
+			data = map[string]any{"sounds": len(*sounds)}
+			mu.Unlock()
 		case "/api/reminder_runtime/settings":
 			mu.Lock()
 			if r.Method == http.MethodPut {

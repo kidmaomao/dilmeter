@@ -87,6 +87,14 @@ func playBuffSoundOnChannel(kind string, volume int, bossChannel bool, customSou
 	switch kind {
 	case "electronic":
 		filename = "buff-ending-electronic.wav"
+	case "healer-angel":
+		filename = "healer-angel.wav"
+	case "healer-music":
+		filename = "healer-music-xiaoxiao.mp3"
+	case "healer-health":
+		filename = "healer-health-xiaoxiao.mp3"
+	case "healer-buff":
+		filename = "healer-buff-xiaoxiao.mp3"
 	case "skill-ready":
 		filename = "skill-ready-pop.mp3"
 	case "voice":

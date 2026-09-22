@@ -37,7 +37,7 @@ var logger = util.NewLogger("dilmeterapi")
 var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterOT"
-var AppVersion = "1.4.3"
+var AppVersion = "1.5.0"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {
@@ -219,6 +219,9 @@ func startWebsocketServer(ctx context.Context, cfg config, newClientCb func(*web
 	mux.HandleFunc("/api/skill_bar", handleSkillBar)
 	mux.HandleFunc("/api/buff_sound", handleBuffSound)
 	mux.HandleFunc("/api/reminder_runtime/settings", handleNativeReminderSettings)
+	mux.HandleFunc("/api/healer_monitor", handleHealerMonitor)
+	mux.HandleFunc("/api/healer_overlay", handleHealerOverlay)
+	mux.HandleFunc("/api/healer_monitor/text_preview", handleHealerTextPreview)
 	mux.HandleFunc("/api/reminder_overlay/drag_state", handleNativeReminderDragState)
 	mux.HandleFunc("/api/buff_sound/upload", handleCustomAudioUpload)
 	mux.HandleFunc("/api/local_tts", handleLocalTTS)

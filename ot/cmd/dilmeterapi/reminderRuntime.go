@@ -134,6 +134,7 @@ type nativeSkillCooldownRule struct {
 	CustomSoundID             string  `json:"customSoundId"`
 	ProgressThresholdPercent  float64 `json:"progressThresholdPercent"`
 	QuantityThreshold         float64 `json:"quantityThreshold"`
+	ScalePercent              int     `json:"scalePercent"`
 	X                         int     `json:"x"`
 	Y                         int     `json:"y"`
 }
@@ -327,6 +328,7 @@ type nativeReminderRuntime struct {
 	lastDebuffStateKey string
 	lastSkillStateKey  string
 	playSound          func(nativeReminderSoundRequest) bool
+	healer             *healerMonitor
 }
 
 var nativeReminderRuntimeHolder struct {
@@ -359,6 +361,7 @@ func startNativeReminderRuntime(ctx context.Context, publisher *eventPublisher) 
 		announcedSkillSounds:   make(map[string]struct{}),
 		recentBossMechanicAtMs: make(map[string]int64),
 		playSound:              queueNativeReminderSound,
+		healer:                 newHealerMonitor(healerSettingsPath()),
 	}
 	runtime.preferredBossID = runtime.settings.PreferredBossID
 	setNativeReminderOverlaysLocked(nativeReminderSettingsLocked(runtime.settings))
@@ -414,6 +417,9 @@ func (runtime *nativeReminderRuntime) loop() {
 }
 
 func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
+	if runtime.healer != nil {
+		runtime.healer.onEvent(current)
+	}
 	switch value := current.(type) {
 	case *event.EventLocalEntity:
 		if value.Reset || value.Id != runtime.localID {
@@ -689,6 +695,9 @@ func (runtime *nativeReminderRuntime) ensureEntity(id string) *nativeReminderEnt
 }
 
 func (runtime *nativeReminderRuntime) evaluate(now time.Time) {
+	if runtime.healer != nil {
+		runtime.healer.evaluate(runtime, now, getAppStatus().Capturing)
+	}
 	runtime.evaluateBuffs(now)
 	runtime.evaluateDebuffs(now)
 	runtime.evaluateSkillCooldowns(now)
@@ -2148,6 +2157,7 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 		rule.CumulativeCooldownSeconds = clampNativeReminderFloat(rule.CumulativeCooldownSeconds, 0.1, 86400, 10)
 		rule.ProgressThresholdPercent = clampNativeReminderFloat(rule.ProgressThresholdPercent, 1, 100, 95)
 		rule.QuantityThreshold = nativeDorchaThreshold(rule.QuantityThreshold)
+		rule.ScalePercent = nativeDorchaScalePercent(rule.ScalePercent)
 		rule.SoundMode = nativeSkillSoundMode(rule.SoundMode)
 		rule.OwnerMode = nativeSkillOwnerMode(rule.OwnerMode)
 		rule.X = clampNativeReminderInt(rule.X, -32000, 32000, 600)

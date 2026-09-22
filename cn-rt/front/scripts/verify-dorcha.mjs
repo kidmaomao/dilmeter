@@ -17,6 +17,7 @@ try {
         SKILL_COOLDOWN_STORAGE_KEY } = await server.ssrLoadModule("/src/skillCooldown.ts");
     const rule = makeSkillCooldownRule(27000);
     assert.equal(rule.quantityThreshold, 3);
+    assert.equal(rule.scalePercent, 100);
     let state = initial();
     for (const value of [undefined, null, NaN, Infinity, -1, 16]) {
         state = apply(state, value, 3, 1000);
@@ -47,8 +48,16 @@ try {
     const settings = loadSkillCooldownSettings();
     assert.equal(settings.rules[27000].quantityThreshold, 3, "old CD profiles acquire the quantity default");
     assert.equal(settings.rules[27000].soundMode, "none");
+    assert.equal(settings.rules[27000].scalePercent, 100, "old profiles retain the original popup size");
     settings.rules[27000].quantityThreshold = 5;
+    settings.rules[27000].scalePercent = 150;
     saveSkillCooldownSettings(settings);
     assert.equal(loadSkillCooldownSettings().rules[27000].quantityThreshold, 5, "quantity preference survives saving");
-    console.log("Dorcha: strict threshold, re-arm, missing values, decimal display, and profile migration verified");
+    const savedRule = loadSkillCooldownSettings().rules[27000];
+    assert.equal(savedRule.scalePercent, 150, "popup size survives saving");
+    const scaledCard = overlay(apply(initial(), 2, savedRule.quantityThreshold, 8000), savedRule);
+    assert.equal(scaledCard.scalePercent, 150, "the saved size reaches the preview card");
+    assert.equal(scaledCard.x, savedRule.x, "scaling keeps the chosen top-left coordinate");
+    assert.equal(scaledCard.y, savedRule.y);
+    console.log("Dorcha: strict threshold, re-arm, missing values, decimal display, profile migration, and saved popup size verified");
 } finally { await server.close(); }

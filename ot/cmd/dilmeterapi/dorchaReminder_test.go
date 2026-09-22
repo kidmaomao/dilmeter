@@ -42,7 +42,7 @@ func TestDorchaLowQuantityStrictThresholdAndRearm(t *testing.T) {
 		t.Fatalf("low updates must sound once: %+v", *sounds)
 	}
 	item := runtime.dorchaQuantityOverlay()
-	if item == nil || item.QuantityText != "0" || item.QuantityUnit != "/ 15" || !item.Persistent {
+	if item == nil || item.QuantityText != "0" || item.QuantityUnit != "/ 15" || !item.Persistent || item.ScalePercent != 100 {
 		t.Fatalf("bad live quantity card: %+v", item)
 	}
 	runtime.onEvent(dorchaStat("player", true, 3))
@@ -96,6 +96,12 @@ func TestDorchaQuantityScopeResetAndSoundPreferences(t *testing.T) {
 
 func TestDorchaQuantityUsesCardAndNeverStartsCooldown(t *testing.T) {
 	runtime, _ := newDorchaReminderTestRuntime("none")
+	// Exercise the same settings JSON used by the frontend and saved native profile.
+	var settings nativeReminderSettings
+	if err := json.Unmarshal([]byte(`{"skillCooldowns":{"rules":{"27000":{"enabled":true,"quantityThreshold":3,"soundMode":"none","scalePercent":150,"x":744,"y":268}}}}`), &settings); err != nil {
+		t.Fatal(err)
+	}
+	runtime.settings = normalizeNativeReminderSettings(settings)
 	runtime.onEvent(dorchaStat("player", true, 2.75))
 	runtime.onEvent(&event.EventSkillAction{EventBase: event.EventBase{At: 100, Id: "player"}, SkillId: dorchaMasterySkillID, IsLocal: true})
 	runtime.observeSkillCooldown(dorchaMasterySkillID, 100000, true)
@@ -117,6 +123,9 @@ func TestDorchaQuantityUsesCardAndNeverStartsCooldown(t *testing.T) {
 	item := message.StackAlerts[0]
 	if item.QuantityText != "2.75" || item.SkillID != dorchaMasterySkillID || !nativeSkillOverlayMessageVisible(message, 999999) {
 		t.Fatal("quantity card was lost/expired in the overlay bridge")
+	}
+	if item.ScalePercent != 150 || item.X != 744 || item.Y != 268 {
+		t.Fatalf("saved popup size/position did not reach the overlay: %+v", item)
 	}
 	kind, id := nativeStackReminderIdentity(item)
 	if kind != "skill" || id != "27000" {

@@ -195,7 +195,12 @@ func (s *liveBattleIndex) append(file *os.File, e event.IEvent, raw []byte) erro
 				break
 			}
 		}
-		if !active {
+		// Finish/disappear can precede the final multihit or delayed damage.
+		// Those packets still belong to the target already in this window.
+		// Incoming damage to a player is not evidence of a new encounter either.
+		target := s.actors[damage.TargetId]
+		playerTarget := target != nil && target.appear != nil && battleRecordPCRace(target.appear.RaceId)
+		if !active && s.current.targets[damage.TargetId] == nil && !playerTarget {
 			rotate = true
 		}
 	}
@@ -273,6 +278,9 @@ func (s *liveBattleIndex) updateTarget(t *liveBattleTarget) {
 
 func (s *liveBattleIndex) hasActiveBoss(w *liveBattleWindow) bool {
 	for id, target := range w.targets {
+		if target.closed {
+			continue
+		}
 		if target.MaximumHealth < battleRecordBossHealthFloor && target.TotalDamage < battleRecordBossHealthFloor {
 			continue
 		}

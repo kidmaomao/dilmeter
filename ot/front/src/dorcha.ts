@@ -10,6 +10,11 @@ export function normalizeDorchaThreshold(value: unknown): number {
     return Number.isFinite(n) && n >= 1 && n <= 15 ? Math.round(n) : DEFAULT_DORCHA_THRESHOLD;
 }
 
+export function normalizeDorchaScalePercent(value: unknown): number {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.min(200, Math.max(50, Math.round(n))) : 100;
+}
+
 export function formatDorchaQuantity(value: number): string {
     // Truncate display precision so 2.999 cannot look like 3 while warning.
     return String(Math.floor(Math.min(15, Math.max(0, value)) * 100) / 100);
@@ -54,6 +59,6 @@ export function dorchaQuantityOverlayItem(
         name: state.observed && state.below ? "多尔卡不足" : "多尔卡数量",
         stack: 0, quantityText: state.observed ? formatDorchaQuantity(state.quantity) : "--", quantityUnit: "/ 15",
         persistent: true, startedAtMs: state.triggeredAtMs, endsAtMs: 0, generation: state.generation,
-        x: rule.x, y: rule.y, scalePercent: 100,
+        x: rule.x, y: rule.y, scalePercent: normalizeDorchaScalePercent(rule.scalePercent),
     };
 }

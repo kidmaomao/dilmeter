@@ -29,7 +29,8 @@
     "verify:ui-color-theme": "node scripts/verify-ui-color-theme.ts",
     "verify:native-ready": "node scripts/verify-native-ready.mjs",
     "verify:background-reactivity": "node scripts/verify-background-reactivity.mjs",
-    "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src"
+    "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
+    "verify:healer-templates": "node scripts/verify-healer-templates.mjs"
   },
   "author": "",
   "license": "ISC",

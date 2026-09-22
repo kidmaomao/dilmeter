@@ -169,6 +169,51 @@ func TestLiveBattleLongMechanicAndUnknownTargets(t *testing.T) {
 	}
 }
 
+func TestLiveBattleFinishingDamageStaysInEncounter(t *testing.T) {
+	for _, disappear := range []bool{false, true} {
+		t.Run(strconv.FormatBool(disappear), func(t *testing.T) {
+			f := newLiveBattleFixture(t)
+			f.add(liveTestAppear("player", "队友", 10001, 100))
+			f.add(liveTestAppear("boss", "首领", 7603, 100))
+			f.add(liveTestHP("boss", 100))
+			f.add(liveTestDamage("boss", 101))
+			key := f.index.current.key
+			f.add(&event.EventFinish{EventBase: event.EventBase{EventId: 6, Id: "boss", At: 102}, AttackerId: "player"})
+			if disappear {
+				f.add(&event.EventEntityDisappear{EventBase: event.EventBase{EventId: 2, Id: "boss", At: 102}})
+			}
+			for _, at := range []int64{102, 102, 103} {
+				hit := liveTestDamage("boss", at)
+				hit.IsDelayed = true
+				f.add(hit)
+			}
+			f.add(liveTestDamage("player", 103))
+			if f.index.current.key != key || len(f.index.windows) != 1 {
+				t.Fatal("finishing multihits or incoming player damage created a one-second encounter")
+			}
+			boss := f.index.current.targets["boss"]
+			if boss.TotalDamage != 400 || boss.StartedAt != 101 || boss.EndedAt != 103 || !boss.closed {
+				t.Fatalf("finishing damage was lost or reopened the boss: %+v", boss)
+			}
+			f.add(liveTestAppear("next", "下一只首领", 7603, 104))
+			f.add(liveTestDamage("next", 104))
+			if f.index.current.key == key {
+				t.Fatal("a different boss did not start a new encounter immediately")
+			}
+			_, rows := f.read("session=" + key)
+			hits := 0
+			for _, row := range rows {
+				if row["EventId"] == float64(3) && row["TargetId"] == "boss" {
+					hits++
+				}
+			}
+			if hits != 4 {
+				t.Fatalf("archived encounter lost its finishing packets: %d hits", hits)
+			}
+		})
+	}
+}
+
 func TestLiveBattleIncrementalResumeHasSequenceBoundary(t *testing.T) {
 	f := newLiveBattleFixture(t)
 	f.add(liveTestAppear("boss", "首领", 7603, 100))

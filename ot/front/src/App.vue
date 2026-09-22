@@ -8,6 +8,7 @@
     <v-app v-else-if="isSkillOverlay" class="skill-overlay-app">
         <SkillCooldownOverlay />
     </v-app>
+    <v-app v-else-if="isHealerOverlay" class="healer-overlay-app"><HealerOverlay /></v-app>
     <v-app v-else class="main-dilmeter-app" :style="uiColorThemeVars">
         <v-main>
             <transition name="foreground-recovery-fade">
@@ -36,6 +37,9 @@
                     </v-chip>
                 </v-toolbar-title>
                 <v-spacer />
+                <button v-if="!isStandalone" type="button" class="skill-bar-settings-button" aria-haspopup="dialog" @click="healerMonitorOpen = true">
+                    <v-icon icon="mdi-heart-pulse" size="14" />圣歌监测
+                </button>
                 <button v-if="!isStandalone" type="button" class="skill-bar-settings-button" @click="skillBarSettingsOpen = true">
                     <v-icon icon="mdi-view-grid-plus-outline" size="14" />技能栏
                 </button>
@@ -260,6 +264,7 @@
             <LogCleanupDialog v-if="!isStandalone && !isDesignPreview" />
 
             <SkillBarSettingsDialog v-if="!isStandalone && !isDesignPreview" v-model="skillBarSettingsOpen" />
+            <HealerMonitorPanel v-if="!isStandalone && !isDesignPreview" v-model:open="healerMonitorOpen" :is-record-replay="isRecordReplay" />
 
             <v-dialog v-model="msgBoxOpen" max-width="520">
                 <v-card>
@@ -326,6 +331,8 @@ import { LiveBattleCursor, applyLiveDelta, needsLiveRecovery, type LiveBattleCat
 import { bossDisplayName } from "@/bossDisplay";
 import { ActorManager } from "@/eventActor";
 import { DamageCollectorManager } from "@/actionCollector";
+import HealerMonitorPanel from "@/components/HealerMonitorPanel.vue";
+import HealerOverlay from "@/components/HealerOverlay.vue";
 import { hydrateFromSnapshot } from "@/worker/hydrateActorManager";
 import type { WorkerOutMessage, WorkerSnapshot } from "@/worker/workerProtocol";
 
@@ -364,7 +371,7 @@ const defaultServerPorts = ["11020", "11021", "11023"];
 
 export default defineComponent({
     name: "App",
-    components: { GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser },
+    components: { GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
     setup() {
         const db = inject("db") as any;
         const region = inject("region") as any;
@@ -382,11 +389,12 @@ export default defineComponent({
         const isBuffOverlay = new URLSearchParams(window.location.search).has("buffOverlay");
         const isDebuffOverlay = new URLSearchParams(window.location.search).has("debuffOverlay");
         const isSkillOverlay = new URLSearchParams(window.location.search).has("skillOverlay");
+        const isHealerOverlay = new URLSearchParams(window.location.search).has("healerOverlay");
         const isDesignPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has("preview");
         if (isDesignPreview) document.documentElement.classList.add("design-preview-root");
         const socketConnected = ref(false);
         const appName = ref("DilmeterOT");
-        const appVersion = ref("1.4.3");
+        const appVersion = ref("1.5.0");
         const runtimeStatus = ref<AppRuntimeStatus>({
             state: isStandalone ? "replay" : "starting",
             message: isStandalone ? "本地日志模式" : "正在连接桌面监测器…",
@@ -427,6 +435,7 @@ export default defineComponent({
         const loadedRecordName = ref("");
         const recordBrowserOpen = ref(false);
         const skillBarSettingsOpen = ref(false);
+        const healerMonitorOpen = ref(false);
         const serverDialogOpen = ref(false);
         const serverNetworkInput = ref(defaultServerNetwork);
         const serverPortsInput = ref(defaultServerPorts.join(", "));
@@ -1112,7 +1121,7 @@ export default defineComponent({
         };
 
         onMounted(async () => {
-            if (isBuffOverlay || isDebuffOverlay || isSkillOverlay) return;
+            if (isBuffOverlay || isDebuffOverlay || isSkillOverlay || isHealerOverlay) return;
             void (async () => {
                 const settings = loadSkillBarSettings();
                 try {
@@ -1221,6 +1230,7 @@ export default defineComponent({
             isBuffOverlay,
             isDebuffOverlay,
             isSkillOverlay,
+            isHealerOverlay,
             isDesignPreview,
             appName,
             appVersion,
@@ -1249,6 +1259,7 @@ export default defineComponent({
             loadArchivedSession,
             loadError,
             isRecordReplay,
+            healerMonitorOpen,
             loadedRecordName,
             recordBrowserOpen,
             skillBarSettingsOpen,

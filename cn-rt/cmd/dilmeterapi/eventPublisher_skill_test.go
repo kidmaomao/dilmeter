@@ -723,7 +723,7 @@ func TestTechniqueConditionPublishesLocalCooldownActions(t *testing.T) {
 
 	wanted := map[uint32]uint16{
 		479: 58000, 478: 58001, 487: 58005, 477: 58006, 476: 58007,
-		521: 58010, 522: 58013, 520: 58014, 555: 58016,
+		521: 58010, 517: 58012, 522: 58013, 520: 58014, 555: 58016,
 	}
 	for ccID, skillID := range wanted {
 		publisher.publishTechniqueConditionSkillAction(at, &packet.CharacterConditionPacket{

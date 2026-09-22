@@ -56,7 +56,8 @@ export default defineConfig({
         ],
     },
     build: {
-        sourcemap: true,
-        minify: false,
+        // Release builds omit debug maps and compact JavaScript; local debugging can opt in.
+        sourcemap: process.env.DILMETER_DEBUG_FRONTEND === '1',
+        minify: process.env.DILMETER_DEBUG_FRONTEND === '1' ? false : 'esbuild',
     },
 });

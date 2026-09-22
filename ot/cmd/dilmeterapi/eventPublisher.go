@@ -775,6 +775,14 @@ func (t *eventPublisher) publish(e event.IEvent) {
 
 	t.Lock()
 	if value, ok := e.(interface{ GetEventBase() *event.EventBase }); ok {
+		base := value.GetEventBase()
+		if base.EventId == event.EventIdEntityDisappear || base.EventId == event.EventIdFinish {
+			// A fresh visibility/life interval must publish its HP snapshot even
+			// when the values happen to match the previous interval.
+			if id, err := strconv.ParseUint(base.Id, 10, 64); err == nil {
+				delete(t.statCache, id)
+			}
+		}
 		t.eventSequence++
 		value.GetEventBase().Sequence = t.eventSequence
 	}
@@ -1322,6 +1330,7 @@ var techniqueSkillByCondition = map[uint32]uint16{
 	477: 58006, // 快速
 	476: 58007, // 要害贯通
 	521: 58010, // 洞察之眼
+	517: 58012, // 集中挑衅（施展者；518/519 是受影响对象）
 	522: 58013, // 再生之域
 	520: 58014, // 力量团聚
 	555: 58016, // 阻断

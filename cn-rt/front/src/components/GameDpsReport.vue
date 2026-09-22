@@ -1170,6 +1170,11 @@
                                     <label>X <input v-model.number="rule.x" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
                                     <label>Y <input v-model.number="rule.y" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
                                 </div>
+                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID" title="同时缩放多尔卡弹框、文字和数字，默认 100%">
+                                    窗口大小
+                                    <input v-model.number="rule.scalePercent" aria-label="多尔卡精通窗口大小百分比" type="number" min="50" max="200" step="5" @input="markSkillCooldownSettingsDirty" />
+                                    <span>%</span>
+                                </label>
                                 <label>
                                     {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "提示音效" : "完成音效" }}
                                     <select v-model="rule.soundMode" @change="onSkillCooldownSoundModeChanged(rule)">

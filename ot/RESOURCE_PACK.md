@@ -19,7 +19,7 @@ DilmeterOT 会优先读取程序旁 `data/resource-pack` 目录中的资源；Di
 例如台服目录如下：
 
 ```text
-DilmeterOT-v1.4.3.exe
+DilmeterOT-v1.5.0.exe
 data/
   resource-pack/
     active-region.txt                 内容：tw

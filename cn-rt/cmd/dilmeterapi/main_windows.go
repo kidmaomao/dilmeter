@@ -269,7 +269,17 @@ func main2(ctx context.Context) {
 		initializeSkillOverlay(skillOverlay, cfg)
 		skillOverlay.Navigate(fmt.Sprintf("http://127.0.0.1:%d/?skillOverlay=1", _port))
 	}
-	stopBackgroundTicks := startNativeWebViewTicks(ctx, view, buffOverlay, debuffOverlay, skillOverlay)
+	healerOverlay := webview2.NewWithOptions(webview2.WebViewOptions{
+		Debug: false, DataPath: dataPath, AutoFocus: false, Transparent: true,
+		WindowOptions: webview2.WindowOptions{Title: windowTitle + " Healer Overlay", Width: 520, Height: 120, Center: false, IconId: 2},
+	})
+	if healerOverlay != nil {
+		defer healerOverlay.Destroy()
+		stopHealerOverlay := initializeHealerOverlay(ctx, healerOverlay, view.Dispatch)
+		defer stopHealerOverlay()
+		healerOverlay.Navigate(fmt.Sprintf("http://127.0.0.1:%d/?healerOverlay=1", _port))
+	}
+	stopBackgroundTicks := startNativeWebViewTicks(ctx, view, buffOverlay, debuffOverlay, skillOverlay, healerOverlay)
 	defer stopBackgroundTicks()
 
 	view.Navigate(fmt.Sprintf("http://127.0.0.1:%d", _port))

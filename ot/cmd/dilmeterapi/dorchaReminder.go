@@ -23,6 +23,13 @@ func nativeDorchaThreshold(value float64) float64 {
 	return math.Round(value)
 }
 
+func nativeDorchaScalePercent(value int) int {
+	if value <= 0 {
+		return 100
+	}
+	return max(50, min(200, value))
+}
+
 func nativeDorchaQuantityText(value float64) string {
 	return strconv.FormatFloat(math.Floor(value*100)/100, 'f', -1, 64)
 }
@@ -63,7 +70,7 @@ func (runtime *nativeReminderRuntime) dorchaQuantityOverlay() *nativeBuffStackOv
 	return &nativeBuffStackOverlayItem{
 		SkillID: dorchaMasterySkillID, Name: name, QuantityText: quantity, QuantityUnit: "/ 15",
 		Persistent: true, StartedAtMs: runtime.dorcha.StartedAtMs, Generation: runtime.dorcha.Generation,
-		X: rule.X, Y: rule.Y, ScalePercent: 100,
+		X: rule.X, Y: rule.Y, ScalePercent: nativeDorchaScalePercent(rule.ScalePercent),
 	}
 }
 
