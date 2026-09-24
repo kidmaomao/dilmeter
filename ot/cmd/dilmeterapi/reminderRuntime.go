@@ -418,7 +418,7 @@ func (runtime *nativeReminderRuntime) loop() {
 
 func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	if runtime.healer != nil {
-		runtime.healer.onEvent(current)
+		runtime.healer.onEvent(current, runtime)
 	}
 	switch value := current.(type) {
 	case *event.EventLocalEntity:

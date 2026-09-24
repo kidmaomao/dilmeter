@@ -1,5 +1,6 @@
 export interface HealerSound { kind: string; soundId: string; name: string }
 export interface HealerBuffRule {
+	deathLoss: { enabled: boolean; sound: HealerSound; repeatCount: number; repeatIntervalSeconds: number };
  ccId: number; name: string; warningSeconds: number; overlayEnabled: boolean;
  flashEnabled: boolean; flashSeconds: number; durationMode: 'auto' | 'manual';
  manualDurationSeconds: number; sound: HealerSound; repeatCount: number; repeatIntervalSeconds: number;
@@ -16,7 +17,7 @@ export interface HealerSettings {
  text: { enabled: boolean; fontSize: number; x: number; y: number; width: number };
  opacityPercent: number; templates: HealerMemberTemplate[]; members: HealerMemberChoice[];
 }
-export interface HealerBuffState { state: string; remainingSeconds: number | null }
+export interface HealerBuffState { state: string; remainingSeconds: number | null; lossReason?: 'death' }
 export interface HealerMemberState {
  key: string; id: string; name: string; active: boolean; waitingReason?: string;
  healthState: string; healthPercent: number | null; buffs: Record<number, HealerBuffState>;
@@ -33,6 +34,7 @@ export const makeHealerRule = (ccId: number, name: string, warning = 10): Healer
  ccId, name, warningSeconds: warning, overlayEnabled: true, flashEnabled: true,
  flashSeconds: warning, durationMode: 'auto', manualDurationSeconds: 60, repeatCount: 1, repeatIntervalSeconds: 5,
  sound: makeHealerSound(ccId === 680 || ccId === 192 ? 'healer-music' : 'healer-buff'),
+ deathLoss: { enabled: true, sound: makeHealerSound('healer-death'), repeatCount: 1, repeatIntervalSeconds: 5 },
 });
 export const makeHealerMember = (member: Pick<HealerMemberState, 'id' | 'name'>, index: number): HealerMemberChoice => ({
  key: `player:${member.name}`, id: member.id, name: member.name, included: true, favorite: false, health: false,

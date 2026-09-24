@@ -4,12 +4,12 @@
 
 这是 DilmeterCN 的独立自定义服务器版本。程序允许用户填写 IPv4/CIDR 网段和一个或多个服务器端口，并使用独立配置目录，不影响 DilmeterCN。
 
-当前版本：**DilmeterOT v1.5.0**
+当前版本：**DilmeterOT v1.5.1**
 
 ## 直接使用
 
 1. 确认 Windows 已安装 [Npcap](https://npcap.com/#download)，安装时建议勾选 WinPcap API 兼容模式。
-2. 双击 `DilmeterOT-v1.5.0.exe`。不需要先启动洛奇。
+2. 双击 `DilmeterOT-v1.5.1.exe`。不需要先启动洛奇。
 3. 点击右上角服务器按钮，填写 IPv4/CIDR 网段与端口；设置会自动保存。
 4. 使用 UU 等加速器时，勾选右上角的“加速器兼容”。
 5. 程序显示“等待游戏”时可以保持开启；启动洛奇并进入服务器后，请在游戏内切换一次地图以触发捕捉。
@@ -62,7 +62,7 @@ Windows 10/11 通常已经自带 Microsoft Edge WebView2 Runtime。若程序提�
 
 ```text
 build.bat           构建前端并复制到 Go 内置资源目录
-build_backend.bat   生成无命令行窗口的 DilmeterOT-v1.5.0.exe
+build_backend.bat   生成无命令行窗口的 DilmeterOT-v1.5.1.exe
 package_release.bat 生成 UTF-8 ZIP 与在线更新清单
 npm run verify:battle-record  验证战斗记录保存与导入往返一致
 ```

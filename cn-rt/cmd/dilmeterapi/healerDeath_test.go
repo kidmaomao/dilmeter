@@ -36,7 +36,7 @@ func TestHealerDeathBuffRemovalKeepsReminderHistory(t *testing.T) {
 			healerTick(runtime, 101000)
 			healerTick(runtime, 102250)
 			state := runtime.healer.state
-			if len(*sounds) != 1 || (*sounds)[0].Kind != "healer-music" || state.Members[0].Active || state.Members[0].Overture.State != "missing" {
+			if len(*sounds) != 1 || (*sounds)[0].Kind != "healer-death" || state.Members[0].Active || state.Members[0].Overture.LossReason != "death" {
 				t.Fatalf("death/removal should warn once about music and suppress stale HP: sounds=%v member=%+v", *sounds, state.Members[0])
 			}
 			runtime.onEvent(&event.EventFinish{EventBase: event.EventBase{EventId: 6, Id: "ally", At: 103}})
@@ -136,7 +136,7 @@ func TestHealerDeathDoesNotInventBuffLossOrResetQuota(t *testing.T) {
 	if len(*sounds) != 0 || runtime.healer.state.Members[0].Overture.State != "active" || runtime.healer.state.Members[0].Vivace.State != "unknown" {
 		t.Fatal("death discarded known Buff state or invented a removal")
 	}
-	// A warning already played before death must remain part of the same episode.
+	// Normal expiry and early death loss have independent reminder quotas.
 	runtime.onEvent(healerHP("ally", 104, 800, 1000))
 	runtime.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{EventId: 4, Id: "ally", At: 104}, CCId: 680, DisableAt: 110})
 	healerTick(runtime, 104000)
@@ -145,8 +145,8 @@ func TestHealerDeathDoesNotInventBuffLossOrResetQuota(t *testing.T) {
 	runtime.onEvent(&event.EventFinish{EventBase: event.EventBase{EventId: 6, Id: "ally", At: 106}})
 	healerTick(runtime, 106000)
 	healerTick(runtime, 108000)
-	if len(*sounds) != 1 {
-		t.Fatal("death replenished the once-only quota")
+	if len(*sounds) != 2 || (*sounds)[0].Kind != "healer-music" || (*sounds)[1].Kind != "healer-death" {
+		t.Fatal("death loss did not use its separate voice and quota")
 	}
 }
 

@@ -95,6 +95,8 @@ func playBuffSoundOnChannel(kind string, volume int, bossChannel bool, customSou
 		filename = "healer-health-xiaoxiao.mp3"
 	case "healer-buff":
 		filename = "healer-buff-xiaoxiao.mp3"
+	case "healer-death":
+		filename = "healer-death-xiaoxiao.mp3"
 	case "skill-ready":
 		filename = "skill-ready-pop.mp3"
 	case "voice":
@@ -212,6 +214,9 @@ func playOpenedMCIAlias(isMPEG bool, kind string, alias string) error {
 			lengthMs = 1500
 			if kind == "voice" {
 				lengthMs = 3000
+			}
+			if kind == "healer-death" {
+				lengthMs = 4000
 			}
 		}
 		if err := mciCommandSender("play " + alias + " from 0"); err != nil {

@@ -1,6 +1,6 @@
 # DilmeterCN
 
-当前版本：**v1.5.0**。版本号会显示在软件顶部标题、Windows 窗口标题和 EXE 文件属性中。
+当前版本：**v1.5.1**。版本号会显示在软件顶部标题、Windows 窗口标题和 EXE 文件属性中。
 
 正式发布包含 **DilmeterCN**、**DilmeterRT** 与 **DilmeterOT**；OT 源码与打包脚本位于仓库相邻的 `ot` 目录。
 
@@ -9,7 +9,7 @@
 ## 直接使用
 
 1. 确认 Windows 已安装 [Npcap](https://npcap.com/#download)，安装时建议勾选 WinPcap API 兼容模式。
-2. 双击 `DilmeterCN-v1.5.0.exe`。不需要先启动洛奇。
+2. 双击 `DilmeterCN-v1.5.1.exe`。不需要先启动洛奇。
 3. 在窗口顶部选择 **CN服伊鲁夏** 或 **CN服亚特**；选择会自动保存。
 4. 程序显示“等待游戏”时可以保持开启；启动洛奇并进入服务器后，请在游戏内切换一次地图以触发捕捉。
 5. 战斗产生伤害后，在报告中选择首领与角色。
@@ -69,7 +69,7 @@ Windows 10/11 通常已经自带 Microsoft Edge WebView2 Runtime。若程序提�
 
 ```text
 build.bat           构建前端并复制到 Go 内置资源目录
-build_backend.bat   生成无命令行窗口的 DilmeterCN-v1.5.0.exe
+build_backend.bat   生成无命令行窗口的 DilmeterCN-v1.5.1.exe
 package_release.bat 使用 Windows 自带 tar 将 EXE 打包为 ZIP
 npm run verify:battle-record  验证战斗记录保存与导入往返一致
 ```

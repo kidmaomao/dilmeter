@@ -16,6 +16,13 @@
         <label title="同一轮即将结束／已结束共用次数，包含首次">提醒次数<input v-model.number="rule.repeatCount" :aria-label="`${rule.name}提醒次数`" type="number" min="1" max="10" :disabled="disabled || soundDisabled || rule.sound.kind === 'none'" @input="emit('change')" /></label>
         <label title="最短间隔；多条声音同时触发时会排开播放">间隔（秒）<input v-model.number="rule.repeatIntervalSeconds" :aria-label="`${rule.name}提醒间隔秒数`" type="number" min="2" max="300" :disabled="disabled || soundDisabled || rule.sound.kind === 'none' || rule.repeatCount <= 1" @input="emit('change')" /></label>
         <button v-if="!builtin" type="button" class="healer-rule-remove" :aria-label="`删除Buff ${rule.name}`" @click="emit('remove')"><v-icon icon="mdi-trash-can-outline" size="13" />删除</button>
+        <div class="healer-death-settings">
+            <label><input v-model="rule.deathLoss.enabled" type="checkbox" :aria-label="`${rule.name}死亡丢失提醒`" @change="emit('change')" />死亡丢失提醒</label>
+            <HealerSoundPicker v-model="rule.deathLoss.sound" :label="`${rule.name}死亡丢失`" :volume="volume" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled" @update:model-value="emit('change')" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" />
+            <label>提醒次数<input v-model.number="rule.deathLoss.repeatCount" :aria-label="`${rule.name}死亡丢失提醒次数`" type="number" min="1" max="10" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled || rule.deathLoss.sound.kind === 'none'" @input="emit('change')" /></label>
+            <label>间隔（秒）<input v-model.number="rule.deathLoss.repeatIntervalSeconds" :aria-label="`${rule.name}死亡丢失提醒间隔秒数`" type="number" min="2" max="300" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled || rule.deathLoss.sound.kind === 'none' || rule.deathLoss.repeatCount <= 1" @input="emit('change')" /></label>
+            <small>与正常到期独立计数；关闭后不播放死亡丢失声音，悬浮图标仍显示缺失。</small>
+        </div>
         <span class="healer-rule-status">{{ status }}</span>
     </div>
 </template>
@@ -39,5 +46,7 @@ input[type=number] { width: 48px; }
 input, select, button { padding: 3px 5px; border: 1px solid var(--ui-theme-border); background: var(--ui-theme-control); color: var(--ui-theme-text); font-size: 11px; }
 .healer-rule-name { padding: 0; border: 0; background: transparent; width: 115px; font-weight: 600; }
 .healer-rule-remove { border-color: #a34a42; }
+.healer-death-settings { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; border-top: 1px solid var(--ui-theme-border); padding-top: 8px; }
+.healer-death-settings small { flex-basis: 100%; color: var(--ui-theme-muted); font-size: 10px; }
 .healer-rule-status { flex: 1 0 100%; padding: 3px 6px; border-left: 2px solid #b2c091; background: var(--ui-theme-control); color: var(--ui-theme-muted); font-size: 10px; }
 </style>

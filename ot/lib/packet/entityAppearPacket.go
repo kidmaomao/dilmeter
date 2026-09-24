@@ -629,25 +629,27 @@ func ParseEntitiesAppearPacket(p *GamePacket) ([]*EntityInfo, error) {
 
 	for i := range count {
 		if len(msg) < 3 {
-			break
+			return entities, fmt.Errorf("truncated entity batch entry %d", i)
 		}
+		// Every entry occupies three fields, including props/items. Advance
+		// before skipping one so characters later in the batch are still read.
+		entry := msg[:3]
+		msg = msg[3:]
 
-		if msg[0].Type() != MessageElemTypeShort ||
-			msg[1].Type() != MessageElemTypeInt ||
-			msg[2].Type() != MessageElemTypeBin {
+		if entry[0].Type() != MessageElemTypeShort ||
+			entry[1].Type() != MessageElemTypeInt ||
+			entry[2].Type() != MessageElemTypeBin {
 
 			logger.Println("invalid packet", i)
 			continue
 		}
 
-		t, b := msg[0].Data().(uint16), msg[2].Data().([]byte)
+		t, b := entry[0].Data().(uint16), entry[2].Data().([]byte)
 		if t != 16 {
 			// 캐릭터가 아님
 			// logger.Println("invalid packet", i, t)
 			continue
 		}
-
-		msg = msg[3:]
 
 		_, _, subMsg, err := GamePacketBodyReader(bytes.NewReader(b))
 		if err != nil {

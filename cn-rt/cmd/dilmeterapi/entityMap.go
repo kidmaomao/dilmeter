@@ -20,6 +20,14 @@ type entityInfoExtend struct {
 
 func (t entityCache) add(p *packet.EntityInfo, at time.Time) {
 	if e, ok := t[p.Id]; ok {
+		e.Lock()
+		defer e.Unlock()
+		// Consumers discard live Buffs on departure. The next appearance must
+		// publish its complete snapshot even if the expiry is unchanged. Also
+		// discard conditions removed while the character was out of view.
+		if e.disappearAt != 0 {
+			clear(e.characterConditionMap)
+		}
 		e.EntityInfo = p
 		e.appearAt = at.Unix()
 		e.disappearAt = 0

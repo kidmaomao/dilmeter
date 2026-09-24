@@ -14,6 +14,7 @@ try {
  source.buffSettings.rules.push(makeHealerRule(680, '战争序曲', 25));
  source.buffSettings.rules[0].repeatCount = 4; source.buffSettings.rules[0].repeatIntervalSeconds = 12;
  source.buffSettings.rules[0].sound = { kind: 'custom', soundId: 'existing-audio', name: '自定义音乐.mp3' };
+ source.buffSettings.rules[0].deathLoss = { enabled: false, sound: {kind: 'custom', soundId: 'death-audio', name: '死亡.mp3'}, repeatCount: 3, repeatIntervalSeconds: 9 };
  const template = healerTemplateFromMember(source, 'template-1', '队友1');
  assert.deepEqual(Object.keys(template).sort(), ['id', 'name', 'health', 'healthSettings', 'buffSettings'].sort(), 'templates contain no character identity/favorite fields');
  source.healthSettings.threshold = 80;
@@ -26,6 +27,10 @@ try {
  assert.equal(second.buffSettings.rules[0].sound.soundId, 'existing-audio');
  assert.equal(second.healthSettings.repeatCount, 3); assert.equal(second.healthSettings.repeatIntervalSeconds, 7);
  assert.equal(second.buffSettings.rules[0].repeatCount, 4); assert.equal(second.buffSettings.rules[0].repeatIntervalSeconds, 12);
+ assert.equal(second.buffSettings.rules[0].deathLoss.enabled, false); assert.equal(second.buffSettings.rules[0].deathLoss.sound.soundId, 'death-audio');
+ assert.equal(second.buffSettings.rules[0].deathLoss.repeatCount, 3); assert.equal(second.buffSettings.rules[0].deathLoss.repeatIntervalSeconds, 9);
+ second.buffSettings.rules[0].deathLoss.sound.soundId = 'another-death-audio';
+ assert.equal(template.buffSettings.rules[0].deathLoss.sound.soundId, 'death-audio');
  second.buffSettings.rules[0].warningSeconds = 4;
  second.buffSettings.rules[0].sound.name = 'changed';
  assert.equal(template.buffSettings.rules[0].warningSeconds, 25);

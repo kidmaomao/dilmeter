@@ -7,6 +7,7 @@
                 <option value="healer-health">晓晓：队友血量过低</option>
                 <option value="healer-music">晓晓：队友音乐时间到了</option>
                 <option value="healer-buff">晓晓：队友增益即将结束</option>
+                <option value="healer-death">晓晓：队友死亡，增益消失</option>
                 <option value="voice">晓晓：音乐要结束了</option>
                 <option value="skill-ready">轻快提示音</option>
                 <option value="custom">自定义音效</option>

@@ -124,6 +124,9 @@ func TestLiveBattleBrowserHarness(t *testing.T) {
 			mu.Lock()
 			at := time.Now().Unix()
 			switch r.URL.Query().Get("scenario") {
+			case "death":
+				reminders.onEvent(&event.EventFinish{EventBase: event.EventBase{Id: "ally", At: at}})
+				reminders.onEvent(&event.EventCharacterConditionDisable{EventBase: event.EventBase{Id: "ally", At: at}, CCId: 680})
 			case "low", "recover":
 				health, duration := 250.0, int64(8)
 				if r.URL.Query().Get("scenario") == "recover" {
@@ -140,7 +143,7 @@ func TestLiveBattleBrowserHarness(t *testing.T) {
 				reminders.onEvent(&event.EventLocalEntity{EventBase: event.EventBase{EventId: 11, Id: "player", At: at}, Reset: true})
 			}
 			reminders.healer.evaluate(reminders, time.Now(), true)
-			data = map[string]any{"sounds": len(*sounds)}
+			data = map[string]any{"sounds": len(*sounds), "requests": *sounds}
 			mu.Unlock()
 		case "/api/reminder_runtime/settings":
 			mu.Lock()

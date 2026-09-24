@@ -26,6 +26,17 @@ func TestEmbeddedSkillReadySound(t *testing.T) {
 	}
 }
 
+func TestEmbeddedHealerDeathXiaoxiaoSound(t *testing.T) {
+	data, err := staticFiles.ReadFile(filepath.ToSlash(filepath.Join(embeddedStaticDir, "audio", "healer-death-xiaoxiao.mp3")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const expected = "b98bb5e2d1f35616471fc9c96d6cb059cd25a83c77a7e3a63e387a4cb569ea58"
+	if fmt.Sprintf("%x", sha256.Sum256(data)) != expected {
+		t.Fatal("death voice is absent or differs from the verified Xiaoxiao recording")
+	}
+}
+
 func TestHandleBuffSoundAcceptsStoredCustomAudio(t *testing.T) {
 	dir := t.TempDir()
 	previousDir := customAudioDir

@@ -10,7 +10,7 @@ Dilmeter 是面向《洛奇》的 Windows 桌面伤害统计与战斗提醒工�
 
 CN 与 RT 固定使用随程序提供的 CN 名称和图标数据，可离线启动。OT 默认同样携带 CN 数据，并保留外置资源包覆盖能力。
 
-当前版本为 **1.5.0**，更新文案见 [1.5.0 更新公告](docs/release-notes/v1.5.0.md)。CN、RT、OT 本地包输出到 `artifacts/release-v1.5.0`，公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
+当前版本为 **1.5.1**，更新文案见 [1.5.1 更新公告](docs/release-notes/v1.5.1.md)。CN、RT、OT 本地包输出到 `artifacts/release-v1.5.1`，公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
 
 ## 仓库结构
 

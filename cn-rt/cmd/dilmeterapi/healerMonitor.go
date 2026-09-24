@@ -63,17 +63,25 @@ type healerMemberBuffSettings struct {
 }
 
 type healerBuffRule struct {
-	RepeatCount           int          `json:"repeatCount"`
-	RepeatIntervalSeconds int          `json:"repeatIntervalSeconds"`
-	CCID                  uint32       `json:"ccId"`
-	Name                  string       `json:"name"`
-	WarningSeconds        int          `json:"warningSeconds"`
-	OverlayEnabled        *bool        `json:"overlayEnabled,omitempty"`
-	FlashEnabled          *bool        `json:"flashEnabled,omitempty"`
-	FlashSeconds          *int         `json:"flashSeconds,omitempty"`
-	DurationMode          string       `json:"durationMode"`
-	ManualDurationSeconds int          `json:"manualDurationSeconds"`
-	Sound                 *healerSound `json:"sound,omitempty"`
+	DeathLoss             *healerDeathLossSettings `json:"deathLoss,omitempty"`
+	RepeatCount           int                      `json:"repeatCount"`
+	RepeatIntervalSeconds int                      `json:"repeatIntervalSeconds"`
+	CCID                  uint32                   `json:"ccId"`
+	Name                  string                   `json:"name"`
+	WarningSeconds        int                      `json:"warningSeconds"`
+	OverlayEnabled        *bool                    `json:"overlayEnabled,omitempty"`
+	FlashEnabled          *bool                    `json:"flashEnabled,omitempty"`
+	FlashSeconds          *int                     `json:"flashSeconds,omitempty"`
+	DurationMode          string                   `json:"durationMode"`
+	ManualDurationSeconds int                      `json:"manualDurationSeconds"`
+	Sound                 *healerSound             `json:"sound,omitempty"`
+}
+
+type healerDeathLossSettings struct {
+	Enabled               bool        `json:"enabled"`
+	Sound                 healerSound `json:"sound"`
+	RepeatCount           int         `json:"repeatCount"`
+	RepeatIntervalSeconds int         `json:"repeatIntervalSeconds"`
 }
 
 type healerTextSettings struct {
@@ -114,6 +122,7 @@ type healerSettings struct {
 }
 
 type healerBuffState struct {
+	LossReason       string `json:"lossReason,omitempty"`
 	State            string `json:"state"`
 	RemainingSeconds *int64 `json:"remainingSeconds"`
 }
@@ -172,10 +181,18 @@ type healerMonitorState struct {
 }
 
 type healerObservation struct {
+	lastDeathMs  int64
+	removals     map[uint32]healerBuffRemoval
 	healthAtMs   int64
 	maximumKnown bool
 	visible      bool
 	buffs        map[uint32]bool
+}
+
+type healerBuffRemoval struct {
+	atMs      int64
+	condition nativeReminderCondition
+	death     bool
 }
 
 type healerAlertLatch struct {
@@ -213,7 +230,7 @@ func normalizeHealerSound(sound healerSound, fallback string) healerSound {
 		sound.Kind = "healer-health"
 	}
 	switch sound.Kind {
-	case "none", "electronic", "voice", "skill-ready", "healer-health", "healer-music", "healer-buff", "custom":
+	case "none", "electronic", "voice", "skill-ready", "healer-health", "healer-music", "healer-buff", "healer-death", "custom":
 	default:
 		sound.Kind = fallback
 	}
@@ -237,6 +254,14 @@ func normalizeHealerText(s healerTextSettings) healerTextSettings {
 }
 
 func normalizeHealerBuffRule(rule healerBuffRule, fallback healerSound) healerBuffRule {
+	death := healerDeathLossSettings{Enabled: true, Sound: healerSound{Kind: "healer-death"}, RepeatCount: 1, RepeatIntervalSeconds: 5}
+	if rule.DeathLoss != nil {
+		death = *rule.DeathLoss
+	}
+	death.Sound = normalizeHealerSound(death.Sound, "healer-death")
+	death.RepeatCount = clampNativeReminderInt(death.RepeatCount, 1, 10, 1)
+	death.RepeatIntervalSeconds = clampNativeReminderInt(death.RepeatIntervalSeconds, 2, 300, 5)
+	rule.DeathLoss = &death
 	if rule.OverlayEnabled == nil {
 		value := true
 		rule.OverlayEnabled = &value
@@ -355,12 +380,12 @@ func newHealerMonitor(path string) *healerMonitor {
 
 func (h *healerMonitor) observation(id string) *healerObservation {
 	if h.observed[id] == nil {
-		h.observed[id] = &healerObservation{buffs: map[uint32]bool{}}
+		h.observed[id] = &healerObservation{buffs: map[uint32]bool{}, removals: map[uint32]healerBuffRemoval{}}
 	}
 	return h.observed[id]
 }
 
-func (h *healerMonitor) onEvent(current event.IEvent) {
+func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRuntime) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if base, ok := current.(interface{ GetEventBase() *event.EventBase }); ok {
@@ -389,6 +414,14 @@ func (h *healerMonitor) onEvent(current event.IEvent) {
 		// Fresh HP must still confirm revival before health alerts resume.
 		if observed := h.observed[v.Id]; observed != nil {
 			observed.healthAtMs = 0
+			observed.lastDeathMs = v.At * 1000
+			// The server may remove Buffs just before announcing death.
+			for ccID, removal := range observed.removals {
+				if removal.atMs <= observed.lastDeathMs && observed.lastDeathMs-removal.atMs <= 3000 {
+					removal.death = true
+					observed.removals[ccID] = removal
+				}
+			}
 		}
 		delete(h.alerts, v.Id+":health")
 	case *event.EventStatUpdate:
@@ -405,8 +438,20 @@ func (h *healerMonitor) onEvent(current event.IEvent) {
 		}
 	case *event.EventCharacterConditionEnable:
 		h.observation(v.Id).buffs[v.CCId] = true
+		delete(h.observation(v.Id).removals, v.CCId)
 	case *event.EventCharacterConditionDisable:
-		h.observation(v.Id).buffs[v.CCId] = true
+		observed := h.observation(v.Id)
+		observed.buffs[v.CCId] = true
+		if entity := runtime.entities[v.Id]; entity != nil {
+			if condition, exists := entity.Conditions[v.CCId]; exists {
+				// Match the runtime's stale-removal guard after a real refresh.
+				if refreshAt, guarded := entity.RefreshGuard[v.CCId]; guarded && refreshAt == condition.At && v.At >= refreshAt && v.At-refreshAt <= 1 {
+					break
+				}
+				atMs := v.At * 1000
+				observed.removals[v.CCId] = healerBuffRemoval{atMs: atMs, condition: condition, death: observed.lastDeathMs > 0 && atMs >= observed.lastDeathMs && atMs-observed.lastDeathMs <= 3000}
+			}
+		}
 	}
 }
 
@@ -419,6 +464,14 @@ func healerBuff(entity *nativeReminderEntity, observed *healerObservation, rule 
 	condition, ok := entity.Conditions[ccID]
 	if !ok {
 		state.State = "missing"
+		if removal, exists := observed.removals[ccID]; exists && removal.death {
+			// Use the server's lifetime, not a user-supplied countdown. Events
+			// have second precision, so expiry in the same second is not early loss.
+			expires := nativeBuffExpiresAtMs(removal.condition, nativeBuffRule{DurationMode: "auto"}, 0)
+			if expires == 0 || expires > removal.atMs+1000 {
+				state.LossReason = "death"
+			}
+		}
 		return state
 	}
 	expires := nativeBuffExpiresAtMs(condition, nativeBuffRule{DurationMode: rule.DurationMode, ManualDurationSeconds: rule.ManualDurationSeconds}, 0)
@@ -571,6 +624,7 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 			if buffSettings.Enabled {
 				for _, rule := range rules {
 					activeAlerts[healerBuffAlertKey(id, rule.CCID)] = true
+					activeAlerts[healerBuffAlertKey(id, rule.CCID)+":death"] = true
 				}
 			}
 			continue
@@ -599,6 +653,13 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 			}
 			if buff.State == "unknown" {
 				activeAlerts[key] = true
+				activeAlerts[key+":death"] = true
+				// Keep configured slots visible as soon as the teammate appears.
+				// Only the card uses the expired style: unknown observations must
+				// not create sound alerts or consume a reminder episode.
+				if buffSettings.Overlay.Enabled && *rule.OverlayEnabled {
+					state.Cards = append(state.Cards, healerCard{Key: key, MemberKey: choice.Key, Name: member.Name, Title: rule.Name, Value: "补充", CCID: rule.CCID, Category: category, State: "missing", Flash: *rule.FlashEnabled, X: buffSettings.Overlay.X, Y: buffSettings.Overlay.Y})
+				}
 				continue
 			}
 			soundDue := buff.State == "missing" || buff.RemainingSeconds != nil && *buff.RemainingSeconds <= int64(rule.WarningSeconds)
@@ -611,19 +672,40 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 				value = "补充"
 			}
 			matured := true
+			deathLoss := buff.LossReason == "death"
+			// Briefly wait for a following death packet before choosing the
+			// normal removal voice. The icon can still update immediately.
+			if removal, exists := observation.removals[rule.CCID]; !deathLoss && buff.State == "missing" && exists && nowMs-removal.atMs <= 3000 {
+				soundDue = false
+			}
+			if deathLoss {
+				activeAlerts[key] = true // Preserve the normal episode's independent quota.
+				key += ":death"
+				value = "死亡丢失"
+			}
 			if soundDue || visualDue {
 				message := rule.Name + "即将结束"
 				if buff.State == "missing" {
 					message = rule.Name + "已结束，需要补充"
 				}
 				sound := *rule.Sound
+				repeatCount, repeatInterval := rule.RepeatCount, rule.RepeatIntervalSeconds
+				cycleAt := entity.Conditions[rule.CCID].At
+				if deathLoss {
+					message = rule.Name + "因死亡消失，需要补充"
+					sound = rule.DeathLoss.Sound
+					if !rule.DeathLoss.Enabled {
+						sound = healerSound{Kind: "none"}
+					}
+					repeatCount, repeatInterval = rule.DeathLoss.RepeatCount, rule.DeathLoss.RepeatIntervalSeconds
+					cycleAt = observation.removals[rule.CCID].atMs
+				}
 				if !buffSettings.SoundEnabled {
 					sound = healerSound{Kind: "none"}
 				}
-				cycleAt := entity.Conditions[rule.CCID].At
-				matured = addAlert(healerAlert{Key: key, Name: member.Name, Message: message, Category: category, CCID: rule.CCID, Title: rule.Name, Value: value, Overlay: buffSettings.Overlay.Enabled && *rule.OverlayEnabled, Flash: *rule.FlashEnabled && visualDue, sound: sound, soundDue: soundDue, repeatCount: rule.RepeatCount, repeatIntervalSeconds: rule.RepeatIntervalSeconds, cycleAt: cycleAt}, 1200)
+				matured = addAlert(healerAlert{Key: key, Name: member.Name, Message: message, Category: category, CCID: rule.CCID, Title: rule.Name, Value: value, Overlay: buffSettings.Overlay.Enabled && *rule.OverlayEnabled, Flash: *rule.FlashEnabled && visualDue, sound: sound, soundDue: soundDue, repeatCount: repeatCount, repeatIntervalSeconds: repeatInterval, cycleAt: cycleAt}, 1200)
 			}
-			if buffSettings.Overlay.Enabled && *rule.OverlayEnabled && (buff.State != "missing" || matured) {
+			if buffSettings.Overlay.Enabled && *rule.OverlayEnabled {
 				state.Cards = append(state.Cards, healerCard{Key: key, MemberKey: choice.Key, Name: member.Name, Title: rule.Name, Value: value, CCID: rule.CCID, Category: category, State: buff.State, Flash: *rule.FlashEnabled && visualDue && matured, X: buffSettings.Overlay.X, Y: buffSettings.Overlay.Y})
 			}
 		}
@@ -712,12 +794,14 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 			sounds = append(sounds, member.HealthSettings.Sound)
 			for _, rule := range member.BuffSettings.Rules {
 				sounds = append(sounds, *rule.Sound)
+				sounds = append(sounds, rule.DeathLoss.Sound)
 			}
 		}
 		for _, template := range settings.Templates {
 			sounds = append(sounds, template.HealthSettings.Sound)
 			for _, rule := range template.BuffSettings.Rules {
 				sounds = append(sounds, *rule.Sound)
+				sounds = append(sounds, rule.DeathLoss.Sound)
 			}
 		}
 		for _, sound := range sounds {

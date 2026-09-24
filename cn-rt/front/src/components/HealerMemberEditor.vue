@@ -55,7 +55,7 @@ const healthOpen = ref(!!props.templateMode), buffOpen = ref(!!props.templateMod
 const changed = () => emit('change');
 const status = computed(() => props.templateMode ? '通用设置 · 可套用于任何队友' : props.live?.active ? '已识别 · 当前可见' : props.live?.waitingReason || '等待识别 · 请让队友切换一次地图');
 const healthLabel = computed(() => props.live?.healthPercent != null ? `${Math.round(props.live.healthPercent)}%` : props.live?.healthState === 'stale' ? '等待血量更新' : '等待血量数据');
-function buffLabel(id: number) { const value = props.live?.buffs[id]; if (!value || value.state === 'unknown') return '未观测 · 不触发提醒'; if (value.state === 'missing') return '已结束 · 需要补充'; return value.remainingSeconds == null ? '生效中' : `${value.remainingSeconds} 秒${value.state === 'expiring' ? ' · 即将结束' : ''}`; }
+function buffLabel(id: number) { const value = props.live?.buffs[id]; if (!value || value.state === 'unknown') return '未观测 · 不触发声音提醒'; if (value.state === 'missing') return value.lossReason === 'death' ? '因死亡消失 · 需要补充' : '已结束 · 需要补充'; return value.remainingSeconds == null ? '生效中' : `${value.remainingSeconds} 秒${value.state === 'expiring' ? ' · 即将结束' : ''}`; }
 function addRule(rule: HealerBuffRule) { if (!props.member.buffSettings.rules.some(value => value.ccId === rule.ccId) && props.member.buffSettings.rules.length < 16) { props.member.buffSettings.rules.push(rule); changed(); } }
 function removeRule(id: number) { props.member.buffSettings.rules = props.member.buffSettings.rules.filter(rule => rule.ccId !== id); changed(); }
 const card = (key: string, title: string, value: string, ccId = 0): HealerCard => ({ key, title, value, ccId, memberKey: props.member.key, name: props.member.name, category: key === 'health' ? 'health' : 'buff', state: 'active', flash: false, x: 0, y: 0 });

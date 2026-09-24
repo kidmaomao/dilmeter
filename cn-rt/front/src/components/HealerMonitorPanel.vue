@@ -38,7 +38,7 @@
      </fieldset>
      <div v-if="!draft.members.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>先添加需要关注的队友</strong><span>然后分别设置血量和 Buff 提醒。</span></div>
     </section>
-    <p class="healer-footnote">常用状态更改后自动保存；其他修改请点击顶部闪烁的「保存设定」。保存成功后停止闪烁，保存失败会保留修改并提示重试。血量超过 30 秒未更新会暂停提醒；未观测的 Buff 不会触发缺失提示。声音不依赖此窗口保持打开。</p>
+    <p class="healer-footnote">常用状态更改后自动保存；其他修改请点击顶部闪烁的「保存设定」。保存成功后停止闪烁，保存失败会保留修改并提示重试。血量超过 30 秒未更新会暂停提醒；已识别队友的已配置 Buff 窗立即显示，未观测的 Buff 按失效样式显示“补充”，不触发声音提醒。声音不依赖此窗口保持打开。</p>
    </v-card-text>
   </v-card>
  </v-dialog>
@@ -151,11 +151,11 @@ function validSettings(extra: HealerMemberChoice[] = []): boolean {
  for (const member of choices) {
   numbers.push([member.healthSettings.threshold, 5, 95], [member.healthSettings.repeatCount, 1, 10], [member.healthSettings.repeatIntervalSeconds, 2, 300]);
   for (const position of [member.healthSettings.overlay, member.buffSettings.overlay]) numbers.push([position.x, -32000, 32000], [position.y, -32000, 32000]);
-  for (const rule of member.buffSettings.rules) numbers.push([rule.warningSeconds, 0, 60], [rule.flashSeconds, 0, 60], [rule.manualDurationSeconds, 1, 86400], [rule.repeatCount, 1, 10], [rule.repeatIntervalSeconds, 2, 300]);
+  for (const rule of member.buffSettings.rules) numbers.push([rule.warningSeconds, 0, 60], [rule.flashSeconds, 0, 60], [rule.manualDurationSeconds, 1, 86400], [rule.repeatCount, 1, 10], [rule.repeatIntervalSeconds, 2, 300], [rule.deathLoss.repeatCount, 1, 10], [rule.deathLoss.repeatIntervalSeconds, 2, 300]);
  }
  if (!numbers.every(([value, min, max]) => Number.isInteger(value) && value >= min && value <= max)) { error.value = '请填写有效数值：图标 16–80、字号 12–72、透明度 20–100%、血量 5–95%、提前时间 0–60 秒、提醒次数 1–10 次、间隔 2–300 秒。'; return false; }
  for (const member of choices) {
-  const sounds = [member.healthSettings.sound, ...member.buffSettings.rules.map(rule => rule.sound)];
+  const sounds = [member.healthSettings.sound, ...member.buffSettings.rules.flatMap(rule => [rule.sound, rule.deathLoss.sound])];
   if (sounds.some(sound => sound.kind === 'custom' && !sound.soundId)) { error.value = `${member.name} 的自定义音效尚未选择文件。`; return false; }
  }
  return true;

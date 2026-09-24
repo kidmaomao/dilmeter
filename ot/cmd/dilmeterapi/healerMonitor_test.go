@@ -114,12 +114,16 @@ func TestHealerRecipientSongsExpiryAndRefresh(t *testing.T) {
 	runtime.onEvent(&event.EventCharacterConditionDisable{EventBase: event.EventBase{EventId: 5, Id: "ally", At: 114}, CCId: 680})
 	healerTick(runtime, 114_000)
 	healerTick(runtime, 115_200)
+	if len(*sounds) != 1 {
+		t.Fatal("early removal must wait briefly for a following death packet")
+	}
+	healerTick(runtime, 117_500)
 	if len(*sounds) != 2 || runtime.healer.state.Members[0].Overture.State != "missing" {
 		t.Fatal("confirmed removal did not warn")
 	}
-	enable("ally", 192, 116, 117)
-	healerTick(runtime, 116_000)
+	enable("ally", 192, 118, 119)
 	healerTick(runtime, 118_000)
+	healerTick(runtime, 120_000)
 	if runtime.healer.state.Members[0].Vivace.State != "missing" {
 		t.Fatal("expired Buff stayed active without a removal packet")
 	}
@@ -251,12 +255,13 @@ func TestHealerCustomBuffAndIndependentSoundCategories(t *testing.T) {
 	runtime.onEvent(&event.EventCharacterConditionDisable{EventBase: event.EventBase{EventId: 5, Id: "ally", At: 110}, CCId: 681})
 	healerTick(runtime, 110_000)
 	healerTick(runtime, 111_500)
+	healerTick(runtime, 113_500)
 	if len(*sounds) != 4 {
 		t.Fatal("custom Buff did not rearm after renewal")
 	}
 	// Removing a member clears all of their live warnings, including text.
 	h.settings.Members = nil
-	healerTick(runtime, 112_000)
+	healerTick(runtime, 114_000)
 	if len(h.state.Alerts) != 0 {
 		t.Fatal("removed member still warned")
 	}
@@ -265,6 +270,7 @@ func TestHealerCustomBuffAndIndependentSoundCategories(t *testing.T) {
 func TestHealerTextIndependentOfSoundAndPreview(t *testing.T) {
 	runtime, sounds := healerFixture(t)
 	h := runtime.healer
+	h.settings.Members[0].Overture, h.settings.Members[0].Vivace = false, false
 	h.settings.SoundEnabled = false
 	h.settings.Text = healerTextSettings{Enabled: true, FontSize: 36, X: -500, Y: 220, Width: 480}
 	runtime.onEvent(healerHP("ally", 100, 200, 1000))
@@ -306,6 +312,7 @@ func TestHealerNewPreferencesNormalization(t *testing.T) {
 func TestHealerRuleManualDurationFlashAndSoundAreIndependent(t *testing.T) {
 	runtime, sounds := healerFixture(t)
 	h := runtime.healer
+	h.settings.Members[0].Overture, h.settings.Members[0].Vivace = false, false
 	flashAt := 25
 	rule := normalizeHealerBuffRule(healerBuffRule{CCID: 681, Name: "忍耐之歌", DurationMode: "manual", ManualDurationSeconds: 30, WarningSeconds: 5, FlashSeconds: &flashAt}, healerSound{Kind: "healer-buff"})
 	h.settings.Buffs = []healerBuffRule{rule}
