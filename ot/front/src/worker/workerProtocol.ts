@@ -71,6 +71,7 @@ export type SnapshotEntity = {
     conditionHistory: SnapshotConditionState[];
     equipItemMap: Record<number, SnapshotItem>;
     statMap: Record<number, number>;
+    vitalHistory?: import("../battleChartHistory").BattleVitalPoint[];
     appearedAt?: number;
     groupKey: string;
 };
@@ -85,6 +86,7 @@ export type SnapshotGroup = {
 };
 
 export type WorkerSnapshot = {
+    skillEnergy?: Record<string, Record<number, import("../protocols").eventSkillEnergy>>;
     localEntityId?: string;
     localEntityReliable?: boolean;
     selectedTargetId?: string;

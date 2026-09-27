@@ -18,6 +18,7 @@ const (
 	EventIdSkillState    EventId = 18
 	EventIdCombatTarget  EventId = 19
 	EventIdSkillCooldown EventId = 20
+	EventIdSkillEnergy   EventId = 21
 )
 
 const (
@@ -200,4 +201,12 @@ type EventSkillCooldown struct {
 type EventMessageBox struct {
 	EventBase
 	Message string
+}
+
+// EventSkillEnergy carries the authoritative Dark Diviner property gauge.
+type EventSkillEnergy struct {
+	EventBase
+	SkillId uint16
+	Percent float64
+	Active  bool
 }

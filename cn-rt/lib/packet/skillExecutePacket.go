@@ -28,6 +28,11 @@ func ParseSkillExecutePacket(msg Message) (*SkillExecutePacket, error) {
 	case MessageElemTypeInt:
 		result.ActionId = msg[1].Data().(uint32)
 	case MessageElemTypeLong:
+		// 59047 sends the selected target entity here. Repeated casts at the
+		// same boss must not share a deduplication token.
+		if result.SkillId == 59047 {
+			return result, nil
+		}
 		token := msg[1].Data().(uint64)
 		result.ActionId = uint32(token) ^ uint32(token>>32)
 	}

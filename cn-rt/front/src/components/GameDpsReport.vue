@@ -1132,7 +1132,7 @@
                                     <input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
                                     <span>点时弹框</span>
                                 </label>
-                                <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID">
+                                <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">
                                     提示进度
                                     <input
                                         v-model.number="rule.progressThresholdPercent"
@@ -1144,6 +1144,9 @@
                                     />
                                     <span>%</span>
                                 </label>
+                                <label v-if="rule.skillId === 59047">技能 CD（秒）
+                                    <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
+                                </label>
                                 <div
                                     v-else-if="isCumulativeCooldownSkill(rule.skillId)"
                                     class="skill-cooldown-cumulative-fields"
@@ -1153,11 +1156,11 @@
                                     <label>累计 CD <input v-model.number="rule.cumulativeCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
                                     <label>技能 CD <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
                                 </div>
-                                <label v-else>
+                                <label v-else-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)">
                                     技能 CD（秒）
                                     <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
                                 </label>
-                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID" title="宠物技能不会被托亚灵满充刷新">
+                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)" title="宠物技能不会被托亚灵满充刷新">
                                     技能归属
                                     <select v-model="rule.ownerMode" @change="markSkillCooldownSettingsDirty">
                                         <option value="auto">自动识别</option>
@@ -1203,7 +1206,7 @@
                                 >试听</button>
                                 <label :title="rule.skillId === DORCHA_MASTERY_SKILL_ID ? '始终显示当前多尔卡数量；未勾选时仅在数量不足时显示' : '勾选后，冷却期间灰色显示并显示倒计时；完成后恢复彩色'">
                                     <input v-model="rule.alwaysVisible" type="checkbox" @change="markSkillCooldownSettingsDirty" />
-                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : rule.skillId === TOAH_SPIRIT_SKILL_ID ? "能量槽一直显示" : "技能图标一直显示" }}
+                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : (rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)) ? "能量槽一直显示" : "技能图标一直显示" }}
                                 </label>
                                 <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">预览位置与动画</button>
                                 <button type="button" class="buff-alert-remove" @click="removeSkillCooldownRule(rule.skillId)">
@@ -1294,13 +1297,21 @@
                 <TeamCumulativeChart
                     v-if="teamChartView !== 'skills' && reportSession && teamChartPlayers.length"
                     :mode="teamChartView"
+                    :health="selectedBoss?.vitalHistory ?? []"
+                    :invulnerable="invulnerableIntervals(selectedBoss?.conditionHistory ?? [], reportSession.endAt)"
                     :players="teamChartPlayers"
+                    :actions="actorManager.skillActions"
+                    :actors="teamPeakActors"
+                    :focus-player-id="selectedPlayerId"
+                    :skill-name="skillDisplayName"
+                    :condition-name="conditionDisplayName"
                     :start-at="reportSession.startAt"
                     :end-at="reportSession.endAt"
                 />
                 <TeamSkillTimeline
                     v-else-if="teamChartView === 'skills' && reportSession && teamSkillTimelinePlayers.length"
                     :players="teamSkillTimelinePlayers"
+                    :health="selectedBoss?.vitalHistory ?? []"
                     :personal-player-id="selectedPlayerId"
                     :allow-player-selection="teamUseIds"
                     :start-at="reportSession.startAt"
@@ -1310,8 +1321,8 @@
                 <div v-else class="team-chart-empty">尚无可绘制的团队{{ teamChartView === "skills" ? "技能" : "伤害" }}记录。</div>
                 <footer>
                     <span>{{ teamChartView === "damage"
-                        ? "折线斜率反映阶段输出速度；各层高度叠加后，顶部即全团累计伤害。"
-                        : teamChartView === "dps" ? "粗线为全团 DPS，彩色细线为各成员 DPS；悬停查看该时间段的数值，拖选可放大，点击图例可隐藏曲线。"
+                        ? "时间轴下叠加显示全团累计伤害；血量轴下各线显示成员累计伤害，保留同血量时的多个时刻。"
+                        : teamChartView === "dps" ? "近期 DPS 按所选时间窗口计算，累计 DPS 按累计伤害 / 已经过时间计算；点击峰值查看技能与同期状态。虚线标示无敌或倒地，拖选可放大，点击图例可隐藏曲线。"
                         : "按所选队员的技能总伤害分轨；打开“显示队员”后可切换查看其他队员。这里只展示实际造成伤害的施放时间。" }}</span>
                     <button type="button" class="game-button" @click="teamChartOpen = false">关闭</button>
                 </footer>
@@ -1332,6 +1343,9 @@
 </template>
 
 <script setup lang="ts">
+import { isEnergySkill, holyEnergyState, energyReminderReady, type SkillEnergyState } from "@/skillEnergy";
+import { deadIntervals, invulnerableIntervals } from "@/battleChartHistory";
+import type { PeakActor } from "@/teamDpsPeaks";
 import { computed, inject, onMounted, onUnmounted, ref, shallowRef, toRefs, watch, type Ref } from "vue";
 import type { DamageCollectorManager } from "@/actionCollector";
 import {
@@ -2126,15 +2140,24 @@ const teamChartPlayers = computed<TeamChartPlayer[]>(() => {
                 && damage.TargetId === selectedBossId.value
                 && damage.Damage > 0
                 && damage.At >= currentSummary.session.startAt
-                && damage.At <= currentSummary.session.endAt)
-            .map((damage): EntityDamage => ({
-                ...damage,
-                Conditions: [],
-                TargetConditions: [],
-                PetId: "",
-            }));
-        return { entityId: player.entityId, label, damages };
+                && damage.At <= currentSummary.session.endAt);
+        return { entityId: player.entityId, label, damages, deadIntervals: deadIntervals((actorManager.value.entityMap[player.entityId] as EntityActor | undefined)?.vitalHistory ?? [], currentSummary.session.endAt) };
     }).filter((player) => player.damages.length > 0);
+});
+
+const teamPeakActors = computed<Record<string, PeakActor>>(() => {
+    const players = summary.value?.players ?? [];
+    const labels = timelinePlayerLabels(players);
+    const teamLabels = new Map(players.map((p, index) => [p.entityId, labels[index]]));
+    const result: Record<string, PeakActor> = {};
+    for (const entity of Object.values(actorManager.value.entityMap) as EntityActor[]) {
+        if (!entity.isPC && !entity.ownerId) continue;
+        result[entity.id] = {
+            label: teamLabels.get(entity.id) ?? '未识别职业', ownerId: entity.ownerId,
+            isLocal: entity.id === actorManager.value.localEntityId, isTeamMember: teamLabels.has(entity.id),
+        };
+    }
+    return result;
 });
 
 const teamSkillTimelinePlayers = computed<SkillTimelinePlayer[]>(() => {
@@ -2399,6 +2422,7 @@ const allSkillDefinitions = computed<Array<{ id: number; name: string }>>(() => 
             definitions.set(id, normalizeSkillDisplayName(id, name) || definitions.get(id) || `技能 ${id}`);
         }
     }
+    for (const id of [59047, 59085, 59088]) if (!definitions.has(id)) definitions.set(id, skillDisplayName(id));
     return [...definitions].map(([id, name]) => ({ id, name }));
 });
 const skillCooldownSearchResults = computed<Array<{ id: number; name: string }>>(() => {
@@ -3158,6 +3182,7 @@ function applyReminderProfile(profileId: string) {
     playerBuffUsesDefaults.value = snapshot.playerBuffUsesDefaults;
     skillCooldownRuntime.value = {};
     magnumAimPreview.value = null;
+    for (const id of [59047, 59085]) { delete energyPreviews[id]; delete energyAnnounced[id]; }
     toahSpiritProgressRuntime.value = initialToahSpiritProgressRuntime();
     dorchaQuantityRuntime.value = initialDorchaQuantityRuntime();
     dorchaPreviewUntilMs = 0;
@@ -4073,7 +4098,7 @@ function handleSkillAction(event: Event) {
     // Toah Spirit uses the authoritative Stat 198 gauge rather than a fixed
     // cooldown. The execute packet must not replace its progress reminder with
     // an ordinary countdown.
-    if (action.SkillId === TOAH_SPIRIT_SKILL_ID || action.SkillId === DORCHA_MASTERY_SKILL_ID) return;
+    if (action.SkillId === 59085 || action.SkillId === TOAH_SPIRIT_SKILL_ID || action.SkillId === DORCHA_MASTERY_SKILL_ID) return;
     const rule = skillCooldownSettings.value.rules[action.SkillId];
     if (!rule?.enabled) return;
     const previous = skillCooldownRuntime.value[action.SkillId];
@@ -4210,6 +4235,7 @@ function handleSkillDamage(event: Event) {
         selectedBossId.value = next.selectedId;
     }
     observeActiveMielOrbContact(damage, damageAtMs);
+    if (damage.SkillId === 59085) return;
     const rule = skillCooldownSettings.value.rules[damage.SkillId];
     if (!rule?.enabled) return;
     const source = actorManager.value.entityMap[damage.Id] as EntityActor | undefined;
@@ -4278,7 +4304,19 @@ function magnumAimEffectiveRangeText() {
     return String(calculateMagnumAimTiming(skillCooldownSettings.value.aimReminder, {}).effectiveRange);
 }
 
+const energyAnnounced: Record<number, boolean> = {};
+const energyPreviews: Record<number, { until: number; state: SkillEnergyState }> = {};
+watch(() => actorManager.value.localEntityId, () => {
+    delete skillCooldownRuntime.value[59047];
+    for (const id of [59047, 59085]) { delete energyAnnounced[id]; delete energyPreviews[id]; }
+});
 function previewSkillCooldown(skillId: number) {
+    if (isEnergySkill(skillId)) {
+        const now = Date.now();
+        energyPreviews[skillId] = { until: now + 3600, state: { Percent: 100, Active: true } };
+        publishSkillCooldownOverlayState(true);
+        return;
+    }
     const previous = skillCooldownRuntime.value[skillId];
     const rule = skillCooldownSettings.value.rules[skillId];
     const now = Date.now();
@@ -4337,7 +4375,25 @@ function previewSkillCooldown(skillId: number) {
     showNotice("将在设定坐标播放一次技能 CD 完成动画，并同步试听已配置音效。", "info");
 }
 
+function localSkillEnergy(skillId: number): SkillEnergyState | undefined {
+    const id = actorManager.value.localEntityId;
+    if (!id) return undefined;
+    if (skillId === 59047) return actorManager.value.skillEnergy[id]?.[skillId];
+    const actor = actorManager.value.entityMap[id] as EntityActor | undefined;
+    return holyEnergyState(actor?.conditionMap[1179] ?? actorManager.value.pendingConditionMap[id]?.[1179], skillCooldownClock.value);
+}
+
 function skillCooldownRuntimeStatus(skillId: number) {
+    if (isEnergySkill(skillId)) {
+        const energy = localSkillEnergy(skillId);
+        const activation = skillId === 59047 ? '魔法穿刺（59046）' : '高贵的誓约（59088）';
+        if (!energy?.Active) return `请开启${activation}，等待服务器能量数据`;
+        const cd = skillCooldownRuntime.value[skillId];
+        const remaining = Math.max(0, (cd?.readyAtMs ?? 0) - skillCooldownClock.value) / 1000;
+        return `能量 ${Math.floor(energy.Percent)}%` + (skillId === 59047
+            ? !cd ? ' · CD 待观测（首次成功施放后开始监控）' : remaining > 0 ? ` · CD ${Math.ceil(remaining)} 秒` : ' · CD 已完成'
+            : ' · 能量达标后持续提示，施放后重新充能');
+    }
     if (skillId === DORCHA_MASTERY_SKILL_ID) {
         const value = dorchaPreviewUntilMs > skillCooldownClock.value ? dorchaQuantityRuntime.value.quantity : localDorchaQuantity();
         if (value === undefined) return "等待捕捉自身多尔卡数量";
@@ -4405,6 +4461,12 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
     refreshToahSpiritProgress(atMs);
     refreshDorchaQuantity(atMs);
     announceCompletedSkillCooldowns(atMs);
+    if (isStandalone.value) for (const rule of Object.values(skillCooldownSettings.value.rules)) {
+        if (!isEnergySkill(rule.skillId)) continue;
+        const ready = rule.enabled && energyReminderReady(rule.skillId, localSkillEnergy(rule.skillId), rule.progressThresholdPercent, skillCooldownRuntime.value[rule.skillId], atMs);
+        if (ready && !energyAnnounced[rule.skillId] && rule.soundMode !== 'none') void playSkillReadySound(rule);
+        energyAnnounced[rule.skillId] = ready;
+    }
     const activeOrbRuntime = bossMechanicRuntime.value["miel-orb"];
     if (activeOrbRuntime?.mielOrb) {
         const nextOrb = advanceMielOrbRuntime(activeOrbRuntime.mielOrb, atMs);
@@ -4415,7 +4477,10 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
     const items = Object.values(skillCooldownSettings.value.rules)
         .filter((rule) => rule.enabled && rule.skillId !== DORCHA_MASTERY_SKILL_ID)
         .map((rule) => {
-            const runtime = skillCooldownRuntime.value[rule.skillId] ?? { usedAtMs: 0, readyAtMs: 0, generation: 0 };
+            const preview = isEnergySkill(rule.skillId) && energyPreviews[rule.skillId]?.until > atMs ? energyPreviews[rule.skillId] : undefined;
+            const runtime = preview
+                ? { usedAtMs: preview.until - 4600, readyAtMs: preview.until - 3600, generation: preview.until }
+                : skillCooldownRuntime.value[rule.skillId] ?? { usedAtMs: 0, readyAtMs: 0, generation: 0 };
             const item = {
                 skillId: rule.skillId,
                 name: skillDisplayName(rule.skillId),
@@ -4426,6 +4491,13 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
                 y: Math.min(32000, Math.max(-32000, Math.round(Number(rule.y) || 0))),
                 ...runtime,
             };
+            if (isEnergySkill(rule.skillId)) {
+                const state = preview?.state ?? localSkillEnergy(rule.skillId);
+                return { ...item, energyGate: true, energyActive: Boolean(state?.Active),
+                    energyReady: energyReminderReady(rule.skillId, state, rule.progressThresholdPercent, runtime, atMs),
+                    cooldownObserved: rule.skillId !== 59047 || runtime.usedAtMs > 0,
+                    progressPercent: state?.Percent ?? 0, progressObserved: Boolean(state?.Active), progressThresholdPercent: rule.progressThresholdPercent };
+            }
             if (rule.skillId === TOAH_SPIRIT_SKILL_ID) {
                 return {
                     ...item,
@@ -4623,6 +4695,7 @@ function settleCumulativeSkillCooldowns(atMs: number) {
 function announceCompletedSkillCooldowns(atMs: number) {
     const readyRules: SkillCooldownRule[] = [];
     for (const [skillId, runtime] of Object.entries(skillCooldownRuntime.value)) {
+        if (isEnergySkill(Number(skillId))) continue;
         if (runtime.generation <= 0 || runtime.readyAtMs <= 0 || atMs < runtime.readyAtMs) continue;
         if (runtime.cooldownPhase === "accumulating") continue;
         const key = `${skillId}:${runtime.generation}`;

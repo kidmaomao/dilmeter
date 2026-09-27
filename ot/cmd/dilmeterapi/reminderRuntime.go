@@ -317,6 +317,9 @@ type nativeReminderRuntime struct {
 	effectTimers            map[string]nativeEffectTimerRuntime
 	announcedSkillSounds    map[string]struct{}
 	recentBossMechanicAtMs  map[string]int64
+	darkEnergy              event.EventSkillEnergy
+	energyReady             map[uint16]bool
+	energyGeneration        map[uint16]uint64
 	toahProgressObserved    bool
 	toahProgress            float64
 	toahThresholdReached    bool
@@ -424,6 +427,10 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	case *event.EventLocalEntity:
 		if value.Reset || value.Id != runtime.localID {
 			runtime.dorcha = dorchaQuantityState{}
+			runtime.darkEnergy = event.EventSkillEnergy{}
+			runtime.energyReady = nil
+			runtime.energyGeneration = nil
+			delete(runtime.skillCooldowns, darkEnergySkillID)
 		}
 		if value.Reset {
 			for _, entity := range runtime.entities {
@@ -505,6 +512,10 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		}
 	case *event.EventSkillCooldown:
 		runtime.observeSkillCooldownAdjustment(value)
+	case *event.EventSkillEnergy:
+		if value.Id == runtime.localID && value.SkillId == darkEnergySkillID {
+			runtime.darkEnergy = *value
+		}
 	case *event.EventSkillState:
 		runtime.observeSkillState(value)
 	case *event.EventCharacterConditionEnable:
@@ -701,6 +712,7 @@ func (runtime *nativeReminderRuntime) evaluate(now time.Time) {
 	runtime.evaluateBuffs(now)
 	runtime.evaluateDebuffs(now)
 	runtime.evaluateSkillCooldowns(now)
+	runtime.evaluateEnergySkills(now)
 	runtime.evaluateBossMechanics(now)
 	runtime.publishNativeSkillState(now)
 }
@@ -789,7 +801,7 @@ func (runtime *nativeReminderRuntime) observeSkillDamage(damage *event.EventDama
 
 func (runtime *nativeReminderRuntime) observeSkillCooldown(skillID uint16, usedAtMs int64, fallback bool, petSkills ...bool) {
 	rule, exists := runtime.settings.SkillCooldowns.Rules[skillID]
-	if !exists || !rule.Enabled || skillID == 27012 || skillID == dorchaMasterySkillID {
+	if !exists || !rule.Enabled || skillID == 27012 || skillID == dorchaMasterySkillID || skillID == holyEnergySkillID {
 		return
 	}
 	if usedAtMs <= 0 {
@@ -864,6 +876,9 @@ func (runtime *nativeReminderRuntime) nativeSkillSourceIsPet(skillID uint16, sou
 func (runtime *nativeReminderRuntime) evaluateSkillCooldowns(now time.Time) {
 	nowMs := now.UnixMilli()
 	for skillID, cooldown := range runtime.skillCooldowns {
+		if isEnergySkill(skillID) {
+			continue
+		}
 		if cooldown.CooldownPhase == "accumulating" {
 			resetAtMs := cooldown.ShortReadyAtMs
 			if cooldown.AccumulatedCooldownSeconds > 0 && cooldown.AccumulatedReadyAtMs > 0 {
@@ -1679,6 +1694,14 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 			item.ProgressObserved = &observed
 			item.Generation = runtime.toahGeneration
 		}
+		if isEnergySkill(skillID) {
+			progress, observed, active := runtime.energyState(skillID, now.UnixMilli())
+			threshold := rule.ProgressThresholdPercent
+			item.ProgressPercent, item.ProgressObserved, item.ProgressThresholdPercent = &progress, &observed, &threshold
+			item.EnergyGate, item.EnergyActive, item.EnergyReady = true, active, runtime.energyReady[skillID]
+			item.CooldownObserved = skillID != darkEnergySkillID || cooldown.UsedAtMs > 0
+			item.Generation = runtime.energyGeneration[skillID]
+		}
 		items = append(items, item)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].SkillID < items[j].SkillID })
@@ -1773,7 +1796,9 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 	visible := targetHealth != nil || aimReminder != nil || len(effectTimers) > 0 || len(mechanics) > 0 || len(stackAlerts) > 0
 	if !visible {
 		for _, item := range items {
-			if item.ProgressObserved != nil {
+			if item.EnergyGate {
+				visible = item.AlwaysVisible || item.EnergyReady
+			} else if item.ProgressObserved != nil {
 				progress := *item.ProgressPercent
 				threshold := *item.ProgressThresholdPercent
 				visible = item.AlwaysVisible || (*item.ProgressObserved && progress >= threshold && progress < 100)
@@ -1913,6 +1938,10 @@ type nativeSkillOverlayItem struct {
 	CumulativeCooldownSeconds  *float64 `json:"cumulativeCooldownSeconds,omitempty"`
 	Generation                 uint64   `json:"generation"`
 	PetSkill                   bool     `json:"petSkill,omitempty"`
+	EnergyGate                 bool     `json:"energyGate,omitempty"`
+	EnergyActive               bool     `json:"energyActive,omitempty"`
+	EnergyReady                bool     `json:"energyReady,omitempty"`
+	CooldownObserved           bool     `json:"cooldownObserved,omitempty"`
 	ProgressPercent            *float64 `json:"progressPercent,omitempty"`
 	ProgressThresholdPercent   *float64 `json:"progressThresholdPercent,omitempty"`
 	ProgressObserved           *bool    `json:"progressObserved,omitempty"`
@@ -2155,7 +2184,11 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 		rule.CooldownSeconds = clampNativeReminderFloat(rule.CooldownSeconds, 0.1, 86400, 30)
 		rule.ShortCooldownSeconds = clampNativeReminderFloat(rule.ShortCooldownSeconds, 0.1, 86400, 1)
 		rule.CumulativeCooldownSeconds = clampNativeReminderFloat(rule.CumulativeCooldownSeconds, 0.1, 86400, 10)
-		rule.ProgressThresholdPercent = clampNativeReminderFloat(rule.ProgressThresholdPercent, 1, 100, 95)
+		thresholdDefault := 95.0
+		if isEnergySkill(id) {
+			thresholdDefault = 100
+		}
+		rule.ProgressThresholdPercent = clampNativeReminderFloat(rule.ProgressThresholdPercent, 1, 100, thresholdDefault)
 		rule.QuantityThreshold = nativeDorchaThreshold(rule.QuantityThreshold)
 		rule.ScalePercent = nativeDorchaScalePercent(rule.ScalePercent)
 		rule.SoundMode = nativeSkillSoundMode(rule.SoundMode)

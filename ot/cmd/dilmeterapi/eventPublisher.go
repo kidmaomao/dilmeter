@@ -417,11 +417,17 @@ func (t *eventPublisher) loop() {
 				continue
 
 			case packet.OpcodeSkillListState:
+				t.publishDarkEnergyPacket(p)
 				if err := t.publishAstrologyCooldownPacket(p); err != nil {
 					logger.Println("ParseAstrologyCooldownPacket failed:", err)
 				}
 				continue
 
+			case 27021:
+				if t.acceptsLocalCooldownPacket(p) && len(p.Msg) > 0 && p.Msg[0].Type() == packet.MessageElemTypeShort && p.Msg[0].Data().(uint16) == 59046 {
+					t.publish(&event.EventSkillEnergy{EventBase: event.EventBase{EventId: event.EventIdSkillEnergy, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)}, SkillId: darkEnergySkillID, Active: false})
+				}
+				continue
 			case packet.OpcodeSkillPrepareReady:
 				if p.Id != t.localEntityId {
 					continue

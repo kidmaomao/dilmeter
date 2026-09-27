@@ -20,6 +20,7 @@ export function hydrateFromSnapshot(
     try {
         actorMgr.prepareSnapshot();
         actorMgr.localEntityId = snapshot.localEntityId ?? actorMgr.localEntityId;
+        actorMgr.skillEnergy = snapshot.skillEnergy ?? {};
         actorMgr.localEntityReliable = snapshot.localEntityReliable ?? actorMgr.localEntityReliable;
         actorMgr.selectedTargetId = snapshot.selectedTargetId ?? "";
         Object.assign(actorMgr.activeEntityMap, snapshot.activeEntityMap ?? {});

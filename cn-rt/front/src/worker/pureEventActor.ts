@@ -1,3 +1,4 @@
+import { recordVital, type BattleVitalPoint } from "../battleChartHistory";
 // Vue-free 版本的 eventActor.ts + 最小化的 DamageCollectorManager
 // 用於 Web Worker 內部，無任何 Vue / DOM 依賴
 
@@ -80,6 +81,7 @@ export class PureActorManager {
     private lastHealthMap: Record<string, number> = {};
     private pendingStatMap: Record<string, Record<number, number>> = {};
     public selectedTargetId = "";
+    public skillEnergy: Record<string, Record<number, protocols.eventSkillEnergy>> = {};
     public localEntityId = "";
     public localEntityReliable = false;
     public activeEntityMap: Record<string, boolean> = {};
@@ -98,8 +100,14 @@ export class PureActorManager {
             this.skillActions.push(event as protocols.eventSkillAction);
             return;
         }
+        if (event.EventId === protocols.eventIdSkillEnergy) {
+            const energy = event as protocols.eventSkillEnergy;
+            (this.skillEnergy[energy.Id] ??= {})[energy.SkillId] = energy;
+            return;
+        }
         if (event.EventId === protocols.eventIdLocalEntity) {
             const local = event as protocols.eventLocalEntity;
+            if (local.Reset || local.Id !== this.localEntityId) this.skillEnergy = {};
             this.localEntityId = local.Id;
             this.localEntityReliable = local.Reliable;
             if (local.Reset) {
@@ -411,6 +419,7 @@ export class PureEntityActor extends PureBaseActor {
     private _conditionRefreshGuardAt: Record<number, number> = {};
     private _conditionHistory: EntityConditionState[] = [];
     private _equipItemMap: Record<number, EntityItem> = {};
+    public vitalHistory: BattleVitalPoint[] = [];
     private _statMap: Record<number, number> = {};
     private _appearedAt = 0;
 
@@ -450,6 +459,7 @@ export class PureEntityActor extends PureBaseActor {
     public get appearedAt() { return this._appearedAt; }
 
     public override onEntityAppear(event: protocols.eventEntityAppear): void {
+        if (this.vitalHistory.at(-1)?.dead) recordVital(this.vitalHistory, event.At, { dead: false });
         this._appearedAt = event.At;
         this._name = event.Name;
         this._raceId = event.RaceId;
@@ -595,6 +605,7 @@ export class PureEntityActor extends PureBaseActor {
 
     public override onFinish(event: protocols.eventFinish): void {
         this._finisherId = event.AttackerId;
+        recordVital(this.vitalHistory, event.At, { dead: true });
     }
 
     public override onEquipItem(event: protocols.eventEntityEquipItem): void {
@@ -608,6 +619,13 @@ export class PureEntityActor extends PureBaseActor {
     }
 
     public onStatUpdate(event: protocols.eventStatUpdate): void {
+        const patch: Omit<BattleVitalPoint, 'At'> = {};
+        for (const stat of event.Stats ?? []) {
+            if (!Number.isFinite(stat.Value)) continue;
+            if (stat.StatId === 28) { patch.current = stat.Value; if (stat.Value > 0) patch.dead = false; }
+            if (stat.StatId === 30) patch.maximum = stat.Value;
+        }
+        if (Object.keys(patch).length) recordVital(this.vitalHistory, event.At, patch);
         for (const stat of event.Stats ?? []) {
             if (Number.isFinite(stat.StatId) && Number.isFinite(stat.Value)) this._statMap[stat.StatId] = stat.Value;
         }

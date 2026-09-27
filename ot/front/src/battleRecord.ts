@@ -1,3 +1,4 @@
+import { clipVitalHistory } from "./battleChartHistory";
 import type { DamageCollectorManager } from "@/actionCollector";
 import type {
     ActorManager,
@@ -231,6 +232,7 @@ function snapshotEntity(
             Object.entries(entity.equipItemMap).map(([key, item]) => [key, { ...item }]),
         ),
         statMap: { ...entity.statMap },
+        vitalHistory: clipVitalHistory(entity.vitalHistory ?? [], startAt, endAt),
         appearedAt: entity.appearedAt,
         groupKey,
     };

@@ -1,3 +1,4 @@
+import { isEnergySkill } from "./skillEnergy";
 import type { EffectTimerOverlayItem } from "./effectTimer";
 import { DEFAULT_DORCHA_THRESHOLD, normalizeDorchaThreshold, normalizeDorchaScalePercent } from "./dorcha";
 
@@ -97,6 +98,10 @@ export interface SkillCooldownOverlayItem extends SkillCooldownRuntime {
     x: number;
     y: number;
     /** Present only for the Toah Spirit progress reminder. */
+    energyGate?: boolean;
+    energyActive?: boolean;
+    energyReady?: boolean;
+    cooldownObserved?: boolean;
     progressPercent?: number;
     progressThresholdPercent?: number;
     progressObserved?: boolean;
@@ -628,12 +633,12 @@ export function makeSkillCooldownRule(skillId: number, x = 600, y = 180): SkillC
         cooldownSeconds: 30,
         shortCooldownSeconds: DEFAULT_SHORT_COOLDOWN_SECONDS,
         cumulativeCooldownSeconds: DEFAULT_CUMULATIVE_COOLDOWN_SECONDS,
-        alwaysVisible: false,
+        alwaysVisible: isEnergySkill(skillId),
         ownerMode: "auto",
         soundMode: "default",
         customSoundId: "",
         customSoundName: "",
-        progressThresholdPercent: DEFAULT_TOAH_PROGRESS_THRESHOLD,
+        progressThresholdPercent: isEnergySkill(skillId) ? 100 : DEFAULT_TOAH_PROGRESS_THRESHOLD,
         quantityThreshold: DEFAULT_DORCHA_THRESHOLD,
         scalePercent: 100,
         x: clampNumber(x, -32000, 32000, 600),
@@ -706,7 +711,7 @@ export function loadSkillCooldownSettings(): SkillCooldownSettings {
                         value.progressThresholdPercent,
                         1,
                         100,
-                        DEFAULT_TOAH_PROGRESS_THRESHOLD,
+                        isEnergySkill(skillId) ? 100 : DEFAULT_TOAH_PROGRESS_THRESHOLD,
                     ),
                     x: clampNumber(value.x, -32000, 32000, fallbackX),
                     y: clampNumber(value.y, -32000, 32000, fallbackY),
@@ -855,7 +860,7 @@ export function saveSkillCooldownSettings(settings: SkillCooldownSettings) {
             rule.progressThresholdPercent,
             1,
             100,
-            DEFAULT_TOAH_PROGRESS_THRESHOLD,
+            isEnergySkill(rule.skillId) ? 100 : DEFAULT_TOAH_PROGRESS_THRESHOLD,
         );
         rule.x = clampNumber(rule.x, -32000, 32000, 600);
         rule.y = clampNumber(rule.y, -32000, 32000, 180);

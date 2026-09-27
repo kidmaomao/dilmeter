@@ -65,6 +65,7 @@ export function buildEventSnapshot(ndjson: string, onProgress: (message: WorkerO
             conditionHistory: e.conditionHistory,
             equipItemMap: { ...e.equipItemMap },
             statMap: { ...e.statMap },
+            vitalHistory: e.vitalHistory,
             appearedAt: e.appearedAt,
             groupKey: PureActorManager.groupTargetKey({
                 Id: id,
@@ -87,6 +88,7 @@ export function buildEventSnapshot(ndjson: string, onProgress: (message: WorkerO
 
     return {
         localEntityId: actorMgr.localEntityId,
+        skillEnergy: actorMgr.skillEnergy,
         localEntityReliable: actorMgr.localEntityReliable,
         selectedTargetId: actorMgr.selectedTargetId,
         activeEntityMap: actorMgr.activeEntityMap,

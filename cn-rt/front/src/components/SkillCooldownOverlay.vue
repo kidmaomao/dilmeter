@@ -94,7 +94,7 @@
                     accumulating: isCumulativeAccumulating(item),
                     'progress-tracked': isProgressItem(item),
                     'progress-observed': item.progressObserved,
-                    'progress-full': Number(item.progressPercent) >= 100,
+                    'progress-full': item.energyGate ? item.energyReady : Number(item.progressPercent) >= 100,
                 }"
                 :style="itemPositionStyle(item)"
                 :title="`${item.name}（技能 ${item.skillId}）`"
@@ -222,6 +222,7 @@ let nativeStateSequence = 0;
 
 const visibleItems = computed(() => items.value.filter((item) => {
     if (item.barOnly) return false;
+    if (item.energyGate) return item.alwaysVisible || item.energyReady;
     if (isProgressItem(item)) return shouldShowToahSpiritProgressOverlay(item);
     if (item.alwaysVisible) return true;
     if (item.readyAtMs <= 0) return false;
@@ -450,7 +451,7 @@ function mechanicAlertClass(item: BossMechanicOverlayItem) {
 }
 
 function isCooling(item: SkillCooldownOverlayItem) {
-    if (isProgressItem(item)) return false;
+    if (isProgressItem(item) && !item.energyGate) return false;
     return item.usedAtMs > 0 && item.readyAtMs > nowMs.value;
 }
 
@@ -506,6 +507,12 @@ function aimReminderBuffText(item: AimReminderOverlayItem) {
 }
 
 function toahProgressText(item: SkillCooldownOverlayItem) {
+    if (item.energyGate) {
+        if (!item.energyActive) return "未开启 / 待数据";
+        const progress = `${toahSpiritDisplayPercent(item.progressPercent)}%`;
+        if (item.skillId !== 59047) return progress;
+        return `${progress}\n${!item.cooldownObserved ? 'CD 待观测' : isCooling(item) ? remainingText(item) : 'CD 已好'}`;
+    }
     if (!item.progressObserved) return "--";
     return `${toahSpiritDisplayPercent(item.progressPercent)}%`;
 }
@@ -518,6 +525,7 @@ function toahProgressMaskStyle(item: SkillCooldownOverlayItem) {
 }
 
 function isReadyBurst(item: SkillCooldownOverlayItem) {
+    if (item.energyGate && !item.energyReady) return false;
     if (isCumulativeAccumulating(item)) return false;
     if (item.readyAtMs <= 0) return false;
     const elapsed = nowMs.value - item.readyAtMs;
@@ -1375,6 +1383,8 @@ html.skill-overlay-page .v-application,
 }
 
 .toah-progress-label {
+    white-space: pre-line;
+    line-height: 1.3;
     font-variant-numeric: tabular-nums;
     letter-spacing: -.3px;
 }

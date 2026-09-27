@@ -161,3 +161,6 @@ export type eventMessageBox = eventBase & {
     EventId: -1;
     Message: string;
 }
+
+export const eventIdSkillEnergy = 21;
+export type eventSkillEnergy = eventBase & { SkillId: number; Percent: number; Active: boolean };

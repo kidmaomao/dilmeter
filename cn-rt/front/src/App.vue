@@ -363,7 +363,7 @@ export default defineComponent({
         if (isDesignPreview) document.documentElement.classList.add("design-preview-root");
         const socketConnected = ref(false);
         const appName = ref("DilmeterCN");
-        const appVersion = ref("1.5.0");
+        const appVersion = ref("1.5.2");
         const runtimeStatus = ref<AppRuntimeStatus>({
             state: isStandalone ? "replay" : "starting",
             message: isStandalone ? "本地日志模式" : "正在连接桌面监测器…",
@@ -884,7 +884,9 @@ export default defineComponent({
         };
 
         const saveAppBuffSettings = async (showConfirmation = false) => {
+            const draft = { ...appBuffSettings.value };
             window.dispatchEvent(new CustomEvent("dilmeter-save-settings-request"));
+            appBuffSettings.value = draft;
             appBuffSettings.value.iconSize = Math.min(80, Math.max(16, Math.round(Number(appBuffSettings.value.iconSize) || 20)));
             appBuffSettings.value.volume = Math.min(100, Math.max(0, Math.round(Number(appBuffSettings.value.volume) || 0)));
             appBuffSettings.value.dpiPercent = Number(appBuffSettings.value.dpiPercent) > 0
@@ -927,7 +929,7 @@ export default defineComponent({
             const latest = loadBuffOverlaySettings();
             latest.locked = appBuffSettings.value.locked !== false;
             saveBuffOverlaySettings(latest);
-            appBuffSettings.value = latest;
+            appBuffSettings.value = { ...appBuffSettings.value, locked: latest.locked, rules: latest.rules };
             void fetch("/api/buff_overlay", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -1070,7 +1072,10 @@ export default defineComponent({
         };
 
         const refreshAppBuffSettings = () => {
-            appBuffSettings.value = loadBuffOverlaySettings();
+            const latest = loadBuffOverlaySettings();
+            appBuffSettings.value = appBuffSettingsDirty.value
+                ? { ...latest, ...appBuffSettings.value, rules: latest.rules, timeAdjustmentSeconds: latest.timeAdjustmentSeconds }
+                : latest;
         };
 
         onMounted(async () => {

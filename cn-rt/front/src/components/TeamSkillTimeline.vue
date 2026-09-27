@@ -15,6 +15,12 @@
                 </select>
                 <strong v-else>个人技能</strong>
             </div>
+            <label class="skill-timeline-player">横坐标
+                <select v-model="axis" aria-label="技能时间轴横坐标">
+                    <option value="time">战斗时间</option>
+                    <option value="hp" :disabled="!hasHealth">Boss 血量 %</option>
+                </select>
+            </label>
             <div class="skill-timeline-zoom" aria-label="时间轴缩放">
                 <span>横轴密度</span>
                 <button
@@ -51,7 +57,7 @@
                             v-for="tick in labelTicks"
                             :key="`label-${tick.seconds}`"
                             :style="{ left: `${tick.left}px` }"
-                        >{{ formatElapsed(tick.seconds) }}</span>
+                        >{{ axis === "hp" ? `${100 - tick.seconds}%` : formatElapsed(tick.seconds) }}</span>
                     </div>
                 </div>
 
@@ -81,7 +87,7 @@
                             type="button"
                             class="skill-use-node"
                             :style="{ left: `${use.left}px`, top: `${use.top}px` }"
-                            :title="`${use.name} · ${formatElapsed(use.at - startAt)}`"
+                            :title="`${use.name} · ${formatElapsed(use.at - startAt)}${healthPercentAt(health, use.at) !== undefined ? ` · Boss ${healthPercentAt(health, use.at)!.toFixed(1)}%` : ''}`"
                         >
                             <span>{{ use.skillId }}</span>
                             <img :src="use.iconUrl" :alt="use.name" @error="hideImage" />
@@ -96,13 +102,14 @@
             <span>旧版战斗记录可能只有伤害事件；新记录会同时保存服务器确认的技能施放。</span>
         </div>
         <p class="skill-timeline-note">
-            横轴为战斗时间。仅统计所选队员本体实际造成伤害的技能，按技能总伤害排序，默认显示前 10 个；不再提供拥挤的全队同屏时间轴。
+            横轴可切换战斗时间或 Boss 剩余血量。仅统计所选队员本体实际造成伤害的技能，按技能总伤害排序，默认显示前 10 个；不再提供拥挤的全队同屏时间轴。
         </p>
     </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, type PropType } from "vue";
+import { healthPercentAt, type BattleVitalPoint } from "@/battleChartHistory";
 
 export type SkillTimelineUse = {
     at: number;
@@ -133,6 +140,7 @@ const props = defineProps({
     },
     personalPlayerId: { type: String, default: "" },
     allowPlayerSelection: { type: Boolean, default: false },
+    health: { type: Array as PropType<BattleVitalPoint[]>, default: () => [] },
     startAt: { type: Number, required: true },
     endAt: { type: Number, required: true },
 });
@@ -140,12 +148,15 @@ const props = defineProps({
 const emit = defineEmits<{
     (event: "update:personal-player-id", playerId: string): void;
 }>();
+const axis = ref<"time" | "hp">("time");
+const hasHealth = computed(() => props.health.some(p => Number.isFinite(p.current) && Number.isFinite(p.maximum) && p.maximum! > 0));
+watch(hasHealth, ready => { if (!ready) axis.value = "time"; });
 const zoomOptions = [2, 4, 8];
 const pixelsPerSecond = ref(8);
 const defaultPersonalRowCount = 10;
 const showAllPersonal = ref(false);
 const labelWidth = 154;
-const duration = computed(() => Math.max(1, props.endAt - props.startAt));
+const duration = computed(() => axis.value === "hp" ? 100 : Math.max(1, props.endAt - props.startAt));
 const canvasWidth = computed(() => Math.max(860, Math.ceil(duration.value * pixelsPerSecond.value)));
 const personalPlayer = computed(() => props.players.find((player) => player.entityId === props.personalPlayerId) ?? props.players[0]);
 watch(() => props.personalPlayerId, () => { showAllPersonal.value = false; });
@@ -193,9 +204,10 @@ const labelTicks = computed(() => ticks.value.filter((tick) => tick.major));
 function positionedUses(uses: SkillTimelineUse[]) {
     const laneEnds = [-Infinity, -Infinity, -Infinity];
     return uses
-        .filter((use) => use.at >= props.startAt && use.at <= props.endAt)
+        .filter((use) => use.at >= props.startAt && use.at <= props.endAt && (axis.value !== "hp" || healthPercentAt(props.health, use.at) !== undefined))
         .map((use) => {
-            const left = Math.max(0, (use.at - props.startAt) * pixelsPerSecond.value);
+            const position = axis.value === "hp" ? 100 - healthPercentAt(props.health, use.at)! : use.at - props.startAt;
+            const left = Math.max(0, position * pixelsPerSecond.value);
             let lane = laneEnds.findIndex((laneEnd) => left - laneEnd >= 29);
             if (lane < 0) lane = laneEnds.indexOf(Math.min(...laneEnds));
             laneEnds[lane] = left;

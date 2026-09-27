@@ -1,3 +1,4 @@
+import { recordVital, type BattleVitalPoint } from "./battleChartHistory";
 import { CustomReactive, IUpdateCallback } from "@/lib/util";
 import { shallowReactive } from "vue";
 import bounds from "binary-search-bounds";
@@ -54,6 +55,7 @@ export class ActorManager {
     public healthLosses: EntityHealthLoss[] = [];
     private pendingHealthDamages: Record<string, protocols.eventDamage[]> = {};
     private lastHealthMap: Record<string, number> = {};
+    public skillEnergy: Record<string, Record<number, protocols.eventSkillEnergy>> = {};
     public localEntityId = "";
     public localEntityReliable = false;
     /** Entity explicitly selected by the local player; empty means no target. */
@@ -69,8 +71,14 @@ export class ActorManager {
             this.skillActions.push(event as protocols.eventSkillAction);
             return;
         }
+        if (event.EventId === protocols.eventIdSkillEnergy) {
+            const energy = event as protocols.eventSkillEnergy;
+            (this.skillEnergy[energy.Id] ??= {})[energy.SkillId] = energy;
+            return;
+        }
         if (event.EventId === protocols.eventIdLocalEntity) {
             const local = event as protocols.eventLocalEntity;
+            if (local.Reset || local.Id !== this.localEntityId) this.skillEnergy = {};
             if (local.Reset) {
                 this.resetLiveSession(local.At);
             }
@@ -778,6 +786,8 @@ export class EntityActor extends BaseActor {
         return this._conditionHistory;
     }
 
+    private _vitalHistory: BattleVitalPoint[] = [];
+    public get vitalHistory() { this.vueUpdateTrack?.(); return this._vitalHistory; }
     protected _statMap: Record<number, number> = {};
     public get statMap() {
         this.vueUpdateTrack?.();
@@ -799,6 +809,7 @@ export class EntityActor extends BaseActor {
     public override onEntityAppear(event: protocols.eventEntityAppear): void {
         this.vueUpdateRequest();
 
+        if (this._vitalHistory.at(-1)?.dead) recordVital(this._vitalHistory, event.At, { dead: false });
         this._appearedAt = event.At;
         this._name = event.Name;
         this._raceId = event.RaceId;
@@ -969,6 +980,7 @@ export class EntityActor extends BaseActor {
         this.vueUpdateRequest();
 
         this._finisherId = event.AttackerId;
+        recordVital(this._vitalHistory, event.At, { dead: true });
     }
 
     public override onEquipItem(event: protocols.eventEntityEquipItem): void {
@@ -986,6 +998,13 @@ export class EntityActor extends BaseActor {
     }
 
     public onStatUpdate(event: protocols.eventStatUpdate): void {
+        const patch: Omit<BattleVitalPoint, 'At'> = {};
+        for (const stat of event.Stats ?? []) {
+            if (!Number.isFinite(stat.Value)) continue;
+            if (stat.StatId === 28) { patch.current = stat.Value; if (stat.Value > 0) patch.dead = false; }
+            if (stat.StatId === 30) patch.maximum = stat.Value;
+        }
+        if (Object.keys(patch).length) recordVital(this._vitalHistory, event.At, patch);
         let changed = false;
         for (const stat of event.Stats ?? []) {
             if (!Number.isFinite(stat.StatId) || !Number.isFinite(stat.Value) || this._statMap[stat.StatId] === stat.Value) continue;
@@ -1048,6 +1067,7 @@ export class EntityActor extends BaseActor {
         applyDamages: EntityDamage[];
         conditionMap: Record<number, EntityCondition>;
         conditionHistory: EntityConditionState[];
+        vitalHistory?: BattleVitalPoint[];
         conditionRefreshGuardAt?: Record<number, number>;
         equipItemMap: Record<number, EntityItem>;
         statMap?: Record<number, number>;
@@ -1065,6 +1085,7 @@ export class EntityActor extends BaseActor {
         this._finisherId = s.finisherId;
         this._conditionMap = s.conditionMap as Record<number, EntityCondition>;
         this._conditionHistory = s.conditionHistory as EntityConditionState[];
+        this._vitalHistory = s.vitalHistory ?? [];
         this._conditionRefreshGuardAt = s.conditionRefreshGuardAt ?? {};
         this._equipItemMap = s.equipItemMap as Record<number, EntityItem>;
         this._statMap = { ...(s.statMap ?? {}) };

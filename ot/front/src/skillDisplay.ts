@@ -23,6 +23,10 @@ export const PUPPET_DAMAGE_SKILL_NAMES: Readonly<Record<number, string>> = {
 export const SKILL_DISPLAY_NAME_OVERRIDES: Readonly<Record<number, string>> = {
     27000: "多尔卡精通",
     27012: "托亚灵震爆",
+    59046: "魔法穿刺",
+    59047: "烬火引燃",
+    59085: "牺牲之惩戒",
+    59088: "高贵的誓约",
     // The bundled legacy fallback list still carries pre-CN names for these
     // Arcana skills; keep settings/search consistent with the current client.
     59104: "蓄势突击",

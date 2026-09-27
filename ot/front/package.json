@@ -9,6 +9,8 @@
     "verify:live-battles": "node scripts/verify-live-battles.mjs",
     "verify:dorcha": "node scripts/verify-dorcha.mjs",
     "verify:team-dps": "node scripts/verify-team-dps.mjs",
+    "verify:team-dps-peaks": "node scripts/verify-team-dps-peaks.mjs",
+    "verify:v152": "node scripts/verify-v152.mjs",
     "verify:effective-damage": "node scripts/verify-effective-damage.ts",
     "verify:raw-dps": "node scripts/verify-raw-dps.ts",
     "verify:packet-dps": "node scripts/verify-packet-dps.mjs",

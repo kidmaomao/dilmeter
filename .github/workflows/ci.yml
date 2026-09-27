@@ -32,6 +32,19 @@ jobs:
         working-directory: ${{ matrix.project }}/front
         run: npm ci
 
+      - name: Verify DPS charts and energy reminders
+        working-directory: ${{ matrix.project }}/front
+        shell: pwsh
+        run: |
+          npx vue-tsc --noEmit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:team-dps
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:team-dps-peaks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:v152
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build embedded frontend
         working-directory: ${{ matrix.project }}
         run: cmd /c build.bat

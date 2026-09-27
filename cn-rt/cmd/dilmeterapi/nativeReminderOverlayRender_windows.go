@@ -410,6 +410,9 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 }
 
 func nativeSkillReminderItemVisible(item nativeSkillOverlayItem, nowMs int64) bool {
+	if item.EnergyGate {
+		return !item.BarOnly && (item.AlwaysVisible || item.EnergyReady)
+	}
 	if item.BarOnly {
 		return false
 	}
@@ -434,6 +437,14 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 	if item.ReadyAtMs > 0 && nowMs >= item.ReadyAtMs {
 		readyElapsed = nowMs - item.ReadyAtMs
 		border = color.RGBA{R: 255, G: 231, B: 103, A: 255}
+	}
+	if item.EnergyGate {
+		if item.EnergyReady {
+			border = color.RGBA{R: 255, G: 231, B: 103, A: 255}
+		} else {
+			readyElapsed = -1
+			border = color.RGBA{R: 113, G: 221, B: 244, A: 245}
+		}
 	}
 	if item.CooldownPhase == "accumulating" {
 		border = color.RGBA{R: 255, G: 178, B: 67, A: 255}
@@ -464,7 +475,7 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 		mask := int(float64(renderRect.Dy()-2) * (100 - progress) / 100)
 		fillNativeSkillBarRect(canvas, image.Rect(renderRect.Min.X+1, renderRect.Min.Y+1, renderRect.Max.X-1, renderRect.Min.Y+1+mask), color.RGBA{R: 100, G: 102, B: 108, A: 220})
 		if item.ProgressObserved != nil && *item.ProgressObserved {
-			label = fmt.Sprintf("%.0f%%", progress)
+			label = fmt.Sprintf("%d%%", int(math.Floor(progress)))
 		} else {
 			label = "--"
 		}
@@ -481,13 +492,32 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 			label = fmt.Sprintf("%.1fs", math.Ceil(remaining*10)/10)
 		}
 	}
+	if item.EnergyGate {
+		if !item.EnergyActive {
+			label = "未开启"
+		} else if item.SkillID == darkEnergySkillID {
+			if !item.CooldownObserved {
+				label += "\nCD待观测"
+			} else if item.ReadyAtMs > nowMs {
+				label += fmt.Sprintf("\nCD %ds", int(math.Ceil(float64(item.ReadyAtMs-nowMs)/1000)))
+			} else {
+				label += "\nCD已好"
+			}
+		}
+	}
 	if item.PetSkill {
 		texts = append(texts, nativeReminderText{text: "宠", rect: imageRectToNative(image.Rect(renderRect.Min.X, renderRect.Min.Y, renderRect.Min.X+max(14, iconSize/3), renderRect.Min.Y+max(14, iconSize/3))), color: nativeColorRef(255, 242, 151), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(9, iconSize/5), fontWeight: nativeFontBold})
 	}
 	if label != "" {
-		labelRect := image.Rect(rect.Min.X-12, rect.Max.Y+2, rect.Max.X+12, rect.Max.Y+22)
+		labelHeight := 20
+		flags := uintptr(dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis)
+		if item.EnergyGate && item.SkillID == darkEnergySkillID {
+			labelHeight = 40
+			flags = dtCenter | dtNoPrefix
+		}
+		labelRect := image.Rect(rect.Min.X-12, rect.Max.Y+2, rect.Max.X+12, rect.Max.Y+2+labelHeight)
 		fillNativeSkillBarRect(canvas, labelRect, color.RGBA{R: 7, G: 12, B: 14, A: 220})
-		texts = append(texts, nativeReminderText{text: label, rect: imageRectToNative(labelRect), color: nativeColorRef(255, 255, 255), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(10, iconSize/5), fontWeight: nativeFontBold})
+		texts = append(texts, nativeReminderText{text: label, rect: imageRectToNative(labelRect), color: nativeColorRef(255, 255, 255), flags: flags, fontHeight: max(10, iconSize/5), fontWeight: nativeFontBold})
 	}
 	if !nativeReminderOverlaysAreLocked() {
 		drawNativeUnlockedFrame(canvas, image.Rect(rect.Min.X-2, rect.Min.Y-2, rect.Max.X+2, rect.Max.Y+24))
