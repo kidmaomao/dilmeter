@@ -2,35 +2,32 @@
     <v-dialog v-model="open" max-width="980" persistent>
         <v-card class="skill-bar-settings-card">
             <v-card-title class="skill-bar-title">
-                <span><v-icon icon="mdi-view-grid-plus-outline" class="mr-2" />额外技能栏(测试)</span>
-                <v-btn icon="mdi-close" variant="text" size="small" aria-label="关闭技能栏设置" @click="open = false" />
+                <span><v-icon icon="mdi-view-grid-plus-outline" class="mr-2" />{{ $ui("额外技能栏(测试)") }}</span>
+                <v-btn icon="mdi-close" variant="text" size="small" :aria-label="$ui('关闭技能栏设置')" @click="open = false" />
             </v-card-title>
             <v-card-text :inert="saving">
                 <div class="skill-bar-switches">
-                    <label><input v-model="draft.enabled" type="checkbox" />显示技能栏</label>
-                    <label title="开启且锁定后，点击技能图标会在洛奇保持前台时发送绑定按键">
-                        <input v-model="draft.inputEnabled" type="checkbox" />允许点击施放
-                    </label>
-                    <label title="锁定时允许施放并固定位置；解除锁定后只用于拖动，不会施放">
-                        <input v-model="draft.locked" type="checkbox" />锁定技能栏
-                    </label>
+                    <label><input v-model="draft.enabled" type="checkbox" />{{ $ui("显示技能栏") }}</label>
+                    <label :title="$ui('开启且锁定后，点击技能图标会在洛奇保持前台时发送绑定按键')">
+                        <input v-model="draft.inputEnabled" type="checkbox" />{{ $ui("允许点击施放 ") }}</label>
+                    <label :title="$ui('锁定时允许施放并固定位置；解除锁定后只用于拖动，不会施放')">
+                        <input v-model="draft.locked" type="checkbox" />{{ $ui("锁定技能栏 ") }}</label>
                     <span :class="draft.locked ? 'locked-note' : 'move-note'">
-                        {{ inputModeNote }}
+                        {{ $ui(inputModeNote) }}
                     </span>
                 </div>
 
                 <div class="skill-bar-input-settings">
-                    <span class="input-setting-title">施放鼠标键</span>
-                    <label><input v-model="draft.clickButton" type="radio" name="skill-bar-click-button" value="left" />左键</label>
-                    <label><input v-model="draft.clickButton" type="radio" name="skill-bar-click-button" value="right" />右键</label>
-                    <small>技能栏区域会拦截左右键；只有这里选中的鼠标键会施放技能。</small>
+                    <span class="input-setting-title">{{ $ui("施放鼠标键") }}</span>
+                    <label><input v-model="draft.clickButton" type="radio" name="skill-bar-click-button" value="left" />{{ $ui("左键") }}</label>
+                    <label><input v-model="draft.clickButton" type="radio" name="skill-bar-click-button" value="right" />{{ $ui("右键") }}</label>
+                    <small>{{ $ui("技能栏区域会拦截左右键；只有这里选中的鼠标键会施放技能。") }}</small>
                 </div>
 
                 <div class="stop-movement-settings">
-                    <label title="处理游戏绕过普通窗口消息、仍读取物理左键而产生的点地移动">
-                        <input v-model="draft.stopMovement" type="checkbox" @change="handleStopMovementToggle" />阻止技能栏左键点地（建议开启）
-                    </label>
-                    <span>停止键</span>
+                    <label :title="$ui('处理游戏绕过普通窗口消息、仍读取物理左键而产生的点地移动')">
+                        <input v-model="draft.stopMovement" type="checkbox" @change="handleStopMovementToggle" />{{ $ui("阻止技能栏左键点地（建议开启） ") }}</label>
+                    <span>{{ $ui("停止键") }}</span>
                     <button
                         ref="stopMovementCaptureButton"
                         type="button"
@@ -38,27 +35,27 @@
                         :class="{ capturing: stopMovementCaptureActive }"
                         @click="startStopMovementKeyCapture"
                     >
-                        {{ stopMovementKeyLabel }}
+                        {{ $ui(stopMovementKeyLabel) }}
                     </button>
-                    <button v-if="draft.stopKeyCode" type="button" class="cancel-capture" @click="clearStopMovementKey">清除</button>
-                    <small :class="{ 'stop-warning': !draft.stopMovement }">无论技能用左键还是右键施放，物理左键落在技能栏任意位置时都会短按该键 20ms。该键必须能在游戏中停止点地移动、且不会触发技能。</small>
+                    <button v-if="draft.stopKeyCode" type="button" class="cancel-capture" @click="clearStopMovementKey">{{ $ui("清除") }}</button>
+                    <small :class="{ 'stop-warning': !draft.stopMovement }">{{ $ui("无论技能用左键还是右键施放，物理左键落在技能栏任意位置时都会短按该键 20ms。该键必须能在游戏中停止点地移动、且不会触发技能。") }}</small>
                 </div>
 
                 <div class="skill-bar-layout-settings">
                     <label>X <input v-model.number="draft.x" type="number" min="-32000" max="32000" /></label>
                     <label>Y <input v-model.number="draft.y" type="number" min="-32000" max="32000" /></label>
-                    <label>每行 <input v-model.number="draft.columns" type="number" min="1" max="12" /> 格</label>
-                    <label>图标 <input v-model.number="draft.iconSize" type="number" min="32" max="80" /> px</label>
-                    <label>间距 <input v-model.number="draft.gap" type="number" min="0" max="12" /> px</label>
-                    <label>透明度 <input v-model.number="draft.opacity" type="number" min="25" max="100" /> %</label>
-                    <label>格子数 <input v-model.number="slotCount" type="number" min="1" max="48" /></label>
+                    <label>{{ $ui("每行 ") }}<input v-model.number="draft.columns" type="number" min="1" max="12" />{{ $ui(" 格") }}</label>
+                    <label>{{ $ui("图标 ") }}<input v-model.number="draft.iconSize" type="number" min="32" max="80" /> px</label>
+                    <label>{{ $ui("间距 ") }}<input v-model.number="draft.gap" type="number" min="0" max="12" /> px</label>
+                    <label>{{ $ui("透明度 ") }}<input v-model.number="draft.opacity" type="number" min="25" max="100" /> %</label>
+                    <label>{{ $ui("格子数 ") }}<input v-model.number="slotCount" type="number" min="1" max="48" /></label>
                 </div>
 
                 <div class="skill-bar-editor-layout">
                     <section class="skill-bar-preview-panel">
                         <header>
-                            <strong>技能栏预览</strong>
-                            <small>先选格子，再从右侧选择技能和按键</small>
+                            <strong>{{ $ui("技能栏预览") }}</strong>
+                            <small>{{ $ui("先选格子，再从右侧选择技能和按键") }}</small>
                         </header>
                         <div class="skill-bar-preview" :style="previewStyle">
                             <button
@@ -66,85 +63,78 @@
                                 :key="slot.id"
                                 type="button"
                                 :class="{ selected: selectedIndex === index, empty: !slot.skillId }"
-                                :title="slot.skillName || `空格 ${index + 1}`"
+                                :title="$ui(slot.skillName || `空格 ${index + 1}`)"
                                 @click="selectSlot(index)"
                             >
-                                <span v-if="!slot.skillId" class="slot-number">{{ index + 1 }}</span>
+                                <span v-if="!slot.skillId" class="slot-number">{{ $ui(index + 1) }}</span>
                                 <template v-else>
-                                    <span class="slot-fallback">{{ slot.skillId }}</span>
+                                    <span class="slot-fallback">{{ $ui(slot.skillId) }}</span>
                                     <img :src="`/skill-icons/${slot.skillId}.png`" alt="" @error="hideImage" />
-                                    <kbd v-if="slot.keyLabel">{{ slot.keyLabel }}</kbd>
+                                    <kbd v-if="slot.keyLabel">{{ $ui(slot.keyLabel) }}</kbd>
                                 </template>
                             </button>
                         </div>
-                        <p>解除锁定并保存后只用于定位；按住左键移动超过少量距离即可拖动，重新锁定后才能点击施放。</p>
+                        <p>{{ $ui("解除锁定并保存后只用于定位；按住左键移动超过少量距离即可拖动，重新锁定后才能点击施放。") }}</p>
                     </section>
 
                     <section class="skill-slot-editor">
                         <header>
-                            <strong>第 {{ selectedIndex + 1 }} 格</strong>
-                            <button type="button" class="clear-slot" :disabled="!selectedSlot.skillId" @click="clearSelectedSlot">清空格子</button>
+                            <strong>{{ $ui("第 ") }}{{ $ui(selectedIndex + 1) }}{{ $ui(" 格") }}</strong>
+                            <button type="button" class="clear-slot" :disabled="!selectedSlot.skillId" @click="clearSelectedSlot">{{ $ui("清空格子") }}</button>
                         </header>
-                        <label class="skill-search-label">
-                            搜索技能
-                            <input v-model.trim="searchText" type="search" placeholder="输入技能名称或技能 ID" autocomplete="off" />
+                        <label class="skill-search-label">{{ $ui(" 搜索技能 ") }}<input v-model.trim="searchText" type="search" :placeholder="$ui('输入技能名称或技能 ID')" autocomplete="off" />
                         </label>
                         <div v-if="searchText && searchResults.length" class="skill-search-results">
                             <button v-for="skill in searchResults" :key="skill.id" type="button" @click="selectSkill(skill)">
-                                <span class="search-icon"><span>{{ skill.id }}</span><img :src="`/skill-icons/${skill.id}.png`" alt="" @error="hideImage" /></span>
-                                <span><strong>{{ skill.name }}</strong><small>ID {{ skill.id }}</small></span>
+                                <span class="search-icon"><span>{{ $ui(skill.id) }}</span><img :src="`/skill-icons/${skill.id}.png`" alt="" @error="hideImage" /></span>
+                                <span><strong>{{ $ui(skill.name) }}</strong><small>ID {{ $ui(skill.id) }}</small></span>
                             </button>
                         </div>
-                        <div v-else-if="searchText" class="no-result">没有找到对应技能，也可以直接输入数字技能 ID。</div>
+                        <div v-else-if="searchText" class="no-result">{{ $ui("没有找到对应技能，也可以直接输入数字技能 ID。") }}</div>
 
                         <div class="selected-skill-summary">
                             <span class="selected-icon">
-                                <span>{{ selectedSlot.skillId || "?" }}</span>
+                                <span>{{ $ui(selectedSlot.skillId || "?") }}</span>
                                 <img v-if="selectedSlot.skillId" :src="`/skill-icons/${selectedSlot.skillId}.png`" alt="" @error="hideImage" />
                             </span>
                             <div>
-                                <strong>{{ selectedSlot.skillName || "尚未选择技能" }}</strong>
-                                <small>{{ selectedSlot.skillId ? `技能 ID ${selectedSlot.skillId}` : "从搜索结果中选择" }}</small>
+                                <strong>{{ $ui(selectedSlot.skillName || "尚未选择技能") }}</strong>
+                                <small>{{ $ui(selectedSlot.skillId ? `技能 ID ${selectedSlot.skillId}` : "从搜索结果中选择") }}</small>
                             </div>
                         </div>
 
                         <div class="slot-fields">
-                            <label>
-                                游戏按键序列
-                                <button
+                            <label>{{ $ui(" 游戏按键序列 ") }}<button
                                     ref="keyCaptureButton"
                                     type="button"
                                     class="key-capture"
                                     :class="{ capturing: keyCaptureActive }"
                                     @click="startKeyCapture"
                                 >
-                                    {{ captureDisplayLabel }}
+                                    {{ $ui(captureDisplayLabel) }}
                                 </button>
                             </label>
                             <div v-if="keyCaptureActive" class="capture-actions">
-                                <button type="button" class="finish-capture" @click="finishKeyCapture">完成录制</button>
-                                <button type="button" class="cancel-capture" @click="cancelKeyCapture">取消录制</button>
+                                <button type="button" class="finish-capture" @click="finishKeyCapture">{{ $ui("完成录制") }}</button>
+                                <button type="button" class="cancel-capture" @click="cancelKeyCapture">{{ $ui("取消录制") }}</button>
                             </div>
-                            <button v-else-if="selectedSlot.keySequence.length" type="button" class="cancel-capture" @click="clearKey">清除按键</button>
-                            <label>
-                                技能 CD
-                                <span><input v-model.number="selectedSlot.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" /> 秒</span>
+                            <button v-else-if="selectedSlot.keySequence.length" type="button" class="cancel-capture" @click="clearKey">{{ $ui("清除按键") }}</button>
+                            <label>{{ $ui(" 技能 CD ") }}<span><input v-model.number="selectedSlot.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" />{{ $ui(" 秒") }}</span>
                             </label>
                         </div>
-                        <p class="sequence-note">录制时先完整按下并松开第一段，再录下一段。例如：同时按 <kbd>Ctrl+[</kbd>，松开后再按 <kbd>Q</kbd>，最后点“完成录制”。</p>
-                        <p class="cooldown-note">技能栏会把该技能加入后台追踪；真正收到服务器确认的施放事件后才开始倒计时。</p>
+                        <p class="sequence-note">{{ $ui("录制时先完整按下并松开第一段，再录下一段。例如：同时按 ") }}<kbd>Ctrl+[</kbd>{{ $ui("，松开后再按 ") }}<kbd>Q</kbd>{{ $ui("，最后点“完成录制”。") }}</p>
+                        <p class="cooldown-note">{{ $ui("技能栏会把该技能加入后台追踪；真正收到服务器确认的施放事件后才开始倒计时。") }}</p>
                     </section>
                 </div>
 
-                <v-alert v-if="notice" :type="noticeType" density="compact" variant="tonal" class="mt-3">{{ notice }}</v-alert>
+                <v-alert v-if="notice" :type="noticeType" density="compact" variant="tonal" class="mt-3">{{ $ui(notice) }}</v-alert>
             </v-card-text>
             <v-card-actions class="skill-bar-actions">
-                <span>游戏保持前台；左键防点地与技能施放鼠标键相互独立。</span>
+                <span>{{ $ui("游戏保持前台；左键防点地与技能施放鼠标键相互独立。") }}</span>
                 <v-spacer />
-                <v-btn variant="text" :disabled="saving" @click="resetDraft">恢复已保存</v-btn>
+                <v-btn variant="text" :disabled="saving" @click="resetDraft">{{ $ui("恢复已保存") }}</v-btn>
                 <v-btn color="primary" :loading="saving" :disabled="keyCaptureActive || stopMovementCaptureActive" @click="saveSettings">
-                    <v-icon icon="mdi-content-save-outline" class="mr-1" />保存并应用
-                </v-btn>
+                    <v-icon icon="mdi-content-save-outline" class="mr-1" />{{ $ui("保存并应用 ") }}</v-btn>
             </v-card-actions>
         </v-card>
     </v-dialog>
@@ -153,6 +143,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { skillNameMap, resourceNameVersion } from "@/store";
+import { normalizeNameSearch } from "@/uiLocale";
 import {
     SKILL_BAR_CHANNEL,
     isSupportedSkillBarCode,
@@ -234,7 +225,7 @@ const previewStyle = computed(() => ({
 }));
 const searchResults = computed(() => {
     resourceNameVersion.value;
-    const query = searchText.value.trim().toLowerCase();
+    const query = normalizeNameSearch(searchText.value.trim());
     if (!query) return [];
     if (/^\d+$/.test(query)) {
         const id = Number(query);
@@ -242,7 +233,7 @@ const searchResults = computed(() => {
     }
     return Object.entries(skillNameMap.value)
         .map(([rawId, name]) => ({ id: Number(rawId), name: String(name || `技能 ${rawId}`) }))
-        .filter((item) => item.id > 0 && (item.name.toLowerCase().includes(query) || String(item.id).includes(query)))
+        .filter((item) => item.id > 0 && (normalizeNameSearch(item.name).includes(query) || String(item.id).includes(query)))
         .sort((left, right) => left.name.localeCompare(right.name, "zh-CN") || left.id - right.id)
         .slice(0, 12);
 });

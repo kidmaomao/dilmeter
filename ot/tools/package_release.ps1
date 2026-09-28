@@ -2,7 +2,8 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot ".."))
-$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.5.2" }
+$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.5.3" }
+$displayVersion = if ($env:DILMETER_DISPLAY_VERSION) { $env:DILMETER_DISPLAY_VERSION.Trim() } elseif ($env:DILMETER_APP_VERSION) { $version } else { "1.5.2 R2" }
 if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid DILMETER_APP_VERSION: $version"
 }
@@ -58,6 +59,6 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "RESOURCE_PACK.md") -Destination 
 
 $zipPath = Join-Path $releaseDir "DilmeterOT.zip"
 & (Join-Path $PSScriptRoot "create_release_zip.ps1") -SourceDirectory $stageDir -ZipPath $zipPath
-& (Join-Path $PSScriptRoot "make_update_manifest.ps1") -AppName "DilmeterOT" -Version $version -ZipPath $zipPath -NotesPath (Join-Path $projectRoot "release-notes-current.txt")
+& (Join-Path $PSScriptRoot "make_update_manifest.ps1") -AppName "DilmeterOT" -Version $version -DisplayVersion $displayVersion -ZipPath $zipPath -NotesPath (Join-Path $projectRoot "release-notes-current.txt")
 
 Write-Host "Created DilmeterOT.zip and update manifest in $releaseDir"

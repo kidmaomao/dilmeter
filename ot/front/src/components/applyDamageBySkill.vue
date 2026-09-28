@@ -1,6 +1,6 @@
 <template>
     <v-sheet class="d-flex align-center ma-2 flex-wrap" style="gap: 8px;">
-        <v-autocomplete v-model="targetId" :items="targetIdList"
+        <v-autocomplete v-model="targetId" :items="$uiItems(targetIdList)"
             :item-title="vv => `${vv[0] ? prettyEntityName(entityMap[vv[0]]?.actor) : 'all'} ${humanReadableNumber(vv[1] || 0)}`"
             :item-value="vv => vv[0]"
             :custom-filter="(value, query, item) => !query || (item?.raw[0] ? prettyEntityName(entityMap[item.raw[0]]?.actor) ?? '' : 'all').toLowerCase().includes(query.toLowerCase())"
@@ -10,7 +10,7 @@
         <v-text-field
             v-model="playerFilterText"
             prepend-inner-icon="mdi-magnify"
-            placeholder="篩選玩家"
+            :placeholder="$ui('篩選玩家')"
             variant="outlined"
             density="compact"
             hide-details
@@ -35,7 +35,7 @@
             <v-expansion-panel>
                 <v-expansion-panel-title>
                     <div class="d-flex align-center" style="width: 100%; gap: 4px;">
-                        <span class="font-weight-medium">{{ prettyEntityName(v.actor) }}</span>
+                        <span class="font-weight-medium">{{ $ui(prettyEntityName(v.actor)) }}</span>
                         <template v-if="showChartIcons">
                             <v-btn v-if="v.actor.conditionHistory.length > 0"
                                 @click.stop="showConditionChart(v.actor)" size="x-small" icon="mdi-chart-timeline" variant="text" />
@@ -47,10 +47,10 @@
                             </template></v-tooltip>
                         </template>
                         <v-spacer />
-                        <span style="min-width: 48px; text-align: center; font-size: 0.85em; opacity: 0.7;">{{ formatDuration((v.damages.length >= 2 ? v.damages[v.damages.length - 1].At - v.damages[0].At : 0) / 1000) }}</span>
-                        <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ humanReadableNumber(v.totalDamage) }}</span>
-                        <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ humanReadableNumber(v.damages.length >= 2 && v.damages[v.damages.length - 1].At > v.damages[0].At ? v.totalDamage / ((v.damages[v.damages.length - 1].At - v.damages[0].At) / 1000) : 0) }}</span>
-                        <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ (100 * v.totalDamage / allApplyDamage).toFixed(1) }}%</span>
+                        <span style="min-width: 48px; text-align: center; font-size: 0.85em; opacity: 0.7;">{{ $ui(formatDuration((v.damages.length >= 2 ? v.damages[v.damages.length - 1].At - v.damages[0].At : 0) / 1000)) }}</span>
+                        <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ $ui(humanReadableNumber(v.totalDamage)) }}</span>
+                        <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ $ui(humanReadableNumber(v.damages.length >= 2 && v.damages[v.damages.length - 1].At > v.damages[0].At ? v.totalDamage / ((v.damages[v.damages.length - 1].At - v.damages[0].At) / 1000) : 0)) }}</span>
+                        <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ $ui((100 * v.totalDamage / allApplyDamage).toFixed(1)) }}%</span>
                     </div>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text class="pa-3">
@@ -64,7 +64,7 @@
                         <!-- row 1: icon, name, buttons, damage, % -->
                         <div class="d-flex align-center pa-1" style="position: relative; gap: 4px;">
                             <img width="28" height="28" :src="`/res/skillimage/${region}/${skillId}/${skillId}.png`" style="border-radius: 2px;" />
-                            <span class="font-weight-medium">{{ skillNameMap[+skillId] || `unknownSkill:${skillId}` }}</span>
+                            <span class="font-weight-medium">{{ $ui(skillNameMap[+skillId] || `unknownSkill:${skillId}`) }}</span>
                             <template v-if="showChartIcons">
                                 <v-tooltip text="Distribution"><template v-slot:activator="{ props: tp }">
                                     <v-btn v-bind="tp" @click.stop="showSkillDistribution(v, +skillId)" size="x-small" icon="mdi-chart-bar" variant="text" density="compact" />
@@ -80,17 +80,17 @@
                                 </template></v-tooltip>
                             </template>
                             <v-spacer />
-                            <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ humanReadableNumber(damageBySkill) }}</span>
-                            <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ humanReadableNumber(arrayDps(damageBySkill, v.groupedDamages[+skillId])) }}</span>
-                            <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ (100 * damageBySkill / v.totalDamage).toFixed(1) }}%</span>
+                            <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ $ui(humanReadableNumber(damageBySkill)) }}</span>
+                            <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ $ui(humanReadableNumber(arrayDps(damageBySkill, v.groupedDamages[+skillId]))) }}</span>
+                            <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ $ui((100 * damageBySkill / v.totalDamage).toFixed(1)) }}%</span>
                         </div>
                         <!-- row 2: detailed stats -->
                         <div class="d-flex pa-1 pl-9" style="position: relative; gap: 8px; font-size: 0.8em; opacity: 0.8;">
-                            <span>count: {{ v.groupedCount[+skillId] }}</span>
-                            <span>crit: {{ v.groupedCriticalCount[+skillId] }}</span>
-                            <span>avg: {{ humanReadableNumber(v.groupedCount[+skillId] ? damageBySkill / v.groupedCount[+skillId] : 0) }}</span>
-                            <span>min: {{ humanReadableNumber(v.groupedMinDamages[+skillId] || 0) }}</span>
-                            <span>max: {{ humanReadableNumber(v.groupedMaxDamages[+skillId] || 0) }}</span>
+                            <span>count: {{ $ui(v.groupedCount[+skillId]) }}</span>
+                            <span>crit: {{ $ui(v.groupedCriticalCount[+skillId]) }}</span>
+                            <span>avg: {{ $ui(humanReadableNumber(v.groupedCount[+skillId] ? damageBySkill / v.groupedCount[+skillId] : 0)) }}</span>
+                            <span>min: {{ $ui(humanReadableNumber(v.groupedMinDamages[+skillId] || 0)) }}</span>
+                            <span>max: {{ $ui(humanReadableNumber(v.groupedMaxDamages[+skillId] || 0)) }}</span>
                         </div>
                     </v-sheet>
                 </v-expansion-panel-text>
@@ -100,11 +100,11 @@
                 @click.stop="showEntityAllDamageList(v.actor.id)">
                 <div :style="{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.round(100 * v.totalDamage / allApplyDamage)}%`, background: getMabiNameColor(prettyEntityName(v.actor)!), opacity: 0.4 }" />
                 <div class="d-flex align-center pa-1" style="position: relative; gap: 4px;">
-                    <span class="font-weight-medium">{{ prettyEntityName(v.actor) }}</span>
+                    <span class="font-weight-medium">{{ $ui(prettyEntityName(v.actor)) }}</span>
                     <v-spacer />
-                    <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ humanReadableNumber(v.totalDamage) }}</span>
-                    <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ humanReadableNumber(arrayDps(v.totalDamage, v.damages)) }}</span>
-                    <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ (100 * v.totalDamage / allApplyDamage).toFixed(1) }}%</span>
+                    <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ $ui(humanReadableNumber(v.totalDamage)) }}</span>
+                    <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ $ui(humanReadableNumber(arrayDps(v.totalDamage, v.damages))) }}</span>
+                    <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ $ui((100 * v.totalDamage / allApplyDamage).toFixed(1)) }}%</span>
                 </div>
             </v-sheet>
         </template>

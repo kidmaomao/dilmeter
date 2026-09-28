@@ -6,17 +6,17 @@
                     v-if="view === 'detail'"
                     type="button"
                     class="record-back-button"
-                    aria-label="返回记录列表"
+                    :aria-label="$ui('返回记录列表')"
                     @click="returnToList"
                 >
                     <v-icon icon="mdi-arrow-left" size="17" />
                 </button>
                 <div>
                     <v-icon :icon="view === 'list' ? 'mdi-history' : 'mdi-chart-box-outline'" size="18" />
-                    <span id="record-browser-title">{{ view === "list" ? "查看记录" : "DPS 记录" }}</span>
-                    <small v-if="view === 'detail' && selectedRecord">{{ selectedRecord.date }} {{ selectedRecord.timeRange }}</small>
+                    <span id="record-browser-title">{{ $ui(view === "list" ? "查看记录" : "DPS 记录") }}</span>
+                    <small v-if="view === 'detail' && selectedRecord">{{ $ui(selectedRecord.date) }} {{ $ui(selectedRecord.timeRange) }}</small>
                 </div>
-                <button type="button" aria-label="关闭查看记录" @click="close">
+                <button type="button" :aria-label="$ui('关闭查看记录')" @click="close">
                     <v-icon icon="mdi-close-box-outline" size="19" />
                 </button>
             </header>
@@ -24,26 +24,23 @@
             <template v-if="view === 'list'">
                 <div class="record-list-toolbar">
                     <div>
-                        <strong>历史战斗记录</strong>
-                        <span>每次加载 10 条；收藏优先置顶，每位玩家显示优先 Boss 目标的最高 DPS。</span>
+                        <strong>{{ $ui("历史战斗记录") }}</strong>
+                        <span>{{ $ui("每次加载 10 条；收藏优先置顶，每位玩家显示优先 Boss 目标的最高 DPS。") }}</span>
                     </div>
                     <div>
                         <button
                             type="button"
                             class="record-bulk-delete-button"
                             :disabled="selectedDeleteCount === 0 || Boolean(operationName)"
-                            title="批量删除已勾选记录及其全部相关文件"
+                            :title="$ui('批量删除已勾选记录及其全部相关文件')"
                             @click="requestBatchDelete"
                         >
-                            <v-icon icon="mdi-delete-sweep-outline" size="14" />
-                            批量删除<span v-if="selectedDeleteCount">（{{ selectedDeleteCount }}）</span>
+                            <v-icon icon="mdi-delete-sweep-outline" size="14" />{{ $ui(" 批量删除") }}<span v-if="selectedDeleteCount">（{{ $ui(selectedDeleteCount) }}）</span>
                         </button>
                         <button type="button" class="record-button" :disabled="listLoading" @click="refreshRecords">
-                            <v-icon icon="mdi-refresh" size="14" />刷新
-                        </button>
+                            <v-icon icon="mdi-refresh" size="14" />{{ $ui("刷新 ") }}</button>
                         <button type="button" class="record-button" :disabled="loadingRecord || busy" @click="openLocalFile">
-                            <v-icon icon="mdi-folder-open-outline" size="14" />打开其他文件
-                        </button>
+                            <v-icon icon="mdi-folder-open-outline" size="14" />{{ $ui("打开其他文件 ") }}</button>
                     </div>
                     <input
                         ref="localFileInput"
@@ -56,22 +53,22 @@
 
                 <div v-if="listMessage" class="record-action-message" role="status">
                     <v-icon icon="mdi-check-circle-outline" size="16" />
-                    <span>{{ listMessage }}</span>
+                    <span>{{ $ui(listMessage) }}</span>
                 </div>
 
                 <div v-if="listLoading" class="record-list-state" role="status">
                     <v-progress-circular indeterminate :size="28" :width="3" />
-                    <span>正在整理历史记录…</span>
+                    <span>{{ $ui("正在整理历史记录…") }}</span>
                 </div>
                 <div v-else-if="listError" class="record-list-state error" role="alert">
                     <v-icon icon="mdi-alert-circle-outline" size="22" />
-                    <span>{{ listError }}</span>
-                    <button type="button" class="record-button" @click="refreshRecords">重试</button>
+                    <span>{{ $ui(listError) }}</span>
+                    <button type="button" class="record-button" @click="refreshRecords">{{ $ui("重试") }}</button>
                 </div>
                 <div v-else-if="records.length === 0" class="record-list-state">
                     <v-icon icon="mdi-file-document-outline" size="28" />
-                    <strong>还没有可查看的战斗记录</strong>
-                    <span>开始监测后，logs 文件夹中的记录会显示在这里。</span>
+                    <strong>{{ $ui("还没有可查看的战斗记录") }}</strong>
+                    <span>{{ $ui("开始监测后，logs 文件夹中的记录会显示在这里。") }}</span>
                 </div>
                 <div v-else ref="recordTableWrap" class="record-table-wrap" @scroll="onRecordScroll">
                     <table class="record-table">
@@ -91,16 +88,16 @@
                                         :checked="allLoadedDeletableSelected"
                                         :indeterminate="someLoadedDeletableSelected"
                                         :disabled="deletableLoadedRecords.length === 0 || Boolean(operationName)"
-                                        aria-label="选择当前已加载的全部可删除记录"
-                                        title="选择当前已加载的全部可删除记录"
+                                        :aria-label="$ui('选择当前已加载的全部可删除记录')"
+                                        :title="$ui('选择当前已加载的全部可删除记录')"
                                         @change="toggleAllLoadedRecords"
                                     />
                                 </th>
-                                <th>序号</th>
-                                <th>日期</th>
-                                <th>时间范围</th>
-                                <th>记录内容</th>
-                                <th>操作</th>
+                                <th>{{ $ui("序号") }}</th>
+                                <th>{{ $ui("日期") }}</th>
+                                <th>{{ $ui("时间范围") }}</th>
+                                <th>{{ $ui("记录内容") }}</th>
+                                <th>{{ $ui("操作") }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -114,33 +111,33 @@
                                         type="checkbox"
                                         :checked="isRecordSelected(record)"
                                         :disabled="record.active || Boolean(operationName)"
-                                        :aria-label="record.active ? '本次运行记录不可删除' : `选择 ${record.date} ${record.timeRange}`"
-                                        :title="record.active ? '本次运行的记录不能删除' : '勾选后可批量删除'"
+                                        :aria-label="$ui(record.active ? '本次运行记录不可删除' : `选择 ${record.date} ${record.timeRange}`)"
+                                        :title="$ui(record.active ? '本次运行的记录不能删除' : '勾选后可批量删除')"
                                         @change="toggleRecordSelection(record, $event)"
                                     />
                                 </td>
-                                <td class="record-index">{{ index + 1 }}</td>
+                                <td class="record-index">{{ $ui(index + 1) }}</td>
                                 <td>
-                                    <strong>{{ record.date }}</strong>
-                                    <span v-if="record.active" class="record-live-badge">本次运行</span>
-                                    <span v-else-if="record.favorite" class="record-favorite-badge">已收藏</span>
+                                    <strong>{{ $ui(record.date) }}</strong>
+                                    <span v-if="record.active" class="record-live-badge">{{ $ui("本次运行") }}</span>
+                                    <span v-else-if="record.favorite" class="record-favorite-badge">{{ $ui("已收藏") }}</span>
                                 </td>
-                                <td class="record-time">{{ record.timeRange }}</td>
+                                <td class="record-time">{{ $ui(record.timeRange) }}</td>
                                 <td>
                                     <div class="record-summary">
                                         <div v-if="record.players?.length" class="record-dps-target">
                                             <v-icon icon="mdi-bullseye-arrow" size="13" />
-                                            <span>DPS 统计目标</span>
-                                            <strong>{{ recordDPSTargetName(record) }}</strong>
+                                            <span>{{ $ui("DPS 统计目标") }}</span>
+                                            <strong>{{ $ui(recordDPSTargetName(record)) }}</strong>
                                         </div>
                                         <div v-if="record.players?.length" class="record-player-dps-list">
-                                            <span v-for="player in record.players || []" :key="player.name" :title="`${recordDPSTargetName(record)} · 总伤害 ${formatNumber(player.totalDamage)}`">
+                                            <span v-for="player in record.players || []" :key="player.name" :title="$ui(`${recordDPSTargetName(record)} · 总伤害 ${formatNumber(player.totalDamage)}`)">
                                                 <strong>{{ displayName(player.name) }}</strong>
-                                                <em>最高 DPS {{ formatNumber(player.dps) }}</em>
+                                                <em>{{ $ui("最高 DPS ") }}{{ $ui(formatNumber(player.dps)) }}</em>
                                             </span>
                                         </div>
-                                        <strong v-else>{{ record.summary }}</strong>
-                                        <span>{{ record.summary }} · {{ formatSize(record.size) }}</span>
+                                        <strong v-else>{{ $ui(record.summary) }}</strong>
+                                        <span>{{ $ui(record.summary) }} · {{ $ui(formatSize(record.size)) }}</span>
                                     </div>
                                 </td>
                                 <td>
@@ -149,7 +146,7 @@
                                             type="button"
                                             class="record-view-button"
                                             :disabled="loadingRecord || busy || record.damageCount === 0"
-                                            :title="record.damageCount === 0 ? '这条记录没有 DPS 数据' : '查看这条记录的 DPS'"
+                                            :title="$ui(record.damageCount === 0 ? '这条记录没有 DPS 数据' : '查看这条记录的 DPS')"
                                             @click="viewRecord(record)"
                                         >
                                             {{ loadingName === record.name ? "读取中" : "查看" }}
@@ -159,102 +156,94 @@
                                             class="record-favorite-button"
                                             :class="{ active: record.favorite }"
                                             :disabled="operationName === record.name"
-                                            :title="record.favorite ? '取消收藏' : '收藏并置顶'"
+                                            :title="$ui(record.favorite ? '取消收藏' : '收藏并置顶')"
                                             @click="toggleFavorite(record)"
                                         >
                                             <v-icon :icon="record.favorite ? 'mdi-star' : 'mdi-star-outline'" size="14" />
-                                            {{ record.favorite ? "取消" : "收藏" }}
+                                            {{ $ui(record.favorite ? "取消" : "收藏") }}
                                         </button>
                                         <button
                                             type="button"
                                             class="record-delete-button"
                                             :disabled="record.active || operationName === record.name"
-                                            :title="record.active ? '本次运行的记录不能删除' : '删除该次记录的全部相关文件'"
+                                            :title="$ui(record.active ? '本次运行的记录不能删除' : '删除该次记录的全部相关文件')"
                                             @click="requestDelete(record)"
                                         >
-                                            <v-icon icon="mdi-delete-outline" size="14" />删除
-                                        </button>
+                                            <v-icon icon="mdi-delete-outline" size="14" />{{ $ui("删除 ") }}</button>
                                     </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                     <div v-if="loadingMore" class="record-load-more" role="status">
-                        <v-progress-circular indeterminate :size="20" :width="2" />正在加载下一批…
-                    </div>
-                    <button v-else-if="hasMore" type="button" class="record-load-more-button" @click="loadMoreRecords">
-                        继续加载 10 条
-                    </button>
+                        <v-progress-circular indeterminate :size="20" :width="2" />{{ $ui("正在加载下一批… ") }}</div>
+                    <button v-else-if="hasMore" type="button" class="record-load-more-button" @click="loadMoreRecords">{{ $ui(" 继续加载 10 条 ") }}</button>
                 </div>
 
                 <footer class="record-browser-footer">
-                    <span>
-                        已显示 {{ records.length }} / {{ totalRecords }} 条
-                        <template v-if="selectedDeleteCount">
-                            · 已选择 {{ selectedDeleteCount }} 条
-                            <button type="button" class="record-clear-selection" :disabled="Boolean(operationName)" @click="clearRecordSelection">清除选择</button>
+                    <span>{{ $ui(" 已显示 ") }}{{ $ui(records.length) }} / {{ $ui(totalRecords) }}{{ $ui(" 条 ") }}<template v-if="selectedDeleteCount">{{ $ui(" · 已选择 ") }}{{ $ui(selectedDeleteCount) }}{{ $ui(" 条 ") }}<button type="button" class="record-clear-selection" :disabled="Boolean(operationName)" @click="clearRecordSelection">{{ $ui("清除选择") }}</button>
                         </template>
                     </span>
-                    <span>{{ hasMore ? "向下滚动会继续加载" : "已加载全部记录" }}</span>
+                    <span>{{ $ui(hasMore ? "向下滚动会继续加载" : "已加载全部记录") }}</span>
                 </footer>
             </template>
 
             <template v-else>
                 <div v-if="detailError" class="record-list-state error" role="alert">
                     <v-icon icon="mdi-alert-circle-outline" size="22" />
-                    <span>{{ detailError }}</span>
-                    <button type="button" class="record-button" @click="returnToList">返回列表</button>
+                    <span>{{ $ui(detailError) }}</span>
+                    <button type="button" class="record-button" @click="returnToList">{{ $ui("返回列表") }}</button>
                 </div>
                 <div v-else class="record-detail-body">
                     <div class="record-detail-filters">
                         <label>
-                            <span>战斗目标</span>
+                            <span>{{ $ui("战斗目标") }}</span>
                             <select v-model="selectedBossId" :disabled="targetOptions.length === 0">
-                                <option v-if="targetOptions.length === 0" value="">没有可用目标</option>
+                                <option v-if="targetOptions.length === 0" value="">{{ $ui("没有可用目标") }}</option>
                                 <option v-for="target in targetOptions" :key="target.id" :value="target.id">{{ target.label }}</option>
                             </select>
                         </label>
                         <label>
-                            <span>查看队员</span>
+                            <span>{{ $ui("查看队员") }}</span>
                             <select v-model="selectedPlayerId" :disabled="playerOptions.length === 0">
-                                <option v-if="playerOptions.length === 0" value="">没有 DPS 数据</option>
+                                <option v-if="playerOptions.length === 0" value="">{{ $ui("没有 DPS 数据") }}</option>
                                 <option v-for="player in playerOptions" :key="player.entityId" :value="player.entityId">
                                     {{ displayName(player.name) }}
                                 </option>
                             </select>
                         </label>
                         <div class="record-detail-file">
-                            <span>记录文件</span>
-                            <strong :title="selectedRecord?.name">{{ selectedRecord?.name || "外部记录" }}</strong>
+                            <span>{{ $ui("记录文件") }}</span>
+                            <strong :title="$ui(selectedRecord?.name)">{{ $ui(selectedRecord?.name || "外部记录") }}</strong>
                         </div>
                     </div>
 
                     <div v-if="!detailSummary || !selectedPlayer" class="record-list-state">
                         <v-icon icon="mdi-chart-line-variant" size="28" />
-                        <strong>这条记录没有可显示的 DPS</strong>
-                        <span>可以返回列表选择其他有伤害数据的记录。</span>
+                        <strong>{{ $ui("这条记录没有可显示的 DPS") }}</strong>
+                        <span>{{ $ui("可以返回列表选择其他有伤害数据的记录。") }}</span>
                     </div>
                     <template v-else>
                         <div class="record-primary-metrics">
                             <article>
-                                <span>每秒伤害 DPS</span>
-                                <strong>{{ formatNumber(selectedPlayer.totalDPS) }}</strong>
+                                <span>{{ $ui("每秒伤害 DPS") }}</span>
+                                <strong>{{ $ui(formatNumber(selectedPlayer.totalDPS)) }}</strong>
                                 <small>{{ displayName(selectedPlayer.name) }}</small>
                             </article>
                             <article>
-                                <span>副本时间</span>
-                                <strong>{{ formatDuration(detailSummary.session.totalDuration) }}</strong>
-                                <small>{{ formatClock(detailSummary.session.startAt) }} - {{ formatClock(detailSummary.session.endAt) }}</small>
+                                <span>{{ $ui("副本时间") }}</span>
+                                <strong>{{ $ui(formatDuration(detailSummary.session.totalDuration)) }}</strong>
+                                <small>{{ $ui(formatClock(detailSummary.session.startAt)) }} - {{ $ui(formatClock(detailSummary.session.endAt)) }}</small>
                             </article>
                         </div>
 
-                        <section class="record-dps-ranking" aria-label="全部队员 DPS">
+                        <section class="record-dps-ranking" :aria-label="$ui('全部队员 DPS')">
                             <header>
                                 <div>
-                                    <strong>全部队员</strong>
-                                    <span>{{ playerOptions.length }} 名有伤害记录的角色</span>
+                                    <strong>{{ $ui("全部队员") }}</strong>
+                                    <span>{{ $ui(playerOptions.length) }}{{ $ui(" 名有伤害记录的角色") }}</span>
                                 </div>
-                                <span>点击一行查看该角色</span>
+                                <span>{{ $ui("点击一行查看该角色") }}</span>
                             </header>
                             <button
                                 v-for="(player, index) in playerOptions"
@@ -263,15 +252,15 @@
                                 :class="{ active: player.entityId === selectedPlayerId }"
                                 @click="selectedPlayerId = player.entityId"
                             >
-                                <span class="record-rank-number">{{ index + 1 }}</span>
+                                <span class="record-rank-number">{{ $ui(index + 1) }}</span>
                                 <span class="record-rank-name">{{ displayName(player.name) }}</span>
                                 <span class="record-rank-performance">
-                                    <span><small>DPS</small><strong>{{ formatNumber(player.totalDPS) }}</strong></span>
+                                    <span><small>DPS</small><strong>{{ $ui(formatNumber(player.totalDPS)) }}</strong></span>
                                     <i>/</i>
                                     <span>
-                                        <small>累计伤害</small>
-                                        <strong>{{ formatCompact(player.totalDamage) }}</strong>
-                                        <em>（{{ formatPercent(playerContribution(player)) }}）</em>
+                                        <small>{{ $ui("累计伤害") }}</small>
+                                        <strong>{{ $ui(formatCompact(player.totalDamage)) }}</strong>
+                                        <em>（{{ $ui(formatPercent(playerContribution(player))) }}）</em>
                                     </span>
                                 </span>
                             </button>
@@ -279,32 +268,32 @@
 
                         <button type="button" class="record-detail-toggle" :class="{ active: detailsOpen }" @click="detailsOpen = !detailsOpen">
                             <v-icon :icon="detailsOpen ? 'mdi-chevron-up' : 'mdi-chart-donut'" size="16" />
-                            {{ detailsOpen ? "收起技能详情" : "查看技能占比" }}
-                            <span>{{ selectedSkills.length }} 个造成伤害的技能</span>
+                            {{ $ui(detailsOpen ? "收起技能详情" : "查看技能占比") }}
+                            <span>{{ $ui(selectedSkills.length) }}{{ $ui(" 个造成伤害的技能") }}</span>
                         </button>
 
-                        <section v-if="detailsOpen" class="record-skill-details" aria-label="技能伤害占比">
+                        <section v-if="detailsOpen" class="record-skill-details" :aria-label="$ui('技能伤害占比')">
                             <header>
-                                <strong>{{ displayName(selectedPlayer.name) }} · 技能占比</strong>
-                                <span>按技能伤害量从高到低排列</span>
+                                <strong>{{ displayName(selectedPlayer.name) }}{{ $ui(" · 技能占比") }}</strong>
+                                <span>{{ $ui("按技能伤害量从高到低排列") }}</span>
                             </header>
-                            <div v-if="selectedSkills.length === 0" class="record-skill-empty">没有造成伤害的技能。</div>
+                            <div v-if="selectedSkills.length === 0" class="record-skill-empty">{{ $ui("没有造成伤害的技能。") }}</div>
                             <div v-else class="record-skill-list">
                                 <article v-for="skill in selectedSkills" :key="skill.skillId">
-                                    <img :src="skillIconUrl(skill.skillId)" :alt="`${skillName(skill.skillId)}图标`" @error="fallbackSkillIcon" />
+                                    <img :src="skillIconUrl(skill.skillId)" :alt="$ui(`${skillName(skill.skillId)}图标`)" @error="fallbackSkillIcon" />
                                     <div>
                                         <header>
-                                            <strong>{{ skillName(skill.skillId) }}</strong>
+                                            <strong>{{ $ui(skillName(skill.skillId)) }}</strong>
                                             <div class="record-skill-head-values">
-                                                <span>{{ formatPercent(skill.ratio) }}</span>
-                                                <small>累计 {{ formatCompact(skill.totalDamage) }}</small>
+                                                <span>{{ $ui(formatPercent(skill.ratio)) }}</span>
+                                                <small>{{ $ui("累计 ") }}{{ $ui(formatCompact(skill.totalDamage)) }}</small>
                                             </div>
                                         </header>
                                         <div class="record-skill-bar"><i :style="{ width: `${Math.max(1.5, skill.ratio * 100)}%` }" /></div>
                                         <div class="record-skill-metrics">
-                                            <span><small>最大单次</small><strong>{{ formatCompact(maxSkillHit(skill)) }}</strong></span>
-                                            <span><small>技能使用</small><strong>{{ skill.useCount }} 次</strong></span>
-                                            <span><small>暴击次数</small><strong>{{ critText(skill) }}</strong></span>
+                                            <span><small>{{ $ui("最大单次") }}</small><strong>{{ $ui(formatCompact(maxSkillHit(skill))) }}</strong></span>
+                                            <span><small>{{ $ui("技能使用") }}</small><strong>{{ $ui(skill.useCount) }}{{ $ui(" 次") }}</strong></span>
+                                            <span><small>{{ $ui("暴击次数") }}</small><strong>{{ $ui(critText(skill)) }}</strong></span>
                                         </div>
                                     </div>
                                 </article>
@@ -315,9 +304,8 @@
 
                 <footer class="record-browser-footer detail-footer">
                     <button type="button" class="record-button" @click="returnToList">
-                        <v-icon icon="mdi-arrow-left" size="14" />返回记录列表
-                    </button>
-                    <span>默认只展示 DPS 与副本时间，需要时再展开技能占比。</span>
+                        <v-icon icon="mdi-arrow-left" size="14" />{{ $ui("返回记录列表 ") }}</button>
+                    <span>{{ $ui("默认只展示 DPS 与副本时间，需要时再展开技能占比。") }}</span>
                 </footer>
             </template>
 
@@ -326,18 +314,18 @@
                     <header>
                         <v-icon icon="mdi-alert-outline" size="22" />
                         <div>
-                            <strong id="record-delete-title">{{ deleteCandidates.length > 1 ? `批量删除 ${deleteCandidates.length} 条历史记录？` : "删除这条历史记录？" }}</strong>
-                            <span>删除后无法恢复。</span>
+                            <strong id="record-delete-title">{{ $ui(deleteCandidates.length > 1 ? `批量删除 ${deleteCandidates.length} 条历史记录？` : "删除这条历史记录？") }}</strong>
+                            <span>{{ $ui("删除后无法恢复。") }}</span>
                         </div>
                     </header>
-                    <p>{{ deleteCandidates.length > 1 ? `预计会同时删除这些记录对应的 ${deleteCandidateFiles.length} 个文件：` : `会同时删除该次运行对应的 ${deleteCandidateFiles.length} 个文件：` }}</p>
+                    <p>{{ $ui(deleteCandidates.length > 1 ? `预计会同时删除这些记录对应的 ${deleteCandidateFiles.length} 个文件：` : `会同时删除该次运行对应的 ${deleteCandidateFiles.length} 个文件：`) }}</p>
                     <ul>
-                        <li v-for="file in deleteCandidateFiles" :key="file">{{ file }}</li>
+                        <li v-for="file in deleteCandidateFiles" :key="file">{{ $ui(file) }}</li>
                     </ul>
                     <footer>
-                        <button type="button" class="record-button" :disabled="deleteOperationActive" @click="deleteCandidates = []">取消</button>
+                        <button type="button" class="record-button" :disabled="deleteOperationActive" @click="deleteCandidates = []">{{ $ui("取消") }}</button>
                         <button type="button" class="record-confirm-delete-button" :disabled="deleteOperationActive" @click="confirmDelete">
-                            {{ deleteOperationActive ? `删除中（${deleteProgress}/${deleteCandidates.length}）…` : deleteCandidates.length > 1 ? `确认删除 ${deleteCandidates.length} 条` : "确认永久删除" }}
+                            {{ $ui(deleteOperationActive ? `删除中（${deleteProgress}/${deleteCandidates.length}）…` : deleteCandidates.length > 1 ? `确认删除 ${deleteCandidates.length} 条` : "确认永久删除") }}
                         </button>
                     </footer>
                 </section>
@@ -347,6 +335,7 @@
 </template>
 
 <script setup lang="ts">
+import { resourceRegion, uiText } from "@/uiLocale";
 import { computed, inject, nextTick, ref, shallowRef, watch, type Ref } from "vue";
 import type { ActorManager, EntityActor } from "@/eventActor";
 import { buildBossSummary, type BossSummary, type PlayerSummary, type SkillStat } from "@/summaryCollector";
@@ -467,7 +456,7 @@ const targetOptions = computed(() => {
                 id: entity.id,
                 damage: entity.totalTakeDamage,
                 health: hasTrueHealth ? maximumHealth : 0,
-                label: `${cleanName(raceNameMap.value[entity.raceId]) || cleanName(entity.name) || `目标 ${entity.raceId}`} · ${hasTrueHealth ? `真实血量 ${formatCompact(maximumHealth)}` : `血量未知（已承伤 ${formatCompact(entity.totalTakeDamage)}）`}`,
+                label: `${cleanName(raceNameMap.value[entity.raceId]) || cleanName(entity.name) || `目标 ${entity.raceId}`} · ${hasTrueHealth ? `${uiText("真实血量")} ${formatCompact(maximumHealth)}` : `${uiText("血量未知（已承伤")} ${formatCompact(entity.totalTakeDamage)}）`}`,
             };
         })
         .sort((left, right) => right.damage - left.damage);
@@ -826,7 +815,7 @@ const RECORD_BOSS_NAME_OVERRIDES: Record<number, string> = {
 function recordDPSTargetName(record: BattleRecordListItem) {
     const raceId = Number(record.dpsTargetRaceId) || 0;
     const rawName = cleanName(record.dpsTargetName);
-    return RECORD_BOSS_NAME_OVERRIDES[raceId]
+    return (resourceRegion.value === "cn" ? RECORD_BOSS_NAME_OVERRIDES[raceId] : "")
         || cleanName(raceNameMap.value[raceId])
         || getDisplayName(rawName)
         || rawName
@@ -863,8 +852,8 @@ function formatNumber(value: number) {
 
 function formatCompact(value: number) {
     const absolute = Math.abs(value || 0);
-    if (absolute >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}亿`;
-    if (absolute >= 10_000) return `${(value / 10_000).toFixed(1)}万`;
+    if (absolute >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}${uiText("亿")}`;
+    if (absolute >= 10_000) return `${(value / 10_000).toFixed(1)}${uiText("万")}`;
     return formatNumber(value);
 }
 

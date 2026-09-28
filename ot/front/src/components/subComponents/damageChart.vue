@@ -1,12 +1,12 @@
 <template>
     <v-sheet class="d-flex flex-column" style="height: 100%;">
         <v-sheet class="d-flex align-center pa-2 flex-shrink-0" style="gap: 12px;">
-            <span>Total: {{ humanReadableNumber(totalDamage || 0) }}</span>
-            <span>Duration: {{ durationText }}</span>
+            <span>Total: {{ $ui(humanReadableNumber(totalDamage || 0)) }}</span>
+            <span>Duration: {{ $ui(durationText) }}</span>
             <v-spacer />
             <v-checkbox v-if="mode === 'dps'" v-model="dithering" label="Dithering" density="compact" hide-details />
             <span>Tick:</span>
-            <v-select v-model="tickSize" :items="tickOptions" item-title="label" item-value="value"
+            <v-select v-model="tickSize" :items="$uiItems(tickOptions)" item-title="label" item-value="value"
                 variant="outlined" density="compact" hide-details style="max-width: 150px;" />
         </v-sheet>
         <div ref="chartDom" style="flex: 1; min-height: 0;"></div>

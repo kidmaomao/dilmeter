@@ -1,6 +1,8 @@
 # OT 外置资源包说明
 
-DilmeterOT 会优先读取程序旁 `data/resource-pack` 目录中的资源；DilmeterCN 与 DilmeterRT 始终使用随程序发布的国服数据。
+现在可直接在顶部「资料」选择 TW 并点击「载入资料」，从 Prilus 下载台服名称资料，成功后可离线使用本地缓存；「语言」可独立选择繁體中文。详见[台服支持说明](../docs/tw-support.md)。
+
+下面的手动方式仍可用于 OT 的 CN／外置包入口：DilmeterOT 会优先读取程序旁 `data/resource-pack` 目录中的资源。CN、RT 保持使用内置国服资料，不提供 TW 选择。
 
 1. 在 [Prilus 资源页](https://prilus.gitlab.io/) 下载目标服务器的 `*_resourcedata.bin.br` 与 `*_resourceversion.json`，两份文件使用同一服务器的版本。
 2. 保持服务器目录结构放入资源包目录。例如台服使用：

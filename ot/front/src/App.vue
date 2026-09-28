@@ -21,51 +21,50 @@
                 >
                     <div class="foreground-recovery-card">
                         <v-progress-circular indeterminate color="primary" :size="58" :width="5" />
-                        <strong>正在加载所选场次</strong>
-                        <span>{{ fileLoadMessage || "正在读取场次记录..." }}</span>
-                        <small>只读取你选中的这段战斗记录，完成后自动打开。</small>
+                        <strong>{{ $ui("正在加载所选场次") }}</strong>
+                        <span>{{ $ui(fileLoadMessage || "正在读取场次记录...") }}</span>
+                        <small>{{ $ui("只读取你选中的这段战斗记录，完成后自动打开。") }}</small>
                         <v-progress-linear :model-value="fileLoadProgress" color="primary" height="7" rounded />
                     </div>
                 </div>
             </transition>
             <v-toolbar v-if="!isDesignPreview" density="compact" class="px-2 app-toolbar">
                 <v-toolbar-title class="text-body-1">
-                    {{ appName }}
-                    <span class="app-version">v{{ appVersion }}</span>
+                    {{ $ui(appName) }}
+                    <span class="app-version">v{{ $ui(appVersion) }}</span>
                     <v-chip class="ml-2" size="x-small" :color="statusColor" variant="tonal">
-                        {{ statusLabel }}
+                        {{ $ui(statusLabel) }}
                     </v-chip>
                 </v-toolbar-title>
                 <v-spacer />
+                <LanguageResourceSettings @loaded="resourceLoadError = ''" />
                 <button v-if="!isStandalone" type="button" class="skill-bar-settings-button" aria-haspopup="dialog" @click="healerMonitorOpen = true">
-                    <v-icon icon="mdi-heart-pulse" size="14" />圣歌监测
-                </button>
+                    <v-icon icon="mdi-heart-pulse" size="14" />{{ $ui("圣歌监测 ") }}</button>
                 <button v-if="!isStandalone" type="button" class="skill-bar-settings-button" @click="skillBarSettingsOpen = true">
-                    <v-icon icon="mdi-view-grid-plus-outline" size="14" />技能栏
-                </button>
+                    <v-icon icon="mdi-view-grid-plus-outline" size="14" />{{ $ui("技能栏 ") }}</button>
                 <button v-if="!isStandalone" type="button" class="update-check-button" :class="{ available: updateInfo?.available }" :disabled="updatePending" @click="checkForUpdate(true)">
                     <v-icon :icon="updateInfo?.available ? 'mdi-download-circle' : 'mdi-update'" size="14" />
-                    {{ updateInfo?.available ? `发现 v${updateInfo.latestVersion}` : "检查更新" }}
+                    {{ $ui(updateInfo?.available ? `发现 v${updateInfo.latestVersion}` : "检查更新") }}
                 </button>
-                <label v-if="!isStandalone" class="ui-color-picker" title="参照洛奇界面颜色预设，选择会立即保存">
+                <label v-if="!isStandalone" class="ui-color-picker" :title="$ui('参照洛奇界面颜色预设，选择会立即保存')">
                     <span class="ui-color-swatch" aria-hidden="true" />
                     <span>UI</span>
-                    <select v-model="uiColorTheme" aria-label="选择 UI 颜色" @change="updateUiColorTheme">
-                        <option v-for="theme in uiColorThemes" :key="theme.id" :value="theme.id">{{ theme.name }}</option>
+                    <select v-model="uiColorTheme" :aria-label="$ui('选择 UI 颜色')" @change="updateUiColorTheme">
+                        <option v-for="theme in uiColorThemes" :key="theme.id" :value="theme.id">{{ $ui(theme.name) }}</option>
                     </select>
                 </label>
-                <label v-if="!isStandalone" class="dps-recording-switch" title="关闭后只隐藏 DPS 界面；网络数据仍会照常处理，Buff、Debuff 和技能 CD 提醒不受影响">
+                <label v-if="!isStandalone" class="dps-recording-switch" :title="$ui('关闭后只隐藏 DPS 界面；网络数据仍会照常处理，Buff、Debuff 和技能 CD 提醒不受影响')">
                     <input v-model="dpsMonitoringEnabled" type="checkbox" @change="updateDpsMonitoring" />
-                    <span>显示 DPS</span>
+                    <span>{{ $ui("显示 DPS") }}</span>
                 </label>
-                <label v-if="!isStandalone" class="accelerator-switch" title="让程序同时检测加速器、本地代理和虚拟网卡连接">
+                <label v-if="!isStandalone" class="accelerator-switch" :title="$ui('让程序同时检测加速器、本地代理和虚拟网卡连接')">
                     <input
                         v-model="acceleratorMode"
                         type="checkbox"
                         :disabled="serverSettingPending"
                         @change="updateGameServer"
                     >
-                    <span>加速器兼容</span>
+                    <span>{{ $ui("加速器兼容") }}</span>
                 </label>
                 <v-btn
                     v-if="!isStandalone"
@@ -76,7 +75,7 @@
                     :loading="serverSettingPending"
                     @click="openServerSettings"
                 >
-                    {{ savedServerDisplay }}
+                    {{ $ui(savedServerDisplay) }}
                 </v-btn>
             </v-toolbar>
 
@@ -88,20 +87,22 @@
                 class="ma-2 mb-0"
                 :icon="isRecordReplay ? 'mdi-history' : runtimeStatus.capturing ? 'mdi-radar' : 'mdi-gamepad-variant-outline'"
             >
-                {{ isRecordReplay ? `正在查看历史记录${loadedRecordName ? `：${loadedRecordName}` : ""}，实时数据暂不写入当前页面。` : runtimeStatus.message }}
-                <span v-if="!isRecordReplay && runtimeStatus.interface" class="text-caption ml-2">{{ runtimeStatus.interface }}</span>
+                {{ isRecordReplay ? `${$ui("正在查看历史记录")}${loadedRecordName ? `：${loadedRecordName}` : ""}${$ui("，实时数据暂不写入当前页面。")}` : $ui(runtimeStatus.message) }}
+                <span v-if="!isRecordReplay && runtimeStatus.interface" class="text-caption ml-2">{{ $ui(runtimeStatus.interface) }}</span>
             </v-alert>
 
             <v-sheet v-if="isFileLoading && !silentLiveLoading && !isDesignPreview" class="d-flex align-center pa-2" style="gap: 10px">
                 <v-icon icon="mdi-file-import-outline" size="small" />
-                <span class="text-caption">{{ fileLoadMessage }}</span>
+                <span class="text-caption">{{ $ui(fileLoadMessage) }}</span>
                 <v-progress-linear :model-value="fileLoadProgress" color="primary" height="8" rounded />
-                <span class="text-caption">{{ fileLoadProgress }}%</span>
+                <span class="text-caption">{{ $ui(fileLoadProgress) }}%</span>
             </v-sheet>
 
             <v-alert v-if="loadError && !isDesignPreview" type="error" variant="tonal" density="compact" class="ma-2" closable @click:close="loadError = ''">
-                {{ loadError }}
+                {{ $ui(loadError) }}
             </v-alert>
+
+            <v-alert v-if="resourceLoadError" type="warning" variant="tonal" density="compact" class="ma-2" closable @click:close="resourceLoadError = ''">{{ $ui(resourceLoadError) }}</v-alert>
 
             <GameDpsReport
                 :is-file-loading="isFileLoading"
@@ -117,17 +118,13 @@
                 @clear-data="clearData"
             >
                 <template #reminder-settings-actions="{ dirty: reminderRulesDirty }">
-                    <div v-if="!isStandalone" class="reminder-inline-settings" aria-label="桌面 Buff 悬浮设置">
-                        <label class="reminder-overlay-checkbox" title="独立控制 Buff 与技能覆盖层；后台计时和统计不会停止">
-                            <input v-model="appBuffSettings.overlayEnabled" type="checkbox" @change="previewOverlayAppearance" />
-                            显示 Buff/技能
-                        </label>
-                        <label class="reminder-overlay-checkbox" title="锁定时 Buff、Debuff、技能 CD、瞄准、Boss 机制和层数提示均为鼠标穿透；解锁后可直接拖动">
-                            <input v-model="appBuffSettings.locked" type="checkbox" @change="persistOverlayLock" />
-                            锁定覆盖层
-                        </label>
-                        <label class="reminder-opacity-setting" title="同时调整 Buff、Debuff、技能图标与倒计时的透明度">
-                            <span>透明度</span>
+                    <div v-if="!isStandalone" class="reminder-inline-settings" :aria-label="$ui('桌面 Buff 悬浮设置')">
+                        <label class="reminder-overlay-checkbox" :title="$ui('独立控制 Buff 与技能覆盖层；后台计时和统计不会停止')">
+                            <input v-model="appBuffSettings.overlayEnabled" type="checkbox" @change="previewOverlayAppearance" />{{ $ui(" 显示 Buff/技能 ") }}</label>
+                        <label class="reminder-overlay-checkbox" :title="$ui('锁定时 Buff、Debuff、技能 CD、瞄准、Boss 机制和层数提示均为鼠标穿透；解锁后可直接拖动')">
+                            <input v-model="appBuffSettings.locked" type="checkbox" @change="persistOverlayLock" />{{ $ui(" 锁定覆盖层 ") }}</label>
+                        <label class="reminder-opacity-setting" :title="$ui('同时调整 Buff、Debuff、技能图标与倒计时的透明度')">
+                            <span>{{ $ui("透明度") }}</span>
                             <input
                                 v-model.number="appBuffSettings.opacity"
                                 type="range"
@@ -136,19 +133,19 @@
                                 step="5"
                                 @input="previewOverlayAppearance"
                             />
-                            <em>{{ appBuffSettings.opacity }}%</em>
+                            <em>{{ $ui(appBuffSettings.opacity) }}%</em>
                         </label>
-                        <label class="reminder-dpi-setting" title="自动会读取原生悬浮窗当前显示器的缩放；手动档应与 Windows 显示缩放一致">
+                        <label class="reminder-dpi-setting" :title="$ui('自动会读取原生悬浮窗当前显示器的缩放；手动档应与 Windows 显示缩放一致')">
                             <span>DPI</span>
                             <select v-model.number="appBuffSettings.dpiPercent" @change="markAppBuffSettingsDirty">
-                                <option :value="0">自动</option>
+                                <option :value="0">{{ $ui("自动") }}</option>
                                 <option v-for="percent in [100, 125, 150, 175, 200, 225, 250, 300]" :key="percent" :value="percent">
-                                    {{ percent }}%
+                                    {{ $ui(percent) }}%
                                 </option>
                             </select>
                         </label>
-                        <label title="桌面 Buff 图标的宽高">
-                            <span>图标</span>
+                        <label :title="$ui('桌面 Buff 图标的宽高')">
+                            <span>{{ $ui("图标") }}</span>
                             <input
                                 v-model.number="appBuffSettings.iconSize"
                                 type="number"
@@ -158,8 +155,8 @@
                             />
                             <em>px</em>
                         </label>
-                        <label title="Buff 到期提醒的统一音量">
-                            <span>音量</span>
+                        <label :title="$ui('Buff 到期提醒的统一音量')">
+                            <span>{{ $ui("音量") }}</span>
                             <input
                                 v-model.number="appBuffSettings.volume"
                                 type="number"
@@ -169,8 +166,8 @@
                             />
                             <em>%</em>
                         </label>
-                        <label class="reminder-coordinate-setting" title="以主屏幕左上角为 (0, 0)，输入后悬浮图标会立即移动">
-                            <span>坐标</span>
+                        <label class="reminder-coordinate-setting" :title="$ui('以主屏幕左上角为 (0, 0)，输入后悬浮图标会立即移动')">
+                            <span>{{ $ui("坐标") }}</span>
                             <b>X</b>
                             <input v-model.number="buffOverlayX" type="number" min="-32000" max="32000" @input="markAppBuffSettingsDirty(); applyBuffOverlayPosition(false)" />
                             <b>Y</b>
@@ -183,28 +180,26 @@
                             @click="saveAppBuffSettings(true)"
                         >
                             <v-icon :icon="settingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                            {{ settingsSaved ? "已保存" : "保存设定" }}
+                            {{ $ui(settingsSaved ? "已保存" : "保存设定") }}
                         </button>
                     </div>
                 </template>
                 <template #debuff-reminder-settings-actions>
-                    <div v-if="!isStandalone" class="reminder-inline-settings debuff-inline-settings" aria-label="Boss Debuff 悬浮设置">
-                        <label class="reminder-overlay-checkbox" title="独立控制 Boss Debuff 覆盖层">
-                            <input v-model="appDebuffSettings.overlayEnabled" type="checkbox" @change="persistDebuffOverlayVisibility" />
-                            显示 Debuff
-                        </label>
-                        <label title="Boss Debuff 提醒图标的宽高">
-                            <span>图标</span>
+                    <div v-if="!isStandalone" class="reminder-inline-settings debuff-inline-settings" :aria-label="$ui('Boss Debuff 悬浮设置')">
+                        <label class="reminder-overlay-checkbox" :title="$ui('独立控制 Boss Debuff 覆盖层')">
+                            <input v-model="appDebuffSettings.overlayEnabled" type="checkbox" @change="persistDebuffOverlayVisibility" />{{ $ui(" 显示 Debuff ") }}</label>
+                        <label :title="$ui('Boss Debuff 提醒图标的宽高')">
+                            <span>{{ $ui("图标") }}</span>
                             <input v-model.number="appDebuffSettings.iconSize" type="number" min="16" max="80" @input="debuffSettingsSaved = false" />
                             <em>px</em>
                         </label>
-                        <label title="Boss Debuff 缺失或临期提示音的统一音量；设为 0 可静音">
-                            <span>音量</span>
+                        <label :title="$ui('Boss Debuff 缺失或临期提示音的统一音量；设为 0 可静音')">
+                            <span>{{ $ui("音量") }}</span>
                             <input v-model.number="appDebuffSettings.volume" type="number" min="0" max="100" @input="debuffSettingsSaved = false" />
                             <em>%</em>
                         </label>
-                        <label class="reminder-coordinate-setting" title="Debuff 使用独立坐标，不会再与 Buff 排在同一行">
-                            <span>坐标</span>
+                        <label class="reminder-coordinate-setting" :title="$ui('Debuff 使用独立坐标，不会再与 Buff 排在同一行')">
+                            <span>{{ $ui("坐标") }}</span>
                             <b>X</b>
                             <input v-model.number="debuffOverlayX" type="number" min="-32000" max="32000" @input="debuffSettingsSaved = false; applyDebuffOverlayPosition(false)" />
                             <b>Y</b>
@@ -212,7 +207,7 @@
                         </label>
                         <button type="button" class="reminder-save-settings debuff-save-settings" @click="saveAppDebuffSettings(true)">
                             <v-icon :icon="debuffSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                            {{ debuffSettingsSaved ? "已保存" : "保存设定" }}
+                            {{ $ui(debuffSettingsSaved ? "已保存" : "保存设定") }}
                         </button>
                     </div>
                 </template>
@@ -227,16 +222,12 @@
             <v-dialog v-model="serverDialogOpen" max-width="560">
                 <v-card class="server-settings-card">
                     <v-card-title class="d-flex align-center">
-                        <v-icon icon="mdi-server-network" class="mr-2" />
-                        服务器设置
-                    </v-card-title>
+                        <v-icon icon="mdi-server-network" class="mr-2" />{{ $ui(" 服务器设置 ") }}</v-card-title>
                     <v-card-text>
-                        <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-                            IP 可填写单个 IPv4 或 CIDR 网段。修改后需要在游戏内切换一次地图，监测才会重新开始。
-                        </v-alert>
+                        <v-alert type="info" variant="tonal" density="compact" class="mb-4">{{ $ui(" IP 可填写单个 IPv4 或 CIDR 网段。修改后需要在游戏内切换一次地图，监测才会重新开始。 ") }}</v-alert>
                         <v-text-field
                             v-model="serverNetworkInput"
-                            label="服务器 IP / CIDR 网段"
+                            :label="$ui('服务器 IP / CIDR 网段')"
                             placeholder="211.147.76.0/24"
                             variant="outlined"
                             density="compact"
@@ -245,9 +236,9 @@
                         />
                         <v-text-field
                             v-model="serverPortsInput"
-                            label="服务器端口"
+                            :label="$ui('服务器端口')"
                             placeholder="11020, 11021, 11023"
-                            hint="多个端口可用逗号、分号或空格分隔"
+                            :hint="$ui('多个端口可用逗号、分号或空格分隔')"
                             persistent-hint
                             variant="outlined"
                             density="compact"
@@ -255,8 +246,8 @@
                     </v-card-text>
                     <v-card-actions>
                         <v-spacer />
-                        <v-btn :disabled="serverSettingPending" @click="serverDialogOpen = false">取消</v-btn>
-                        <v-btn color="primary" :loading="serverSettingPending" @click="updateGameServer">应用设置</v-btn>
+                        <v-btn :disabled="serverSettingPending" @click="serverDialogOpen = false">{{ $ui("取消") }}</v-btn>
+                        <v-btn color="primary" :loading="serverSettingPending" @click="updateGameServer">{{ $ui("应用设置") }}</v-btn>
                     </v-card-actions>
                 </v-card>
             </v-dialog>
@@ -268,28 +259,28 @@
 
             <v-dialog v-model="msgBoxOpen" max-width="520">
                 <v-card>
-                    <v-card-title>消息</v-card-title>
-                    <v-card-text style="white-space: pre-wrap">{{ msgBoxText }}</v-card-text>
+                    <v-card-title>{{ $ui("消息") }}</v-card-title>
+                    <v-card-text style="white-space: pre-wrap">{{ $ui(msgBoxText) }}</v-card-text>
                     <v-card-actions>
                         <v-spacer />
-                        <v-btn color="primary" @click="msgBoxOpen = false">关闭</v-btn>
+                        <v-btn color="primary" @click="msgBoxOpen = false">{{ $ui("关闭") }}</v-btn>
                     </v-card-actions>
                 </v-card>
             </v-dialog>
 
             <v-dialog v-model="updateDialogOpen" max-width="560">
                 <v-card class="update-dialog-card">
-                    <v-card-title><v-icon icon="mdi-update" class="mr-2" />在线更新</v-card-title>
+                    <v-card-title><v-icon icon="mdi-update" class="mr-2" />{{ $ui("在线更新") }}</v-card-title>
                     <v-card-text v-if="updateInfo">
-                        <p>当前版本：v{{ updateInfo.currentVersion }}　最新版本：v{{ updateInfo.latestVersion }}</p>
-                        <p v-if="updateInfo.notes" class="update-notes">{{ updateInfo.notes }}</p>
-                        <p v-if="!updateInfo.available">当前已经是最新版本。</p>
-                        <p v-else>更新包会先经过 HTTPS 下载及 SHA-256 校验。确认无误后，软件会自动退出并替换程序文件；安装完成后不会自动重启，请手动重新打开软件。配置和战斗记录不会被删除。</p>
+                        <p>{{ $ui("当前版本：v") }}{{ $ui(updateInfo.currentVersion) }}{{ $ui("　最新版本：v") }}{{ $ui(updateInfo.latestVersion) }}</p>
+                        <p v-if="updateInfo.notes" class="update-notes">{{ $ui(updateInfo.notes) }}</p>
+                        <p v-if="!updateInfo.available">{{ $ui("当前已经是最新版本。") }}</p>
+                        <p v-else>{{ $ui("更新包会先经过 HTTPS 下载及 SHA-256 校验。确认无误后，软件会自动退出并替换程序文件；安装完成后不会自动重启，请手动重新打开软件。配置和战斗记录不会被删除。") }}</p>
                     </v-card-text>
                     <v-card-actions>
                         <v-spacer />
-                        <v-btn @click="updateDialogOpen = false">关闭</v-btn>
-                        <v-btn v-if="updateInfo?.available" color="primary" :loading="updatePending" @click="downloadUpdate">立即更新并关闭</v-btn>
+                        <v-btn @click="updateDialogOpen = false">{{ $ui("关闭") }}</v-btn>
+                        <v-btn v-if="updateInfo?.available" color="primary" :loading="updatePending" @click="downloadUpdate">{{ $ui("立即更新并关闭") }}</v-btn>
                     </v-card-actions>
                 </v-card>
             </v-dialog>
@@ -311,7 +302,9 @@ import SkillBarSettingsDialog from "@/components/SkillBarSettingsDialog.vue";
 import LogCleanupDialog from "@/components/LogCleanupDialog.vue";
 import BattleRecordBrowser from "@/components/BattleRecordBrowser.vue";
 import { BOSS_MECHANIC_EVENT } from "@/bossMechanicAlert";
-import { ensureCnResourceNames } from "@/cnResources";
+import { loadResourceNames } from "@/resourceNames";
+import { resourceRegion } from "@/uiLocale";
+import LanguageResourceSettings from "@/components/LanguageResourceSettings.vue";
 import { loadBuffOverlaySettings, saveBuffOverlaySettings } from "@/buffAlert";
 import { loadDebuffAlertSettings, saveDebuffAlertSettings } from "@/debuffAlert";
 import { SocketClient } from "@/lib/socketClient";
@@ -371,7 +364,7 @@ const defaultServerPorts = ["11020", "11021", "11023"];
 
 export default defineComponent({
     name: "App",
-    components: { GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
+    components: { LanguageResourceSettings, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
     setup() {
         const db = inject("db") as any;
         const region = inject("region") as any;
@@ -394,7 +387,7 @@ export default defineComponent({
         if (isDesignPreview) document.documentElement.classList.add("design-preview-root");
         const socketConnected = ref(false);
         const appName = ref("DilmeterOT");
-        const appVersion = ref("1.5.2");
+        const appVersion = ref("1.5.2 R2");
         const runtimeStatus = ref<AppRuntimeStatus>({
             state: isStandalone ? "replay" : "starting",
             message: isStandalone ? "本地日志模式" : "正在连接桌面监测器…",
@@ -416,6 +409,7 @@ export default defineComponent({
         let catalogPending = false;
         let catalogTimer: number | undefined;
         const loadError = ref("");
+        const resourceLoadError = ref("");
         const updateInfo = ref<UpdateInfo | null>(null);
         const updatePending = ref(false);
         const updateDialogOpen = ref(false);
@@ -1144,9 +1138,7 @@ export default defineComponent({
                 }
                 await syncNativeSkillBarSettings(settings);
             })().catch(() => undefined);
-            region.value = "cn";
-            lang.value = "cn";
-            regionList.value = ["cn"];
+
             window.addEventListener("dilmeter-debuff-alert-settings", refreshAppDebuffSettings as EventListener);
             window.addEventListener("dilmeter-buff-alert-settings", refreshAppBuffSettings as EventListener);
             refreshAppDebuffSettings();
@@ -1188,27 +1180,10 @@ export default defineComponent({
             }
 
             try {
-                await db.value.tryOpen();
-                const [races, skills, conds, items] = await Promise.all([
-                    db.value.getSortedListData("RaceList", "cn"),
-                    db.value.getSortedListData("SkillList", "cn"),
-                    db.value.getSortedListData("CharCondList", "cn"),
-                    db.value.getSortedListData("ItemList", "cn"),
-                ]);
-                races.forEach((v: any) => (raceNameMap.value[v.Id] = `${toSimplified(db.value.getCurLangString(v.Name))} ${v.Id}`));
-                skills.forEach((v: any) => {
-                    const resourceName = toSimplified(db.value.getCurLangString(v.Name));
-                    skillNameMap.value[v.Id] = normalizeSkillDisplayName(v.Id, resourceName);
-                });
-                conds.forEach((v: any) => (condNameMap.value[v.Id] = toSimplified(db.value.getCurLangString(v.Name))));
-                items.forEach((v: any) => (itemNameMap.value[v.Id] = toSimplified(db.value.getCurLangString(v.Name))));
+                const result = await loadResourceNames(resourceRegion.value);
+                if (result.cached) resourceLoadError.value = "资料更新失败，正在使用所选服务器的本地缓存。";
             } catch (e) {
-                try {
-                    await ensureCnResourceNames();
-                    loadError.value = `正在使用精简 CN 资料表；完整资料更新失败：${e}`;
-                } catch {
-                    loadError.value = `资料表加载失败：${e}`;
-                }
+                resourceLoadError.value = `资料载入失败，请在「资料」中重试：${e}`;
             }
         });
 
@@ -1263,6 +1238,7 @@ export default defineComponent({
             loadedSessionKey,
             loadArchivedSession,
             loadError,
+            resourceLoadError,
             isRecordReplay,
             healerMonitorOpen,
             loadedRecordName,
@@ -1305,23 +1281,6 @@ export default defineComponent({
     },
 });
 
-function toSimplified(text: string): string {
-    const map: Record<string, string> = {
-        "連": "连", "續": "续", "擊": "击", "閃": "闪", "焰": "焰", "護": "护", "盾": "盾",
-        "轉": "转", "移": "移", "龍": "龙", "爆": "爆", "炎": "炎", "箭": "箭", "迅": "迅",
-        "捷": "捷", "雙": "双", "槍": "枪", "鍊": "炼", "金": "金", "噩": "噩",
-        "夢": "梦", "召": "召", "喚": "唤", "魔": "魔", "劍": "剑", "戰": "战", "鬥": "斗",
-        "風": "风", "火": "火", "冰": "冰", "雷": "雷", "闇": "暗", "聖": "圣", "靈": "灵",
-        "術": "术", "彈": "弹", "衝": "冲", "範": "范", "圍": "围", "傷": "伤",
-        "害": "害", "強": "强", "化": "化", "弱": "弱", "體": "体", "輕": "轻", "重": "重",
-        "復": "复", "藥": "药", "賦": "赋", "予": "予", "詠": "咏", "唱": "唱", "祈": "祈",
-        "禱": "祷", "絕": "绝", "對": "对", "稱": "称", "號": "号", "標": "标", "記": "记",
-        "減": "减", "緩": "缓", "暈": "晕", "敵": "敌", "騎": "骑", "寵": "宠", "鍛": "锻",
-        "煉": "炼", "製": "制", "作": "作", "採": "采", "集": "集", "釣": "钓", "魚": "鱼",
-        "藝": "艺", "樂": "乐", "詩": "诗", "進": "进", "階": "阶", "變": "变", "身": "身",
-    };
-    return text.replace(/[^\x00-\x7F]/g, (ch) => map[ch] ?? ch);
-}
 
 const DPS_MONITORING_STORAGE_KEY = "dilmeter-cn-dps-monitoring-v1";
 
@@ -1341,6 +1300,14 @@ function saveDpsMonitoringEnabled(enabled: boolean): void {
     background: linear-gradient(#252525, #101010);
     color: #f2f2f2;
     border-bottom: 1px solid #4b4b4b;
+}
+
+.app-toolbar :deep(.v-toolbar__content) {
+    height: auto !important;
+    min-height: 48px;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 4px 0;
 }
 
 .app-version {

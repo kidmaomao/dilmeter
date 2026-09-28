@@ -10,7 +10,7 @@
         <section
             v-if="visibleItems.length"
             class="overlay-buff-list"
-            aria-label="Buff 到期提醒"
+            :aria-label="$ui('Buff 到期提醒')"
         >
             <div
                 class="overlay-buff-items"
@@ -25,14 +25,14 @@
                     :key="`${item.kind || 'buff'}-${item.ccId}-${item.appliedAt}-${item.state || 'active'}`"
                     class="overlay-buff"
                     :class="{ flashing: shouldFlash(item), preview: item.preview, inactive: item.active === false, missing: item.state === 'missing', debuff: item.kind === 'debuff' }"
-                    :title="`${item.name}（CC ${item.ccId}）`"
+                    :title="$ui(`${item.name}（CC ${item.ccId}）`)"
                 >
                     <div class="overlay-icon-ring">
-                        <span class="overlay-icon-fallback">{{ item.ccId }}</span>
-                        <img :src="item.iconUrl" :alt="`${item.name}图标`" @load="showImage" @error="retryImage" />
+                        <span class="overlay-icon-fallback">{{ $ui(item.ccId) }}</span>
+                        <img :src="item.iconUrl" :alt="$ui(`${item.name}图标`)" @load="showImage" @error="retryImage" />
                     </div>
                     <span v-if="item.active !== false && !item.preview && remainingSeconds(item) !== null" class="overlay-countdown">
-                        {{ displaySeconds(item) }}
+                        {{ $ui(displaySeconds(item)) }}
                     </span>
                 </article>
             </div>

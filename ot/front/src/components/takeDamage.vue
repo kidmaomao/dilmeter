@@ -6,31 +6,31 @@
             <v-expansion-panel>
                 <v-expansion-panel-title>
                     <div class="d-flex align-center" style="width: 100%; gap: 4px;">
-                        <span class="font-weight-medium">{{ prettyEntityName(v.actor) }}</span>
+                        <span class="font-weight-medium">{{ $ui(prettyEntityName(v.actor)) }}</span>
                         <v-btn v-if="!v.actor.isPC" icon="mdi-close" size="x-small" variant="text"
                             @click.stop="hideGroup(v.actor)" />
                         <v-spacer />
-                        <span style="min-width: 48px; text-align: center; font-size: 0.85em; opacity: 0.7;">{{ groupDuration(v.groupedDamages) }}</span>
-                        <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ humanReadableNumber(v.totalDamage) }}</span>
-                        <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ humanReadableNumber(groupDps(v.totalDamage, v.groupedDamages)) }}</span>
+                        <span style="min-width: 48px; text-align: center; font-size: 0.85em; opacity: 0.7;">{{ $ui(groupDuration(v.groupedDamages)) }}</span>
+                        <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ $ui(humanReadableNumber(v.totalDamage)) }}</span>
+                        <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ $ui(humanReadableNumber(groupDps(v.totalDamage, v.groupedDamages))) }}</span>
                     </div>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text class="pa-3">
                     <template v-for="entity, entityk in v.entity" v-bind:key="entityk">
                         <template v-if="entity.totalDamage > 0">
                             <v-sheet class="d-flex align-center mb-1" style="gap: 4px;">
-                                <span>{{ prettyEntityName(entity.actor) }}</span>
+                                <span>{{ $ui(prettyEntityName(entity.actor)) }}</span>
                                 <span v-if="entity.actor.finisherId" style="font-size: 0.85em; opacity: 0.7;">
-                                    Killed by {{ prettyEntityName(entityMap[entity.actor.finisherId]?.actor) || entity.actor.finisherId }}
+                                    Killed by {{ $ui(prettyEntityName(entityMap[entity.actor.finisherId]?.actor) || entity.actor.finisherId) }}
                                 </span>
                                 <condition-image-list :conditions="Object.values(entity.actor.conditionMap)" />
                                 <v-btn v-if="entity.actor.conditionHistory.length > 0"
                                     icon="mdi-chart-timeline" size="x-small" variant="text"
                                     @click.stop="showConditionChart(entity.actor)" />
                                 <v-spacer />
-                                <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ humanReadableNumber(entity.totalDamage) }}</span>
-                                <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ humanReadableNumber(groupDps(entity.totalDamage, entity.groupedDamages)) }}</span>
-                                <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ (100 * entity.totalDamage / v.totalDamage).toFixed(1) }}%</span>
+                                <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ $ui(humanReadableNumber(entity.totalDamage)) }}</span>
+                                <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ $ui(humanReadableNumber(groupDps(entity.totalDamage, entity.groupedDamages))) }}</span>
+                                <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ $ui((100 * entity.totalDamage / v.totalDamage).toFixed(1)) }}%</span>
                             </v-sheet>
 
                             <v-sheet
@@ -40,11 +40,11 @@
                                 @click.stop="showEntityDetailDamageList(entity.actor.id, attackerId)">
                                 <div :style="{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.round(100 * damageByAttacker / entity.totalDamage)}%`, background: getMabiNameColor(prettyEntityName(entityMap[attackerId]?.actor) || attackerId), opacity: 0.4 }" />
                                 <div class="d-flex align-center pa-1" style="position: relative; gap: 4px;">
-                                    <span class="font-weight-medium">{{ prettyEntityName(entityMap[attackerId]?.actor) || attackerId }}</span>
+                                    <span class="font-weight-medium">{{ $ui(prettyEntityName(entityMap[attackerId]?.actor) || attackerId) }}</span>
                                     <v-spacer />
-                                    <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ humanReadableNumber(damageByAttacker) }}</span>
-                                    <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ humanReadableNumber(arrayDps(damageByAttacker, entity.groupedDamages[attackerId])) }}</span>
-                                    <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ (100 * damageByAttacker / entity.totalDamage).toFixed(1) }}%</span>
+                                    <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ $ui(humanReadableNumber(damageByAttacker)) }}</span>
+                                    <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ $ui(humanReadableNumber(arrayDps(damageByAttacker, entity.groupedDamages[attackerId]))) }}</span>
+                                    <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ $ui((100 * damageByAttacker / entity.totalDamage).toFixed(1)) }}%</span>
                                 </div>
                             </v-sheet>
                         </template>
@@ -58,11 +58,11 @@
                 @click.stop="showEntityGroupDetailDamageList(v.actor.id, attackerId)">
                 <div :style="{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.round(100 * damageByAttacker / v.totalDamage)}%`, background: getMabiNameColor(prettyEntityName(entityMap[attackerId]?.actor) || attackerId), opacity: 0.4 }" />
                 <div class="d-flex align-center pa-1" style="position: relative; gap: 4px;">
-                    <span class="font-weight-medium">{{ prettyEntityName(entityMap[attackerId]?.actor) || attackerId }}</span>
+                    <span class="font-weight-medium">{{ $ui(prettyEntityName(entityMap[attackerId]?.actor) || attackerId) }}</span>
                     <v-spacer />
-                    <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ humanReadableNumber(damageByAttacker) }}</span>
-                    <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ humanReadableNumber(arrayDps(damageByAttacker, v.groupedDamages[attackerId])) }}</span>
-                    <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ (100 * damageByAttacker / v.totalDamage).toFixed(1) }}%</span>
+                    <span style="min-width: 80px; text-align: center; color: #FFD54F;">{{ $ui(humanReadableNumber(damageByAttacker)) }}</span>
+                    <span style="min-width: 80px; text-align: center; color: #42A5F5;">{{ $ui(humanReadableNumber(arrayDps(damageByAttacker, v.groupedDamages[attackerId]))) }}</span>
+                    <span style="min-width: 56px; text-align: center; color: #66BB6A;">{{ $ui((100 * damageByAttacker / v.totalDamage).toFixed(1)) }}%</span>
                 </div>
             </v-sheet>
         </template>

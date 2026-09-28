@@ -1,3 +1,5 @@
+import { resourceRegion } from "./uiLocale";
+
 export const BOSS_NAME_OVERRIDES: Record<number, string> = {
     7600: "枯木的佩塔克",
     7601: "枯木的佩塔克",
@@ -15,7 +17,7 @@ export function bossDisplayName(
     const resourceName = clean(raceNames[target.raceId]);
     const packetName = clean(target.name);
     // Unnamed monsters often use their entity ID as the packet name.
-    return BOSS_NAME_OVERRIDES[target.raceId]
+    return (resourceRegion.value === "cn" ? BOSS_NAME_OVERRIDES[target.raceId] : "")
         || (resourceName && !/^\d+$/.test(resourceName) ? resourceName : "")
         || (packetName && !/^\d+$/.test(packetName) ? packetName : "")
         || (target.raceId > 0 ? `首领 ${target.raceId}` : "未识别首领");

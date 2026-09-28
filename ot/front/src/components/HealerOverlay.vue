@@ -1,5 +1,5 @@
 <template>
- <main class="healer-overlay-root" aria-label="圣歌监测悬浮提醒">
+ <main class="healer-overlay-root" :aria-label="$ui('圣歌监测悬浮提醒')">
   <HealerOverlayVisual v-for="group in frame?.groups || []" :key="group.key" :group="group" :font-size="frame!.fontSize" :icon-size="frame!.iconSize" :opacity-percent="frame!.opacityPercent" :style="{ position: 'absolute', left: `${group.x - frame!.x}px`, top: `${group.y - frame!.y}px` }" />
  </main>
 </template>

@@ -42,6 +42,8 @@ func TestBundledConditionIconPath(t *testing.T) {
 	}{
 		{"/res/characterconditionimage/cn/680/680.png", "/condition-icons/680.png", true},
 		{"/res/characterconditionimage/kr/680/680.png", "", false},
+		{"/res/characterconditionimage/tw/680/680.png", "/condition-icons/680.png", true},
+		{"/res/characterconditionimage/tw/../680.png", "", false},
 		{"/res/characterconditionimage/cn/680/681.png", "", false},
 		{"/res/characterconditionimage/cn/../680.png", "", false},
 	}

@@ -2,10 +2,10 @@
     <div>
         <!-- 控制列 -->
         <div class="d-flex align-center px-1 mb-1" style="gap: 8px">
-            <span class="text-caption text-disabled">時間粒度</span>
+            <span class="text-caption text-disabled">{{ $ui("時間粒度") }}</span>
             <v-select
                 v-model="tickSize"
-                :items="tickOptions"
+                :items="$uiItems(tickOptions)"
                 item-title="label"
                 item-value="value"
                 variant="outlined"
@@ -36,7 +36,7 @@
                         style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0"
                         :style="{ background: palette[idx % palette.length] }"
                     />
-                    <span class="text-body-2">{{ e.displayName }}</span>
+                    <span class="text-body-2">{{ $ui(e.displayName) }}</span>
                 </template>
             </v-checkbox>
         </div>

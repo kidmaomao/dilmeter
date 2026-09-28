@@ -1,24 +1,20 @@
 <template>
     <!-- ID 混淆設定按鈕 -->
-    <div>目前僅支援讀檔案</div>
+    <div>{{ $ui("目前僅支援讀檔案") }}</div>
     <div class="ma-2">
         <v-btn
             @click="openIdMappingDialog"
             color="primary"
             variant="outlined"
             prepend-icon="mdi-incognito"
-        >
-            ID 混淆設定
-        </v-btn>
+        >{{ $ui(" ID 混淆設定 ") }}</v-btn>
     </div>
 
     <!-- ID 混淆設定 Dialog -->
     <v-dialog v-model="idMappingDialog" max-width="800px" scrollable>
         <v-card>
             <v-card-title class="d-flex align-center">
-                <v-icon class="mr-2">mdi-incognito</v-icon>
-                ID 混淆設定
-                <v-spacer></v-spacer>
+                <v-icon class="mr-2">mdi-incognito</v-icon>{{ $ui(" ID 混淆設定 ") }}<v-spacer></v-spacer>
                 <v-btn icon variant="text" @click="idMappingDialog = false">
                     <v-icon>mdi-close</v-icon>
                 </v-btn>
@@ -37,9 +33,9 @@
                             <v-col cols="5" class="pr-2">
                                 <div
                                     class="text-body-2 text-truncate"
-                                    :title="player.originalName"
+                                    :title="$ui(player.originalName)"
                                 >
-                                    {{ player.originalName }}
+                                    {{ $ui(player.originalName) }}
                                 </div>
                             </v-col>
                             <v-col cols="1" class="text-center">
@@ -51,7 +47,7 @@
                                     density="compact"
                                     variant="outlined"
                                     hide-details
-                                    placeholder="留空表示不改"
+                                    :placeholder="$ui('留空表示不改')"
                                     clearable
                                 ></v-text-field>
                             </v-col>
@@ -61,28 +57,20 @@
                 <div
                     v-if="tempPlayerMappings.length === 0"
                     class="text-center text-caption text-disabled py-4"
-                >
-                    沒有玩家資料
-                </div>
+                >{{ $ui(" 沒有玩家資料 ") }}</div>
             </v-card-text>
 
             <v-divider></v-divider>
 
             <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn variant="text" @click="clearIdMappings" color="error">
-                    清除全部
-                </v-btn>
-                <v-btn variant="text" @click="idMappingDialog = false">
-                    取消
-                </v-btn>
+                <v-btn variant="text" @click="clearIdMappings" color="error">{{ $ui(" 清除全部 ") }}</v-btn>
+                <v-btn variant="text" @click="idMappingDialog = false">{{ $ui(" 取消 ") }}</v-btn>
                 <v-btn
                     variant="elevated"
                     @click="applyIdMappings"
                     color="primary"
-                >
-                    套用
-                </v-btn>
+                >{{ $ui(" 套用 ") }}</v-btn>
             </v-card-actions>
         </v-card>
     </v-dialog>
@@ -90,7 +78,7 @@
     <!-- 原有的 Vuetify 展開面板部分 -->
     <v-select
         v-model="targetId"
-        :items="targetIdList"
+        :items="$uiItems(targetIdList)"
         :item-title="
             (vv) => {
                 const name = vv[0]
@@ -112,16 +100,14 @@
     <div v-if="compareData.length > 0" class="statistics-section">
         <!-- 標題列 -->
         <div class="d-flex align-center my-4">
-            <span class="text-h6 mr-4">統計分析</span>
+            <span class="text-h6 mr-4">{{ $ui("統計分析") }}</span>
             <v-divider />
         </div>
 
         <!-- Loading 狀態 -->
         <div v-if="isChartLoading" class="loading-container">
             <v-progress-circular indeterminate :size="40" color="primary" />
-            <p class="mt-4" style="font-size: 16px; color: #909399">
-                正在處理資料...
-            </p>
+            <p class="mt-4" style="font-size: 16px; color: #909399">{{ $ui(" 正在處理資料... ") }}</p>
         </div>
 
         <!-- 圖表內容 -->
@@ -131,9 +117,9 @@
                 <!-- Table 1: 玩家總體輸出統計 -->
                 <v-col cols="7">
                     <v-card>
-                        <v-card-title>玩家總體輸出統計</v-card-title>
+                        <v-card-title>{{ $ui("玩家總體輸出統計") }}</v-card-title>
                         <v-data-table
-                            :headers="playerTableHeaders"
+                            :headers="$uiItems(playerTableHeaders)"
                             :items="playerStats"
                             density="compact"
                             :items-per-page="-1"
@@ -143,13 +129,13 @@
                             :row-props="({ item }: { item: any }) => selectedPlayer === item.name ? { class: 'selected-row' } : {}"
                         >
                             <template #item.job="{ item }">
-                                <v-chip size="small" color="grey">{{ item.job }}</v-chip>
+                                <v-chip size="small" color="grey">{{ $job(item.job) }}</v-chip>
                             </template>
                             <template #item.totalDamage="{ item }">
-                                {{ Math.floor(item.totalDamage).toLocaleString() }}
+                                {{ $ui(Math.floor(item.totalDamage).toLocaleString()) }}
                             </template>
                             <template #item.percentage="{ item }">
-                                {{ item.percentage }}%
+                                {{ $ui(item.percentage) }}%
                             </template>
                             <template #item.critRate="{ item }">
                                 <span
@@ -157,11 +143,11 @@
                                         'text-success': parseFloat(item.critRate) >= 80,
                                     }"
                                 >
-                                    {{ item.critRate }}%
+                                    {{ $ui(item.critRate) }}%
                                 </span>
                             </template>
                             <template #item.avgDamage="{ item }">
-                                {{ Math.floor(item.avgDamage).toLocaleString() }}
+                                {{ $ui(Math.floor(item.avgDamage).toLocaleString()) }}
                             </template>
                         </v-data-table>
                     </v-card>
@@ -170,7 +156,7 @@
                 <!-- Pie Chart 1: 玩家輸出佔比 -->
                 <v-col cols="5">
                     <v-card>
-                        <v-card-title>輸出佔比</v-card-title>
+                        <v-card-title>{{ $ui("輸出佔比") }}</v-card-title>
                         <div
                             ref="playerPieChartRef"
                             style="width: 100%; height: 400px"
@@ -184,14 +170,12 @@
                 <!-- Table 2: 技能詳細統計 (含玩家切換 Tabs) -->
                 <v-col cols="7">
                     <v-card>
-                        <v-card-title class="d-flex align-center" style="gap: 8px">
-                            技能詳細統計
-                            <v-chip
+                        <v-card-title class="d-flex align-center" style="gap: 8px">{{ $ui(" 技能詳細統計 ") }}<v-chip
                                 v-if="selectedPlayer"
                                 color="primary"
                                 size="small"
                             >
-                                {{ selectedPlayer }}
+                                {{ $ui(selectedPlayer) }}
                             </v-chip>
                         </v-card-title>
 
@@ -211,7 +195,7 @@
 
                         <v-data-table
                             v-if="selectedPlayer"
-                            :headers="skillTableHeaders"
+                            :headers="$uiItems(skillTableHeaders)"
                             :items="selectedSkillStats"
                             density="compact"
                             :items-per-page="-1"
@@ -231,7 +215,7 @@
                                                 (e.target.style.display = 'none')
                                         "
                                     />
-                                    <span>{{ item.name }}</span>
+                                    <span>{{ $ui(item.name) }}</span>
                                 </div>
                             </template>
                             <template #item.critRate="{ item }">
@@ -240,7 +224,7 @@
                                     class="text-disabled"
                                     style="font-style: italic"
                                 >
-                                    {{ item.critRate }}
+                                    {{ $ui(item.critRate) }}
                                 </span>
                                 <span
                                     v-else
@@ -249,7 +233,7 @@
                                             parseFloat(item.critRate) >= 80,
                                     }"
                                 >
-                                    {{ item.critRate }}%
+                                    {{ $ui(item.critRate) }}%
                                 </span>
                             </template>
                             <template #item.ccRate="{ item }">
@@ -259,39 +243,35 @@
                                             parseFloat(item.ccRate) >= 90,
                                     }"
                                 >
-                                    {{ item.ccRate }}%
+                                    {{ $ui(item.ccRate) }}%
                                 </span>
                             </template>
                             <template #item.maxDamage="{ item }">
-                                {{ Math.floor(item.maxDamage).toLocaleString() }}
+                                {{ $ui(Math.floor(item.maxDamage).toLocaleString()) }}
                             </template>
                             <template #item.totalDamage="{ item }">
-                                {{ Math.floor(item.totalDamage).toLocaleString() }}
+                                {{ $ui(Math.floor(item.totalDamage).toLocaleString()) }}
                             </template>
                             <template #item.percentage="{ item }">
-                                {{ item.percentage }}%
+                                {{ $ui(item.percentage) }}%
                             </template>
                         </v-data-table>
                         <div
                             v-else
                             class="text-center text-disabled pa-8"
-                        >
-                            請選擇玩家
-                        </div>
+                        >{{ $ui(" 請選擇玩家 ") }}</div>
                     </v-card>
                 </v-col>
 
                 <!-- Pie Chart 2: 技能輸出佔比 -->
                 <v-col cols="5">
                     <v-card>
-                        <v-card-title class="d-flex align-center" style="gap: 8px">
-                            技能輸出佔比
-                            <v-chip
+                        <v-card-title class="d-flex align-center" style="gap: 8px">{{ $ui(" 技能輸出佔比 ") }}<v-chip
                                 v-if="selectedPlayer"
                                 color="primary"
                                 size="small"
                             >
-                                {{ selectedPlayer }}
+                                {{ $ui(selectedPlayer) }}
                             </v-chip>
                         </v-card-title>
                         <div
@@ -301,16 +281,14 @@
                         <div
                             v-if="!selectedPlayer"
                             class="text-center text-disabled pa-8"
-                        >
-                            請選擇玩家
-                        </div>
+                        >{{ $ui(" 請選擇玩家 ") }}</div>
                     </v-card>
                 </v-col>
             </v-row>
         </div>
 
         <!-- 無資料狀態 -->
-        <div v-else class="text-center text-disabled pa-12">無統計資料</div>
+        <div v-else class="text-center text-disabled pa-12">{{ $ui("無統計資料") }}</div>
     </div>
 </template>
 

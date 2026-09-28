@@ -8,9 +8,9 @@ Dilmeter 是面向《洛奇》的 Windows 桌面伤害统计与战斗提醒工�
 | DilmeterRT | `cn-rt` | 国服路由/加速器兼容模式 |
 | DilmeterOT | `ot` | 自定义服务器地址及其他服务器环境 |
 
-CN 与 RT 固定使用随程序提供的 CN 名称和图标数据，可离线启动。OT 默认同样携带 CN 数据，并保留外置资源包覆盖能力。
+CN 与 RT 固定使用随程序提供的 CN 名称和图标数据，可离线启动。OT 默认同样携带 CN 数据，顶部可切换简体／繁体界面，并选择载入 Prilus 的 TW 资料；首次下载后保留本地缓存。OT 保留外置资源包覆盖能力。详见[台服支持说明](docs/tw-support.md)。资料选择不改变 OT 的抓包网络设置。
 
-当前版本为 **1.5.2**，更新文案见 [1.5.2 更新公告](docs/release-notes/v1.5.2.md)。CN、RT、OT 本地包输出到 `artifacts/release-v1.5.2`，公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
+CN、RT 当前版本为 **1.5.2**；OT 当前版本为 **1.5.2 R2 Hotfix**，新增繁体中文及台服档适配。原 [1.5.2 更新公告](docs/release-notes/v1.5.2.md) 保留，OT 补充说明见 [R2 Hotfix](docs/release-notes/v1.5.2-r2.md)。公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
 
 ## 仓库结构
 
@@ -67,6 +67,8 @@ GitHub Actions 的 `Release Dilmeter` 流程会构建三个版本并创建或更
 - `DilmeterCN.json`、`DilmeterRT.json`、`DilmeterOT.json`
 
 新版本客户端优先从 GitHub 最新 Release 读取更新清单并下载经过 SHA-256 校验的 ZIP；GitHub 不可用或仓库保持私有时，自动使用 NogiNogi 下载站的更新清单。NogiNogi 下载页也会自动识别同一 Release；GitHub 暂不可用时继续使用站内发布包。同步站内清单时，下载 URL 应指向站内 ZIP，文件大小和 SHA-256 必须与发布包一致。
+
+`Release OT Hotfix` 流程只构建 OT，将上一正式 Release 的 CN/RT 安装包与清单原样带入最新 Release。OT R2 的界面版本为 `1.5.2 R2`，更新比较编号保留为 `1.5.3`，让仅识别三段数字的旧客户端收到更新；后续 OT 正式更新须使用大于 `1.5.3` 的比较编号。R2 本地发布包输出到 `artifacts/release-v1.5.3`。
 
 ## 资料与许可
 

@@ -1,65 +1,65 @@
 <template>
  <v-dialog :model-value="open" max-width="1200" scrollable @update:model-value="emit('update:open', $event)">
-  <v-card class="healer-panel" aria-label="圣歌监测">
-   <v-card-title class="healer-dialog-title"><span><v-icon icon="mdi-heart-pulse" size="20" /> 圣歌监测</span><button type="button" aria-label="关闭圣歌监测" @click="emit('update:open', false)">×</button></v-card-title>
-   <section class="healer-basics" aria-label="基础设定">
-     <div class="healer-section-title"><h2>基础设定</h2><span role="status">{{ saving ? '正在保存…' : dirty ? '有未保存的修改，请点击保存设定' : '设置已同步' }}</span></div>
+  <v-card class="healer-panel" :aria-label="$ui('圣歌监测')">
+   <v-card-title class="healer-dialog-title"><span><v-icon icon="mdi-heart-pulse" size="20" />{{ $ui(" 圣歌监测") }}</span><button type="button" :aria-label="$ui('关闭圣歌监测')" @click="emit('update:open', false)">×</button></v-card-title>
+   <section class="healer-basics" :aria-label="$ui('基础设定')">
+     <div class="healer-section-title"><h2>{{ $ui("基础设定") }}</h2><span role="status">{{ $ui(saving ? '正在保存…' : dirty ? '有未保存的修改，请点击保存设定' : '设置已同步') }}</span></div>
      <div class="healer-basics-row">
-      <label class="healer-master"><input v-model="draft.enabled" :disabled="saving || isRecordReplay" type="checkbox" @change="changed" />启用提醒</label>
-      <label>音量 <input v-model.number="draft.volume" :disabled="saving || isRecordReplay" type="number" min="0" max="100" aria-label="圣歌提示音量" @input="changed" /> %</label>
-      <label>悬浮图标 <input v-model.number="draft.iconSize" :disabled="saving || isRecordReplay" type="number" min="16" max="80" aria-label="悬浮图标大小" @input="changed" /> px</label>
-      <label>提示字号 <input v-model.number="draft.text.fontSize" :disabled="saving || isRecordReplay" type="number" min="12" max="72" aria-label="提示字号" @input="changed" /> px</label>
-      <label title="100% 完全不透明，数值越低越透明">悬浮窗透明度 <input v-model.number="draft.opacityPercent" :disabled="saving || isRecordReplay" type="number" min="20" max="100" step="5" aria-label="悬浮窗透明度" @input="changed" /> %</label>
-      <button type="button" class="healer-save" :class="{ 'healer-save-pending': dirty && !saving && !isRecordReplay }" :disabled="saving || audioBusy || !state || isRecordReplay" @click="save()">{{ saving ? '保存中…' : dirty ? '保存设定 · 未保存' : '保存设定' }}</button>
+      <label class="healer-master"><input v-model="draft.enabled" :disabled="saving || isRecordReplay" type="checkbox" @change="changed" />{{ $ui("启用提醒") }}</label>
+      <label>{{ $ui("音量 ") }}<input v-model.number="draft.volume" :disabled="saving || isRecordReplay" type="number" min="0" max="100" :aria-label="$ui('圣歌提示音量')" @input="changed" /> %</label>
+      <label>{{ $ui("悬浮图标 ") }}<input v-model.number="draft.iconSize" :disabled="saving || isRecordReplay" type="number" min="16" max="80" :aria-label="$ui('悬浮图标大小')" @input="changed" /> px</label>
+      <label>{{ $ui("提示字号 ") }}<input v-model.number="draft.text.fontSize" :disabled="saving || isRecordReplay" type="number" min="12" max="72" :aria-label="$ui('提示字号')" @input="changed" /> px</label>
+      <label :title="$ui('100% 完全不透明，数值越低越透明')">{{ $ui("悬浮窗透明度 ") }}<input v-model.number="draft.opacityPercent" :disabled="saving || isRecordReplay" type="number" min="20" max="100" step="5" :aria-label="$ui('悬浮窗透明度')" @input="changed" /> %</label>
+      <button type="button" class="healer-save" :class="{ 'healer-save-pending': dirty && !saving && !isRecordReplay }" :disabled="saving || audioBusy || !state || isRecordReplay" @click="save()">{{ $ui(saving ? '保存中…' : dirty ? '保存设定 · 未保存' : '保存设定') }}</button>
      </div>
     </section>
    <v-card-text class="healer-panel-body">
-    <p v-if="isRecordReplay" class="healer-error">历史回放中不提供实时提醒设定。</p>
-    <p v-if="error" class="healer-error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="healer-notice" role="status">{{ notice }}<button v-if="previewing" type="button" @click="stopPreview">停止预览</button></p>
-    <section class="healer-templates" aria-label="通用队友模板">
-     <div class="healer-section-title"><h2>通用模板 <span>{{ draft.templates.length }}/32</span></h2><button type="button" :disabled="saving || audioBusy || isRecordReplay || draft.templates.length >= 32" @click="openTemplate()">＋ 新建模板</button></div>
-     <p class="healer-help">预先配置「队友1」「队友2」等模板；识别角色后即可套用血量、Buff、声音及坐标。套用后可单独微调，悬浮窗仍显示真实角色 ID。</p>
-     <div class="healer-template-list"><div v-for="template in draft.templates" :key="template.id" class="healer-template-entry"><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`编辑模板 ${template.name}`" @click="openTemplate(undefined, template)"><strong>{{ template.name }}</strong><small>{{ template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭' }} · {{ template.buffSettings.rules.length }} 个 Buff</small><span>编辑</span></button><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`删除模板 ${template.name}`" @click="removeTarget = { kind: 'template', key: template.id, name: template.name }">×</button></div></div>
-     <p v-if="!draft.templates.length" class="healer-help">可新建模板，也可在已配置的队友上点击「存为模板」。</p>
+    <p v-if="isRecordReplay" class="healer-error">{{ $ui("历史回放中不提供实时提醒设定。") }}</p>
+    <p v-if="error" class="healer-error" role="alert">{{ $ui(error) }}</p>
+    <p v-if="notice" class="healer-notice" role="status">{{ $ui(notice) }}<button v-if="previewing" type="button" @click="stopPreview">{{ $ui("停止预览") }}</button></p>
+    <section class="healer-templates" :aria-label="$ui('通用队友模板')">
+     <div class="healer-section-title"><h2>{{ $ui("通用模板 ") }}<span>{{ $ui(draft.templates.length) }}/32</span></h2><button type="button" :disabled="saving || audioBusy || isRecordReplay || draft.templates.length >= 32" @click="openTemplate()">{{ $ui("＋ 新建模板") }}</button></div>
+     <p class="healer-help">{{ $ui("预先配置「队友1」「队友2」等模板；识别角色后即可套用血量、Buff、声音及坐标。套用后可单独微调，悬浮窗仍显示真实角色 ID。") }}</p>
+     <div class="healer-template-list"><div v-for="template in draft.templates" :key="template.id" class="healer-template-entry"><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`编辑模板 ${template.name}`" @click="openTemplate(undefined, template)"><strong>{{ template.name }}</strong><small>{{ $ui(template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭') }} · {{ $ui(template.buffSettings.rules.length) }}{{ $ui(" 个 Buff") }}</small><span>{{ $ui("编辑") }}</span></button><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`删除模板 ${template.name}`" @click="removeTarget = { kind: 'template', key: template.id, name: template.name }">×</button></div></div>
+     <p v-if="!draft.templates.length" class="healer-help">{{ $ui("可新建模板，也可在已配置的队友上点击「存为模板」。") }}</p>
     </section>
-    <section class="healer-roster" aria-label="管理队友">
-     <div class="healer-section-title"><h2>管理队友 <span>{{ draft.members.length }}</span></h2><button type="button" :aria-expanded="manageOpen" @click="manageOpen = !manageOpen">{{ manageOpen ? '收起可见角色' : '＋ 添加队友' }}</button></div>
-     <p class="healer-help">勾选或取消「保存为常用」会立即保存当前设定，无需再点保存。常用队友及其设置会一直保留；开启软件后，请让队友切换一次地图以完成识别，未识别时暂停提醒。</p>
+    <section class="healer-roster" :aria-label="$ui('管理队友')">
+     <div class="healer-section-title"><h2>{{ $ui("管理队友 ") }}<span>{{ $ui(draft.members.length) }}</span></h2><button type="button" :aria-expanded="manageOpen" @click="manageOpen = !manageOpen">{{ $ui(manageOpen ? '收起可见角色' : '＋ 添加队友') }}</button></div>
+     <p class="healer-help">{{ $ui("勾选或取消「保存为常用」会立即保存当前设定，无需再点保存。常用队友及其设置会一直保留；开启软件后，请让队友切换一次地图以完成识别，未识别时暂停提醒。") }}</p>
      <div v-if="manageOpen" class="healer-candidates">
-      <input v-model="memberSearch" type="search" aria-label="搜索可见队友" placeholder="搜索当前可见角色的 ID" />
-      <label class="healer-add-template">添加时套用 <select v-model="addTemplateId" aria-label="添加队友时使用的模板"><option value="">不使用模板</option><option v-for="template in draft.templates" :key="template.id" :value="template.id">{{ template.name }}</option></select></label>
-      <p class="healer-help">这里只提供可见角色，请添加实际队友；未添加的角色不会被监控。</p>
-      <div class="healer-candidate-list"><button v-for="member in candidates" :key="member.id" type="button" :disabled="saving || isRecordReplay || inRoster(member) || draft.members.length >= 32" @click="addMember(member)"><span>{{ member.name }}</span><small>{{ inRoster(member) ? '已添加 ✓' : '＋ 添加' }}</small></button></div>
-      <p v-if="!candidates.length" class="healer-empty">暂未识别到可选角色，请让队友切换地图后重试。</p>
+      <input v-model="memberSearch" type="search" :aria-label="$ui('搜索可见队友')" :placeholder="$ui('搜索当前可见角色的 ID')" />
+      <label class="healer-add-template">{{ $ui("添加时套用 ") }}<select v-model="addTemplateId" :aria-label="$ui('添加队友时使用的模板')"><option value="">{{ $ui("不使用模板") }}</option><option v-for="template in draft.templates" :key="template.id" :value="template.id">{{ template.name }}</option></select></label>
+      <p class="healer-help">{{ $ui("这里只提供可见角色，请添加实际队友；未添加的角色不会被监控。") }}</p>
+      <div class="healer-candidate-list"><button v-for="member in candidates" :key="member.id" type="button" :disabled="saving || isRecordReplay || inRoster(member) || draft.members.length >= 32" @click="addMember(member)"><span>{{ member.name }}</span><small>{{ $ui(inRoster(member) ? '已添加 ✓' : '＋ 添加') }}</small></button></div>
+      <p v-if="!candidates.length" class="healer-empty">{{ $ui("暂未识别到可选角色，请让队友切换地图后重试。") }}</p>
      </div>
      <fieldset :disabled="saving || isRecordReplay">
       <HealerMemberEditor v-for="(member, index) in draft.members" :key="member.key" :member="member" :live="memberState(member)" :index="index" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :templates="draft.templates" :disabled="saving || audioBusy" @change="changed" @favorite-change="saveFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
      </fieldset>
-     <div v-if="!draft.members.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>先添加需要关注的队友</strong><span>然后分别设置血量和 Buff 提醒。</span></div>
+     <div v-if="!draft.members.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>{{ $ui("先添加需要关注的队友") }}</strong><span>{{ $ui("然后分别设置血量和 Buff 提醒。") }}</span></div>
     </section>
-    <p class="healer-footnote">常用状态更改后自动保存；其他修改请点击顶部闪烁的「保存设定」。保存成功后停止闪烁，保存失败会保留修改并提示重试。血量超过 30 秒未更新会暂停提醒；已识别队友的已配置 Buff 窗立即显示，未观测的 Buff 按失效样式显示“补充”，不触发声音提醒。声音不依赖此窗口保持打开。</p>
+    <p class="healer-footnote">{{ $ui("常用状态更改后自动保存；其他修改请点击顶部闪烁的「保存设定」。保存成功后停止闪烁，保存失败会保留修改并提示重试。血量超过 30 秒未更新会暂停提醒；已识别队友的已配置 Buff 窗立即显示，未观测的 Buff 按失效样式显示“补充”，不触发声音提醒。声音不依赖此窗口保持打开。") }}</p>
    </v-card-text>
   </v-card>
  </v-dialog>
  <v-dialog :model-value="!!templateEdit" max-width="1100" scrollable :persistent="audioBusy" @update:model-value="!$event && (templateEdit = null)">
-  <v-card v-if="templateEdit" class="healer-panel healer-template-dialog" aria-label="编辑通用队友模板">
-   <v-card-title class="healer-dialog-title">{{ draft.templates.some(item => item.id === templateEdit!.id) ? '编辑通用模板' : '保存为通用模板' }}</v-card-title>
+  <v-card v-if="templateEdit" class="healer-panel healer-template-dialog" :aria-label="$ui('编辑通用队友模板')">
+   <v-card-title class="healer-dialog-title">{{ $ui(draft.templates.some(item => item.id === templateEdit!.id) ? '编辑通用模板' : '保存为通用模板') }}</v-card-title>
    <v-card-text class="healer-panel-body">
-    <label class="healer-template-name">模板名称 <input v-model="templateEdit.member.name" type="text" maxlength="48" aria-label="模板名称" :disabled="audioBusy" /></label>
-    <p class="healer-help">完成编辑后，点击主面板的「保存设定」长期保留。模板不绑定角色，不会自动开启监控。</p>
-    <p v-if="error" role="alert" class="healer-error">{{ error }}</p>
-    <p v-if="notice" role="status" class="healer-notice">{{ notice }}</p>
+    <label class="healer-template-name">{{ $ui("模板名称 ") }}<input v-model="templateEdit.member.name" type="text" maxlength="48" :aria-label="$ui('模板名称')" :disabled="audioBusy" /></label>
+    <p class="healer-help">{{ $ui("完成编辑后，点击主面板的「保存设定」长期保留。模板不绑定角色，不会自动开启监控。") }}</p>
+    <p v-if="error" role="alert" class="healer-error">{{ $ui(error) }}</p>
+    <p v-if="notice" role="status" class="healer-notice">{{ $ui(notice) }}</p>
     <HealerMemberEditor :key="templateEdit.id" template-mode :member="templateEdit.member" :index="100" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :disabled="audioBusy" @preview="preview(templateEdit!.member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
    </v-card-text>
-   <div class="healer-dialog-actions"><button type="button" :disabled="audioBusy" @click="templateEdit = null">取消</button><button type="button" class="healer-primary" :disabled="audioBusy" @click="completeTemplate">完成编辑</button></div>
+   <div class="healer-dialog-actions"><button type="button" :disabled="audioBusy" @click="templateEdit = null">{{ $ui("取消") }}</button><button type="button" class="healer-primary" :disabled="audioBusy" @click="completeTemplate">{{ $ui("完成编辑") }}</button></div>
   </v-card>
  </v-dialog>
  <v-dialog :model-value="!!removeTarget" max-width="430" @update:model-value="!$event && (removeTarget = null)">
-  <v-card v-if="removeTarget" class="healer-panel" role="alertdialog" :aria-label="removeTarget.kind === 'member' ? '确认移除队友' : '确认删除模板'">
-   <v-card-title class="healer-dialog-title">{{ removeTarget.kind === 'member' ? '移除队友' : '删除模板' }}</v-card-title>
-   <v-card-text class="healer-confirm-copy">确定{{ removeTarget.kind === 'member' ? '移除队友' : '删除模板' }}「{{ removeTarget.name }}」？<p>{{ removeTarget.kind === 'member' ? '保存设定后将停止监测该队友，通用模板会保留。' : '已套用此模板的队友设置会保留。删除后请保存设定。' }}</p></v-card-text>
-   <div class="healer-dialog-actions"><button type="button" autofocus @click="removeTarget = null">取消</button><button type="button" class="healer-danger" @click="confirmRemove">确认{{ removeTarget.kind === 'member' ? '移除' : '删除' }}</button></div>
+  <v-card v-if="removeTarget" class="healer-panel" role="alertdialog" :aria-label="$ui(removeTarget.kind === 'member' ? '确认移除队友' : '确认删除模板')">
+   <v-card-title class="healer-dialog-title">{{ $ui(removeTarget.kind === 'member' ? '移除队友' : '删除模板') }}</v-card-title>
+   <v-card-text class="healer-confirm-copy">{{ $ui("确定") }}{{ $ui(removeTarget.kind === 'member' ? '移除队友' : '删除模板') }}「{{ $ui(removeTarget.name) }}」？<p>{{ $ui(removeTarget.kind === 'member' ? '保存设定后将停止监测该队友，通用模板会保留。' : '已套用此模板的队友设置会保留。删除后请保存设定。') }}</p></v-card-text>
+   <div class="healer-dialog-actions"><button type="button" autofocus @click="removeTarget = null">{{ $ui("取消") }}</button><button type="button" class="healer-danger" @click="confirmRemove">{{ $ui("确认") }}{{ $ui(removeTarget.kind === 'member' ? '移除' : '删除') }}</button></div>
   </v-card>
  </v-dialog>
 </template>

@@ -1,8 +1,6 @@
 <template>
     <v-card variant="outlined">
-        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">
-            有效輸出時間
-            <v-spacer />
+        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">{{ $ui(" 有效輸出時間 ") }}<v-spacer />
             <v-btn-toggle
                 v-if="!collapsed"
                 v-model="xMode"
@@ -11,8 +9,8 @@
                 variant="outlined"
                 class="mr-2"
             >
-                <v-btn value="elapsed" size="x-small">經過時間</v-btn>
-                <v-btn value="clock"   size="x-small">實際時刻</v-btn>
+                <v-btn value="elapsed" size="x-small">{{ $ui("經過時間") }}</v-btn>
+                <v-btn value="clock"   size="x-small">{{ $ui("實際時刻") }}</v-btn>
             </v-btn-toggle>
             <v-btn
                 icon
@@ -20,7 +18,7 @@
                 variant="text"
                 @click="collapsed = !collapsed"
             >
-                <v-icon size="small" class="text-disabled">{{ collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                <v-icon size="small" class="text-disabled">{{ $ui(collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
             </v-btn>
         </v-card-title>
         <v-expand-transition>
@@ -43,7 +41,7 @@
                         :key="p.entityId"
                         v-model="visibleIds"
                         :value="p.entityId"
-                        :label="p.name"
+                        :label="$ui(p.name)"
                         density="compact"
                         hide-details
                         class="flex-grow-0"

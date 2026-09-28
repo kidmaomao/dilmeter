@@ -1,36 +1,36 @@
 <template>
-    <div class="team-chart-component" :aria-label="mode === 'dps' ? '团队实时 DPS 曲线' : '团队累计伤害曲线'">
-        <section class="team-dps-ranking" aria-label="团队成员 DPS 排名">
-            <header><strong>成员 DPS 排名</strong><span>按本场共同战斗时长计算</span></header>
+    <div class="team-chart-component" :aria-label="$ui(mode === 'dps' ? '团队实时 DPS 曲线' : '团队累计伤害曲线')">
+        <section class="team-dps-ranking" :aria-label="$ui('团队成员 DPS 排名')">
+            <header><strong>{{ $ui("成员 DPS 排名") }}</strong><span>{{ $ui("按本场共同战斗时长计算") }}</span></header>
             <ol>
                 <li v-for="(player, index) in rankings" :key="player.entityId">
-                    <span class="rank-number">{{ index + 1 }}</span>
+                    <span class="rank-number">{{ $ui(index + 1) }}</span>
                     <div class="rank-bar" :style="{ '--rank-color': player.color }">
                         <i :style="{ width: `${player.ratio * 100}%` }" />
                         <div class="rank-bar-copy">
                             <strong>{{ player.label }}</strong>
-                            <span>DPS {{ formatCompact(player.dps) }}　·　累计 {{ formatCompact(player.total) }}</span>
+                            <span>DPS {{ $ui(formatCompact(player.dps)) }}{{ $ui("　·　累计 ") }}{{ $ui(formatCompact(player.total)) }}</span>
                         </div>
                     </div>
-                    <span class="rank-share">{{ (player.share * 100).toFixed(1) }}%</span>
+                    <span class="rank-share">{{ $ui((player.share * 100).toFixed(1)) }}%</span>
                 </li>
             </ol>
         </section>
         <div v-if="mode === 'dps'" class="team-chart-granularity">
-            <span>DPS 口径</span>
-            <button type="button" :class="{ active: dpsMode === 'rolling' }" @click="dpsMode = 'rolling'">近期 DPS</button>
-            <button type="button" :class="{ active: dpsMode === 'cumulative' }" @click="dpsMode = 'cumulative'">累计 DPS</button>
+            <span>{{ $ui("DPS 口径") }}</span>
+            <button type="button" :class="{ active: dpsMode === 'rolling' }" @click="dpsMode = 'rolling'">{{ $ui("近期 DPS") }}</button>
+            <button type="button" :class="{ active: dpsMode === 'cumulative' }" @click="dpsMode = 'cumulative'">{{ $ui("累计 DPS") }}</button>
             <template v-if="dpsMode === 'rolling'">
-                <span>统计窗口</span>
-                <button v-for="option in tickOptions" :key="option" type="button" :class="{ active: windowSeconds === option }" @click="windowSeconds = option">最近 {{ option }} 秒</button>
+                <span>{{ $ui("统计窗口") }}</span>
+                <button v-for="option in tickOptions" :key="option" type="button" :class="{ active: windowSeconds === option }" @click="windowSeconds = option">{{ $ui("最近 ") }}{{ $ui(option) }}{{ $ui(" 秒") }}</button>
             </template>
         </div>
         <div class="team-chart-granularity">
-            <span>横坐标</span>
-            <button type="button" :class="{ active: axis === 'time' }" @click="axis = 'time'">战斗时间</button>
-            <button type="button" :disabled="!hasHealth" :class="{ active: axis === 'hp' }" @click="axis = 'hp'">Boss 血量 %</button>
-            <small v-if="!hasHealth">本记录缺少 Boss 血量历史</small>
-            <span v-if="mode !== 'dps' || dpsMode === 'cumulative'">采样间隔</span>
+            <span>{{ $ui("横坐标") }}</span>
+            <button type="button" :class="{ active: axis === 'time' }" @click="axis = 'time'">{{ $ui("战斗时间") }}</button>
+            <button type="button" :disabled="!hasHealth" :class="{ active: axis === 'hp' }" @click="axis = 'hp'">{{ $ui("Boss 血量 %") }}</button>
+            <small v-if="!hasHealth">{{ $ui("本记录缺少 Boss 血量历史") }}</small>
+            <span v-if="mode !== 'dps' || dpsMode === 'cumulative'">{{ $ui("采样间隔") }}</span>
             <template v-if="mode !== 'dps' || dpsMode === 'cumulative'">
             <button
                 v-for="option in tickOptions"
@@ -39,61 +39,61 @@
                 :class="{ active: tickSeconds === option }"
                 :aria-pressed="tickSeconds === option"
                 @click="tickSeconds = option"
-            >{{ option }} 秒</button>
+            >{{ $ui(option) }}{{ $ui(" 秒") }}</button>
             </template>
         </div>
         <div v-if="mode === 'dps'" class="team-dps-summary">
-            <span>全团峰值 <strong>{{ formatCompact(dpsTimeline.peak.y) }}/秒</strong></span>
-            <span v-if="dpsTimeline.peak.y > 0">{{ formatElapsed(dpsTimeline.peak.custom.from) }}–{{ formatElapsed(dpsTimeline.peak.custom.to) }}</span>
-            <small>{{ dpsMode === 'rolling' ? `最近 ${windowSeconds} 秒伤害 ÷ 窗口时长（开场不足时按实际秒数）` : '累计伤害 ÷ 已经过时间' }}；虚线表示已记录的 Boss 无敌或成员倒地</small>
+            <span>{{ $ui("全团峰值 ") }}<strong>{{ $ui(formatCompact(dpsTimeline.peak.y)) }}{{ $ui("/秒") }}</strong></span>
+            <span v-if="dpsTimeline.peak.y > 0">{{ $ui(formatElapsed(dpsTimeline.peak.custom.from)) }}–{{ $ui(formatElapsed(dpsTimeline.peak.custom.to)) }}</span>
+            <small>{{ $ui(dpsMode === 'rolling' ? `最近 ${windowSeconds} 秒伤害 ÷ 窗口时长（开场不足时按实际秒数）` : '累计伤害 ÷ 已经过时间') }}{{ $ui("；虚线表示已记录的 Boss 无敌或成员倒地") }}</small>
         </div>
         <div ref="chartElement" class="team-chart-canvas" />
-        <section v-if="mode === 'dps' && dpsMode === 'rolling'" class="peak-analysis" aria-label="DPS 峰值分析">
+        <section v-if="mode === 'dps' && dpsMode === 'rolling'" class="peak-analysis" :aria-label="$ui('DPS 峰值分析')">
             <div class="team-chart-granularity">
-                <label><input v-model="showPeaks" type="checkbox" />峰值标记</label>
-                <select v-if="players.length > 1" v-model="peakPlayerId" aria-label="峰值分析成员">
-                    <option value="team-total">全团</option>
+                <label><input v-model="showPeaks" type="checkbox" />{{ $ui("峰值标记") }}</label>
+                <select v-if="players.length > 1" v-model="peakPlayerId" :aria-label="$ui('峰值分析成员')">
+                    <option value="team-total">{{ $ui("全团") }}</option>
                     <option v-for="player in players" :key="player.entityId" :value="player.entityId">{{ player.label }}</option>
                 </select>
-                <small>点击峰值查看技能贡献与同期状态</small>
+                <small>{{ $ui("点击峰值查看技能贡献与同期状态") }}</small>
             </div>
             <template v-if="showPeaks">
                 <div class="peak-choices">
                     <button v-for="(peak, index) in peaks" :key="peak.id" type="button" :class="{ active: activePeak?.id === peak.id }" :aria-pressed="activePeak?.id === peak.id" @click="selectedPeakId = peak.id">
-                        {{ index + 1 }} · {{ formatElapsed(peak.point.custom.elapsed) }} {{ peak.title }}
+                        {{ $ui(index + 1) }} · {{ $ui(formatElapsed(peak.point.custom.elapsed)) }} {{ $ui(peak.title) }}
                     </button>
                 </div>
                 <article v-if="activePeak" class="peak-detail">
                     <header>
-                        <strong>{{ peakFocusLabel }} · {{ formatElapsed(activePeak.point.custom.elapsed) }} 峰值 {{ formatCompact(activePeak.point.y) }}/秒</strong>
-                        <span v-if="activePeak.point.custom.hp !== undefined">Boss {{ activePeak.point.custom.hp.toFixed(1) }}%</span>
-                        <span>窗口 {{ formatElapsed(activePeak.point.custom.from) }}–{{ formatElapsed(activePeak.point.custom.to) }}</span>
-                        <span v-if="activePeak.previousDps !== undefined">前一窗口 {{ formatCompact(activePeak.previousDps) }}/秒</span>
+                        <strong>{{ $ui(peakFocusLabel) }} · {{ $ui(formatElapsed(activePeak.point.custom.elapsed)) }}{{ $ui(" 峰值 ") }}{{ $ui(formatCompact(activePeak.point.y)) }}{{ $ui("/秒") }}</strong>
+                        <span v-if="activePeak.point.custom.hp !== undefined">Boss {{ $ui(activePeak.point.custom.hp.toFixed(1)) }}%</span>
+                        <span>{{ $ui("窗口 ") }}{{ $ui(formatElapsed(activePeak.point.custom.from)) }}–{{ $ui(formatElapsed(activePeak.point.custom.to)) }}</span>
+                        <span v-if="activePeak.previousDps !== undefined">{{ $ui("前一窗口 ") }}{{ $ui(formatCompact(activePeak.previousDps)) }}{{ $ui("/秒") }}</span>
                     </header>
                     <div class="peak-columns">
                         <div>
-                            <h4>主要伤害技能 <small>按本窗口伤害排序</small></h4>
+                            <h4>{{ $ui("主要伤害技能 ") }}<small>{{ $ui("按本窗口伤害排序") }}</small></h4>
                             <ol class="peak-contributions">
                                 <li v-for="row in activePeak.contributions.slice(0, 3)" :key="`${row.actorId}:${row.skillId}`">
-                                    <div><strong>{{ row.name }}</strong><small v-if="peakPlayerId === 'team-total'">{{ row.actorLabel }}</small><b>{{ (row.share * 100).toFixed(1) }}%</b></div>
-                                    <div><span>{{ formatCompact(row.damage) }} · {{ row.hits }} 次伤害</span><span v-if="row.increase !== undefined">较前窗 {{ row.increase >= 0 ? '+' : '−' }}{{ formatCompact(Math.abs(row.increase)) }}</span></div>
+                                    <div><strong>{{ $ui(row.name) }}</strong><small v-if="peakPlayerId === 'team-total'">{{ $ui(row.actorLabel) }}</small><b>{{ $ui((row.share * 100).toFixed(1)) }}%</b></div>
+                                    <div><span>{{ $ui(formatCompact(row.damage)) }} · {{ $ui(row.hits) }}{{ $ui(" 次伤害") }}</span><span v-if="row.increase !== undefined">{{ $ui("较前窗 ") }}{{ $ui(row.increase >= 0 ? '+' : '−') }}{{ $ui(formatCompact(Math.abs(row.increase))) }}</span></div>
                                     <i :style="{ width: `${row.share * 100}%` }" />
                                 </li>
                             </ol>
-                            <small v-if="activePeak.contributions.length > 3">其余 {{ activePeak.contributions.length - 3 }} 项贡献 {{ ((1 - activePeak.contributions.slice(0, 3).reduce((sum, row) => sum + row.share, 0)) * 100).toFixed(1) }}%</small>
+                            <small v-if="activePeak.contributions.length > 3">{{ $ui("其余 ") }}{{ $ui(activePeak.contributions.length - 3) }}{{ $ui(" 项贡献 ") }}{{ $ui(((1 - activePeak.contributions.slice(0, 3).reduce((sum, row) => sum + row.share, 0)) * 100).toFixed(1)) }}%</small>
                         </div>
                         <div>
-                            <h4>同期增益／减益 <small>记录到生效或施放</small></h4>
+                            <h4>{{ $ui("同期增益／减益 ") }}<small>{{ $ui("记录到生效或施放") }}</small></h4>
                             <ul class="peak-effects">
-                                <li v-for="effect in activePeak.effects.slice(0, 4)" :key="effect.key"><strong>{{ effect.name }}</strong><span>{{ effect.source }} · {{ effect.evidence === 'condition' ? `作用于 ${effect.target}` : '已施放，覆盖未确认' }}</span></li>
+                                <li v-for="effect in activePeak.effects.slice(0, 4)" :key="effect.key"><strong>{{ $ui(effect.name) }}</strong><span>{{ $ui(effect.source) }} · {{ $ui(effect.evidence === 'condition' ? `作用于 ${effect.target}` : '已施放，覆盖未确认') }}</span></li>
                             </ul>
-                            <details v-if="activePeak.effects.length > 4"><summary>查看其余 {{ activePeak.effects.length - 4 }} 个状态</summary><ul class="peak-effects"><li v-for="effect in activePeak.effects.slice(4)" :key="effect.key"><strong>{{ effect.name }}</strong><span>{{ effect.source }} · {{ effect.evidence === 'condition' ? `作用于 ${effect.target}` : '已施放，覆盖未确认' }}</span></li></ul></details>
-                            <small v-if="!activePeak.effects.length">该窗口没有记录到可识别的相关状态或施放。</small>
+                            <details v-if="activePeak.effects.length > 4"><summary>{{ $ui("查看其余 ") }}{{ $ui(activePeak.effects.length - 4) }}{{ $ui(" 个状态") }}</summary><ul class="peak-effects"><li v-for="effect in activePeak.effects.slice(4)" :key="effect.key"><strong>{{ $ui(effect.name) }}</strong><span>{{ $ui(effect.source) }} · {{ $ui(effect.evidence === 'condition' ? `作用于 ${effect.target}` : '已施放，覆盖未确认') }}</span></li></ul></details>
+                            <small v-if="!activePeak.effects.length">{{ $ui("该窗口没有记录到可识别的相关状态或施放。") }}</small>
                         </div>
                     </div>
-                    <p>伤害占比按窗口统计；同期状态用于回顾配合，不代表已量化该效果带来的增伤。</p>
+                    <p>{{ $ui("伤害占比按窗口统计；同期状态用于回顾配合，不代表已量化该效果带来的增伤。") }}</p>
                 </article>
-                <small v-else>有近期伤害峰值后显示分析。</small>
+                <small v-else>{{ $ui("有近期伤害峰值后显示分析。") }}</small>
             </template>
         </section>
     </div>

@@ -1,7 +1,7 @@
 <template>
     <v-sheet class="d-flex flex-column" style="height: 100%;">
         <v-sheet width="100%" class="d-flex pa-2 mb-2 flex-shrink-0">
-            {{ attackerName }} -> {{ targetName }}
+            {{ $ui(attackerName) }} -> {{ $ui(targetName) }}
         </v-sheet>
 
         <v-virtual-scroll :items="damages" style="flex: 1; min-height: 0;" item-height="80">
@@ -20,9 +20,9 @@
                                 <condition-image-list :conditions="item.TargetConditions" />
                             </p>
                             <p>
-                                {{ skillNameMap[item.SkillId] }} {{ humanReadableNumber(item.Damage) }}
-                                {{ item.IsCritical ? '크리티컬' : '' }}
-                                {{ item.IsDelayed ? '추가 대미지' : '' }}
+                                {{ $ui(skillNameMap[item.SkillId]) }} {{ $ui(humanReadableNumber(item.Damage)) }}
+                                {{ $ui(item.IsCritical ? '크리티컬' : '') }}
+                                {{ $ui(item.IsDelayed ? '추가 대미지' : '') }}
                             </p>
                         </v-sheet>
                     </v-sheet>

@@ -7,8 +7,11 @@ set "GO_EXE=go"
 if exist "%~dp0..\.tools\go\bin\go.exe" set "GO_EXE=%~dp0..\.tools\go\bin\go.exe"
 set "WINRES_EXE=go-winres"
 if exist "%~dp0..\.cache\gopath\bin\go-winres.exe" set "WINRES_EXE=%~dp0..\.cache\gopath\bin\go-winres.exe"
-set "APP_VERSION=1.5.2"
+set "APP_VERSION=1.5.3"
+set "DISPLAY_VERSION=1.5.2 R2"
 if defined DILMETER_APP_VERSION set "APP_VERSION=%DILMETER_APP_VERSION%"
+if defined DILMETER_APP_VERSION set "DISPLAY_VERSION=%DILMETER_APP_VERSION%"
+if defined DILMETER_DISPLAY_VERSION set "DISPLAY_VERSION=%DILMETER_DISPLAY_VERSION%"
 set "BUILD_VARIANT=release"
 if defined DILMETER_BUILD_VARIANT set "BUILD_VARIANT=%DILMETER_BUILD_VARIANT%"
 
@@ -22,7 +25,7 @@ if errorlevel 1 exit /b 1
 
 set "OUTPUT_EXE=DilmeterOT-v%APP_VERSION%.exe"
 echo [3/4] Building DilmeterOT v%APP_VERSION%...
-"%GO_EXE%" build -buildvcs=false -trimpath -ldflags="-H=windowsgui -s -w -X main.AppName=DilmeterOT -X main.AppVersion=%APP_VERSION% -X main.BuildVariant=%BUILD_VARIANT%" -o "%OUTPUT_EXE%" ./cmd/dilmeterapi/
+"%GO_EXE%" build -buildvcs=false -trimpath -ldflags="-H=windowsgui -s -w -X main.AppName=DilmeterOT -X main.AppVersion=%APP_VERSION% -X 'main.AppDisplayVersion=%DISPLAY_VERSION%' -X main.BuildVariant=%BUILD_VARIANT%" -o "%OUTPUT_EXE%" ./cmd/dilmeterapi/
 if errorlevel 1 exit /b 1
 
 echo [4/4] Applying DilmeterOT file metadata and icon...

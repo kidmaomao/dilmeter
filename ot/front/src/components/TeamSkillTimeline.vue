@@ -1,51 +1,49 @@
 <template>
-    <section class="skill-timeline-component" aria-label="团队技能时间轴">
+    <section class="skill-timeline-component" :aria-label="$ui('团队技能时间轴')">
         <div class="skill-timeline-toolbar">
             <div class="skill-timeline-player">
                 <v-icon icon="mdi-account-clock-outline" size="14" />
-                <label v-if="allowPlayerSelection" for="skill-timeline-player">查看队员</label>
+                <label v-if="allowPlayerSelection" for="skill-timeline-player">{{ $ui("查看队员") }}</label>
                 <select
                     v-if="allowPlayerSelection"
                     id="skill-timeline-player"
                     :value="personalPlayer?.entityId || ''"
-                    aria-label="选择要查看个人时间轴的队员"
+                    :aria-label="$ui('选择要查看个人时间轴的队员')"
                     @change="selectTimelinePlayer"
                 >
                     <option v-for="player in players" :key="player.entityId" :value="player.entityId">{{ player.label }}</option>
                 </select>
-                <strong v-else>个人技能</strong>
+                <strong v-else>{{ $ui("个人技能") }}</strong>
             </div>
-            <label class="skill-timeline-player">横坐标
-                <select v-model="axis" aria-label="技能时间轴横坐标">
-                    <option value="time">战斗时间</option>
-                    <option value="hp" :disabled="!hasHealth">Boss 血量 %</option>
+            <label class="skill-timeline-player">{{ $ui("横坐标 ") }}<select v-model="axis" :aria-label="$ui('技能时间轴横坐标')">
+                    <option value="time">{{ $ui("战斗时间") }}</option>
+                    <option value="hp" :disabled="!hasHealth">{{ $ui("Boss 血量 %") }}</option>
                 </select>
             </label>
-            <div class="skill-timeline-zoom" aria-label="时间轴缩放">
-                <span>横轴密度</span>
+            <div class="skill-timeline-zoom" :aria-label="$ui('时间轴缩放')">
+                <span>{{ $ui("横轴密度") }}</span>
                 <button
                     v-for="option in zoomOptions"
                     :key="option"
                     type="button"
                     :class="{ active: pixelsPerSecond === option }"
                     @click="pixelsPerSecond = option"
-                >{{ option }}×</button>
+                >{{ $ui(option) }}×</button>
             </div>
             <span class="skill-timeline-summary">
-                {{ activeRows.length }}/{{ personalRows.length }} 个伤害技能 · {{ totalUses }} 次施放
-            </span>
+                {{ $ui(activeRows.length) }}/{{ $ui(personalRows.length) }}{{ $ui(" 个伤害技能 · ") }}{{ $ui(totalUses) }}{{ $ui(" 次施放 ") }}</span>
             <button
                 v-if="personalRows.length > defaultPersonalRowCount"
                 type="button"
                 class="skill-timeline-more"
                 @click="showAllPersonal = !showAllPersonal"
-            >{{ showAllPersonal ? "收起到前 10" : `显示更多（${personalRows.length - defaultPersonalRowCount}）` }}</button>
+            >{{ $ui(showAllPersonal ? "收起到前 10" : `显示更多（${personalRows.length - defaultPersonalRowCount}）`) }}</button>
         </div>
 
         <div v-if="activeRows.length" class="skill-timeline-scroll">
             <div class="skill-timeline-stage" :style="{ width: `${labelWidth + canvasWidth}px` }">
                 <div class="skill-timeline-axis-row">
-                    <div class="skill-timeline-sticky-label axis-label">技能</div>
+                    <div class="skill-timeline-sticky-label axis-label">{{ $ui("技能") }}</div>
                     <div class="skill-timeline-axis" :style="{ width: `${canvasWidth}px` }">
                         <i
                             v-for="tick in ticks"
@@ -57,7 +55,7 @@
                             v-for="tick in labelTicks"
                             :key="`label-${tick.seconds}`"
                             :style="{ left: `${tick.left}px` }"
-                        >{{ axis === "hp" ? `${100 - tick.seconds}%` : formatElapsed(tick.seconds) }}</span>
+                        >{{ $ui(axis === "hp" ? `${100 - tick.seconds}%` : formatElapsed(tick.seconds)) }}</span>
                     </div>
                 </div>
 
@@ -67,10 +65,10 @@
                     class="skill-timeline-row"
                 >
                     <div class="skill-timeline-sticky-label row-label">
-                        <img v-if="row.iconUrl" :src="row.iconUrl" :alt="`${row.label}图标`" @error="hideImage" />
+                        <img v-if="row.iconUrl" :src="row.iconUrl" :alt="$ui(`${row.label}图标`)" @error="hideImage" />
                         <span>
-                            <strong>{{ row.label }}</strong>
-                            <small>{{ formatDamage(row.totalDamage) }} · {{ row.uses.length }} 次</small>
+                            <strong>{{ $ui(row.label) }}</strong>
+                            <small>{{ $ui(formatDamage(row.totalDamage)) }} · {{ $ui(row.uses.length) }}{{ $ui(" 次") }}</small>
                         </span>
                     </div>
                     <div class="skill-timeline-track" :style="{ width: `${canvasWidth}px` }">
@@ -87,10 +85,10 @@
                             type="button"
                             class="skill-use-node"
                             :style="{ left: `${use.left}px`, top: `${use.top}px` }"
-                            :title="`${use.name} · ${formatElapsed(use.at - startAt)}${healthPercentAt(health, use.at) !== undefined ? ` · Boss ${healthPercentAt(health, use.at)!.toFixed(1)}%` : ''}`"
+                            :title="$ui(`${use.name} · ${formatElapsed(use.at - startAt)}${healthPercentAt(health, use.at) !== undefined ? ` · Boss ${healthPercentAt(health, use.at)!.toFixed(1)}%` : ''}`)"
                         >
-                            <span>{{ use.skillId }}</span>
-                            <img :src="use.iconUrl" :alt="use.name" @error="hideImage" />
+                            <span>{{ $ui(use.skillId) }}</span>
+                            <img :src="use.iconUrl" :alt="$ui(use.name)" @error="hideImage" />
                         </button>
                     </div>
                 </div>
@@ -98,12 +96,10 @@
         </div>
         <div v-else class="skill-timeline-empty">
             <v-icon icon="mdi-timeline-clock-outline" size="22" />
-            <strong>本场尚未记录到该队员的伤害技能</strong>
-            <span>旧版战斗记录可能只有伤害事件；新记录会同时保存服务器确认的技能施放。</span>
+            <strong>{{ $ui("本场尚未记录到该队员的伤害技能") }}</strong>
+            <span>{{ $ui("旧版战斗记录可能只有伤害事件；新记录会同时保存服务器确认的技能施放。") }}</span>
         </div>
-        <p class="skill-timeline-note">
-            横轴可切换战斗时间或 Boss 剩余血量。仅统计所选队员本体实际造成伤害的技能，按技能总伤害排序，默认显示前 10 个；不再提供拥挤的全队同屏时间轴。
-        </p>
+        <p class="skill-timeline-note">{{ $ui(" 横轴可切换战斗时间或 Boss 剩余血量。仅统计所选队员本体实际造成伤害的技能，按技能总伤害排序，默认显示前 10 个；不再提供拥挤的全队同屏时间轴。 ") }}</p>
     </section>
 </template>
 

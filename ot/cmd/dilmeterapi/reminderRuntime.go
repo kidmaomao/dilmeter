@@ -1623,6 +1623,9 @@ func (runtime *nativeReminderRuntime) nativeBossDisplayName(boss *nativeReminder
 	if boss == nil {
 		return ""
 	}
+	if name := strings.TrimSpace(runtime.settings.BossRaceNames[boss.RaceID]); name != "" {
+		return name
+	}
 	switch boss.RaceID {
 	case 7600, 7601:
 		return "枯木的佩塔克"
@@ -1632,9 +1635,6 @@ func (runtime *nativeReminderRuntime) nativeBossDisplayName(boss *nativeReminder
 		return "雷内恩的米耶尔"
 	case 7615:
 		return "雷内恩的米耶尔：悔恨"
-	}
-	if name := strings.TrimSpace(runtime.settings.BossRaceNames[boss.RaceID]); name != "" {
-		return name
 	}
 	if boss.ID == runtime.settings.PreferredBossID {
 		if name := strings.TrimSpace(runtime.settings.PreferredBossName); name != "" {

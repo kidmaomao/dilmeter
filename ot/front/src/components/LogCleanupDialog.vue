@@ -3,39 +3,31 @@
         <v-card class="log-cleanup-card">
             <template v-if="result">
                 <v-card-title class="log-cleanup-title">
-                    <v-icon icon="mdi-delete-restore" color="success" />
-                    历史日志已移入回收站
-                </v-card-title>
+                    <v-icon icon="mdi-delete-restore" color="success" />{{ $ui(" 历史日志已移入回收站 ") }}</v-card-title>
                 <v-card-text>
-                    <v-alert type="success" variant="tonal" density="comfortable">
-                        已将 {{ result.movedCount }} 个日志文件（{{ formatBytes(result.movedBytes) }}）移入 Windows 回收站。
-                    </v-alert>
+                    <v-alert type="success" variant="tonal" density="comfortable">{{ $ui(" 已将 ") }}{{ $ui(result.movedCount) }}{{ $ui(" 个日志文件（") }}{{ $ui(formatBytes(result.movedBytes)) }}{{ $ui("）移入 Windows 回收站。 ") }}</v-alert>
                     <p class="log-cleanup-recycle-note">
-                        <v-icon icon="mdi-alert-circle-outline" size="18" />
-                        请手动清空 Windows 回收站，才能真正释放这些磁盘空间。
-                    </p>
+                        <v-icon icon="mdi-alert-circle-outline" size="18" />{{ $ui(" 请手动清空 Windows 回收站，才能真正释放这些磁盘空间。 ") }}</p>
                 </v-card-text>
                 <v-card-actions>
                     <v-spacer />
-                    <v-btn color="primary" @click="open = false">知道了</v-btn>
+                    <v-btn color="primary" @click="open = false">{{ $ui("知道了") }}</v-btn>
                 </v-card-actions>
             </template>
 
             <template v-else>
                 <v-card-title class="log-cleanup-title">
-                    <v-icon icon="mdi-file-clock-outline" color="warning" />
-                    是否清理历史日志？
-                </v-card-title>
+                    <v-icon icon="mdi-file-clock-outline" color="warning" />{{ $ui(" 是否清理历史日志？ ") }}</v-card-title>
                 <v-card-text v-if="status">
-                    <p class="log-cleanup-reason">{{ promptReason }}</p>
+                    <p class="log-cleanup-reason">{{ $ui(promptReason) }}</p>
 
                     <div class="log-cleanup-summary">
-                        <span><b>{{ status.totalCount }}</b> 个日志文件</span>
-                        <span>共 <b>{{ formatBytes(status.totalBytes) }}</b></span>
-                        <span v-if="status.oldestModifiedAt">最早：<b>{{ formatDateTime(status.oldestModifiedAt) }}</b></span>
+                        <span><b>{{ $ui(status.totalCount) }}</b>{{ $ui(" 个日志文件") }}</span>
+                        <span>{{ $ui("共 ") }}<b>{{ $ui(formatBytes(status.totalBytes)) }}</b></span>
+                        <span v-if="status.oldestModifiedAt">{{ $ui("最早：") }}<b>{{ $ui(formatDateTime(status.oldestModifiedAt)) }}</b></span>
                     </div>
 
-                    <label class="log-cleanup-date-label" for="log-cleanup-before">清理此日期之前的日志</label>
+                    <label class="log-cleanup-date-label" for="log-cleanup-before">{{ $ui("清理此日期之前的日志") }}</label>
                     <input
                         id="log-cleanup-before"
                         v-model="beforeDate"
@@ -45,46 +37,37 @@
                         :disabled="cleaning"
                         @change="refreshPreview"
                     >
-                    <p class="log-cleanup-date-help">所选日期当天及之后的日志会保留，本次运行正在写入的日志也不会处理。</p>
+                    <p class="log-cleanup-date-help">{{ $ui("所选日期当天及之后的日志会保留，本次运行正在写入的日志也不会处理。") }}</p>
 
                     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">
-                        {{ error }}
+                        {{ $ui(error) }}
                     </v-alert>
-                    <v-alert v-if="confirming" type="warning" variant="tonal" density="compact" class="mb-3">
-                        请确认：将 {{ status.eligibleCount }} 个日志文件（{{ formatBytes(status.eligibleBytes) }}）移入 Windows 回收站？
-                    </v-alert>
+                    <v-alert v-if="confirming" type="warning" variant="tonal" density="compact" class="mb-3">{{ $ui(" 请确认：将 ") }}{{ $ui(status.eligibleCount) }}{{ $ui(" 个日志文件（") }}{{ $ui(formatBytes(status.eligibleBytes)) }}{{ $ui("）移入 Windows 回收站？ ") }}</v-alert>
                     <div v-else class="log-cleanup-preview" aria-live="polite">
                         <v-progress-circular v-if="previewing" indeterminate :size="18" :width="2" />
-                        <template v-else>
-                            将处理 <b>{{ status.eligibleCount }}</b> 个文件，共 <b>{{ formatBytes(status.eligibleBytes) }}</b>。
+                        <template v-else>{{ $ui(" 将处理 ") }}<b>{{ $ui(status.eligibleCount) }}</b>{{ $ui(" 个文件，共 ") }}<b>{{ $ui(formatBytes(status.eligibleBytes)) }}</b>。
                         </template>
                     </div>
 
                     <p class="log-cleanup-recycle-note">
-                        <v-icon icon="mdi-delete-restore" size="18" />
-                        文件只会移入回收站，不会直接永久删除；之后仍需由你手动清空回收站。
-                    </p>
+                        <v-icon icon="mdi-delete-restore" size="18" />{{ $ui(" 文件只会移入回收站，不会直接永久删除；之后仍需由你手动清空回收站。 ") }}</p>
                 </v-card-text>
                 <v-card-actions>
-                    <v-btn :disabled="cleaning" @click="closeDialog">暂不清理</v-btn>
+                    <v-btn :disabled="cleaning" @click="closeDialog">{{ $ui("暂不清理") }}</v-btn>
                     <v-spacer />
-                    <v-btn v-if="confirming" :disabled="cleaning" @click="confirming = false">返回修改</v-btn>
+                    <v-btn v-if="confirming" :disabled="cleaning" @click="confirming = false">{{ $ui("返回修改") }}</v-btn>
                     <v-btn
                         v-if="confirming"
                         color="error"
                         :loading="cleaning"
                         @click="cleanLogs"
-                    >
-                        确认移入回收站
-                    </v-btn>
+                    >{{ $ui(" 确认移入回收站 ") }}</v-btn>
                     <v-btn
                         v-else
                         color="primary"
                         :disabled="previewing || !status || status.eligibleCount === 0"
                         @click="confirming = true"
-                    >
-                        清理这些日志
-                    </v-btn>
+                    >{{ $ui(" 清理这些日志 ") }}</v-btn>
                 </v-card-actions>
             </template>
         </v-card>

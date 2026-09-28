@@ -1,15 +1,15 @@
 <template>
- <article v-if="group.kind === 'health'" class="healer-health-card" :style="style" aria-label="队友血量提醒">
-  <div class="healer-health-heading"><span class="healer-cross">✚</span><strong :title="group.name">{{ group.name }}</strong><span>需要治疗</span></div>
-  <div class="healer-health-value"><b>{{ group.cards[0]?.value }}</b><span>{{ group.cards[0]?.title }}</span></div>
+ <article v-if="group.kind === 'health'" class="healer-health-card" :style="style" :aria-label="$ui('队友血量提醒')">
+  <div class="healer-health-heading"><span class="healer-cross">✚</span><strong :title="$ui(group.name)">{{ $ui(group.name) }}</strong><span>{{ $ui("需要治疗") }}</span></div>
+  <div class="healer-health-value"><b>{{ $ui(group.cards[0]?.value) }}</b><span>{{ $ui(group.cards[0]?.title) }}</span></div>
   <div class="healer-health-track"><i :style="{ width: healthPercent + '%' }" /></div>
  </article>
- <article v-else class="healer-buff-strip" :style="style" aria-label="队友 Buff 提醒">
-  <strong class="healer-owner" :style="{ width: group.nameWidth + 'px' }" :title="group.name"><span>队友</span>{{ group.name }}</strong>
+ <article v-else class="healer-buff-strip" :style="style" :aria-label="$ui('队友 Buff 提醒')">
+  <strong class="healer-owner" :style="{ width: group.nameWidth + 'px' }" :title="$ui(group.name)"><span>{{ $ui("队友") }}</span>{{ $ui(group.name) }}</strong>
   <div class="healer-buff-icons">
-   <div v-for="card in group.cards" :key="card.key" class="healer-buff-tile" :class="{ 'is-warning': card.flash, 'is-missing': card.state === 'missing', 'is-unknown': card.state === 'unknown' }" :title="`${group.name} · ${card.title}`">
-    <div class="healer-small-icon"><img :src="`/condition-icons/${card.ccId}.png`" :alt="card.title" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" /><span v-if="card.state === 'missing'">!</span></div>
-    <span class="healer-countdown">{{ card.value.replace(/s$/, '') }}</span>
+   <div v-for="card in group.cards" :key="card.key" class="healer-buff-tile" :class="{ 'is-warning': card.flash, 'is-missing': card.state === 'missing', 'is-unknown': card.state === 'unknown' }" :title="$ui(`${group.name} · ${card.title}`)">
+    <div class="healer-small-icon"><img :src="`/condition-icons/${card.ccId}.png`" :alt="$ui(card.title)" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" /><span v-if="card.state === 'missing'">!</span></div>
+    <span class="healer-countdown">{{ $ui(card.value.replace(/s$/, '')) }}</span>
    </div>
   </div>
  </article>

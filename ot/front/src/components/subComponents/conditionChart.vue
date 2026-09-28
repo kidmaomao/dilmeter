@@ -2,7 +2,7 @@
     <v-sheet class="d-flex flex-column" style="height: 100%;">
         <v-sheet class="d-flex align-center pa-2 flex-shrink-0 flex-wrap" style="gap: 12px;">
             <span>CC:</span>
-            <v-select v-model="selectedCCId" :items="ccOptions" item-title="label" item-value="value"
+            <v-select v-model="selectedCCId" :items="$uiItems(ccOptions)" item-title="label" item-value="value"
                 variant="outlined" density="compact" hide-details style="max-width: 300px;">
                 <template v-slot:item="{ props: itemProps, item }">
                     <v-list-item v-bind="itemProps">
@@ -14,24 +14,24 @@
                 <template v-slot:selection="{ item }">
                     <div class="d-flex align-center" style="gap: 4px;">
                         <img width="16" height="16" :src="`/res/characterconditionimage/${region}/${item.raw.value}/${item.raw.value}.png`" />
-                        <span>{{ item.raw.label }}</span>
+                        <span>{{ $ui(item.raw.label) }}</span>
                     </div>
                 </template>
             </v-select>
             <v-btn v-if="selectedCCId != null" icon="mdi-close" size="x-small" variant="text"
                 @click="hideSelectedCC" title="이 CC 숨기기" />
-            <span>Total: {{ totalDurationText }}</span>
-            <span>ON: {{ onDurationText }} ({{ onPercent }}%)</span>
+            <span>Total: {{ $ui(totalDurationText) }}</span>
+            <span>ON: {{ $ui(onDurationText) }} ({{ $ui(onPercent) }}%)</span>
         </v-sheet>
         <v-sheet v-if="attackerStats.length > 0" class="pa-2 flex-shrink-0" style="max-height: 200px; overflow-y: auto;">
             <v-sheet v-for="a in attackerStats" :key="a.name" width="100%" class="mb-1"
                 style="position: relative; overflow: hidden; border-radius: 4px; font-size: 0.85em;">
                 <div :style="{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${a.onPercent}%`, background: getMabiNameColor(a.name), opacity: 0.4 }" />
                 <div class="d-flex align-center pa-1" style="position: relative; gap: 8px;">
-                    <span class="font-weight-medium">{{ a.name }}</span>
+                    <span class="font-weight-medium">{{ $ui(a.name) }}</span>
                     <v-spacer />
-                    <span>ON: {{ a.onText }} ({{ a.onPercent }}%)</span>
-                    <span>Total: {{ a.totalText }}</span>
+                    <span>ON: {{ $ui(a.onText) }} ({{ $ui(a.onPercent) }}%)</span>
+                    <span>Total: {{ $ui(a.totalText) }}</span>
                 </div>
             </v-sheet>
         </v-sheet>

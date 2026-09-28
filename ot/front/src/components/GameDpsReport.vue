@@ -1,18 +1,16 @@
 <template>
     <div v-if="isSharePreview" class="share-preview-page">
-        <img v-if="sharePreviewUrl" :src="sharePreviewUrl" alt="导出图片预览" />
-        <span v-else>正在生成导出图片…</span>
+        <img v-if="sharePreviewUrl" :src="sharePreviewUrl" :alt="$ui('导出图片预览')" />
+        <span v-else>{{ $ui("正在生成导出图片…") }}</span>
     </div>
     <div v-else class="report-page" :class="{ 'design-preview': isDesignPreview }">
         <div v-if="!isDesignPreview || showPreviewControls" class="report-controls">
             <label class="control-field">
-                <span class="control-label">
-                    战斗目标
-                    <span
+                <span class="control-label">{{ $ui(" 战斗目标 ") }}<span
                         class="control-help"
                         tabindex="0"
-                        title="这里显示 Boss 的真实最大血量（客户端 Stat30），统一保留两位小数。"
-                        aria-label="Boss 血量说明"
+                        :title="$ui('这里显示 Boss 的真实最大血量（客户端 Stat30），统一保留两位小数。')"
+                        :aria-label="$ui('Boss 血量说明')"
                     ><v-icon icon="mdi-help-circle-outline" size="14" /></span>
                 </span>
                 <select
@@ -20,30 +18,26 @@
                     :disabled="isFileLoading || (bossOptions.length === 0 && archivedBossOptions.length === 0 && !isRecordReplay)"
                     @change="handleBattleTargetSelected"
                 >
-                    <option v-if="bossOptions.length === 0" value="">尚无战斗数据</option>
-                    <option v-if="isRecordReplay" value="live:">返回实时监测</option>
-                    <option v-for="boss in bossOptions" :key="boss.entityId" :value="boss.entityId">{{ boss.label }}</option>
-                    <optgroup v-if="archivedBossOptions.length" label="此前场次 · 选中后加载">
-                        <option v-for="boss in archivedBossOptions" :key="boss.value" :value="boss.value">{{ boss.label }}</option>
+                    <option v-if="bossOptions.length === 0" value="">{{ $ui("尚无战斗数据") }}</option>
+                    <option v-if="isRecordReplay" value="live:">{{ $ui("返回实时监测") }}</option>
+                    <option v-for="boss in bossOptions" :key="boss.entityId" :value="boss.entityId">{{ $ui(boss.label) }}</option>
+                    <optgroup v-if="archivedBossOptions.length" :label="$ui('此前场次 · 选中后加载')">
+                        <option v-for="boss in archivedBossOptions" :key="boss.value" :value="boss.value">{{ $ui(boss.label) }}</option>
                     </optgroup>
                 </select>
             </label>
-            <label class="only-boss-switch" title="只列出客户端观察到的最大血量或累计承伤达到 1 亿的目标">
-                <input v-model="onlyBossTargets" type="checkbox" />
-                仅看 Boss
-            </label>
+            <label class="only-boss-switch" :title="$ui('只列出客户端观察到的最大血量或累计承伤达到 1 亿的目标')">
+                <input v-model="onlyBossTargets" type="checkbox" />{{ $ui(" 仅看 Boss ") }}</label>
             <label v-if="dpsVisible" class="control-field">
-                <span class="control-label">
-                    分享角色
-                    <span
+                <span class="control-label">{{ $ui(" 分享角色 ") }}<span
                         class="control-help"
                         tabindex="0"
-                        title="Boss 进入机制时的溢伤和被动伤害也会计入 DPS；因此累计承伤与角色占比可能超过 Boss 血量和 100%。"
-                        aria-label="DPS 溢伤统计说明"
+                        :title="$ui('Boss 进入机制时的溢伤和被动伤害也会计入 DPS；因此累计承伤与角色占比可能超过 Boss 血量和 100%。')"
+                        :aria-label="$ui('DPS 溢伤统计说明')"
                     ><v-icon icon="mdi-help-circle-outline" size="14" /></span>
                 </span>
                 <select v-model="selectedPlayerId" :disabled="playerOptions.length === 0">
-                    <option v-if="playerOptions.length === 0" value="">尚无角色数据</option>
+                    <option v-if="playerOptions.length === 0" value="">{{ $ui("尚无角色数据") }}</option>
                     <option v-for="player in playerOptions" :key="player.entityId" :value="player.entityId">{{ player.label }}</option>
                 </select>
             </label>
@@ -54,46 +48,40 @@
                 :disabled="!(summary?.players.length) && !isDesignPreview"
                 @click="teamChartOpen = true"
             >
-                <v-icon icon="mdi-chart-areaspline" size="15" />团队绘图
-            </button>
+                <v-icon icon="mdi-chart-areaspline" size="15" />{{ $ui("团队绘图 ") }}</button>
             <button class="game-button" :disabled="isStandalone || isFileLoading" @click="emit('refresh-info')">
-                <v-icon icon="mdi-refresh" size="15" />刷新信息
-            </button>
+                <v-icon icon="mdi-refresh" size="15" />{{ $ui("刷新信息 ") }}</button>
             <button class="game-button" :disabled="isFileLoading" @click="emit('view-records')">
-                <v-icon icon="mdi-history" size="15" />查看记录
-            </button>
+                <v-icon icon="mdi-history" size="15" />{{ $ui("查看记录 ") }}</button>
             <button v-if="dpsVisible" class="game-button" :disabled="!summary && !isDesignPreview" @click="saveBattleRecord">
-                <v-icon icon="mdi-download" size="15" />导出日志
-            </button>
+                <v-icon icon="mdi-download" size="15" />{{ $ui("导出日志 ") }}</button>
             <button v-if="dpsVisible" class="game-button" :disabled="!reportPlayer" @click="copyShareImage">
-                <v-icon icon="mdi-content-copy" size="15" />复制图片
-            </button>
+                <v-icon icon="mdi-content-copy" size="15" />{{ $ui("复制图片 ") }}</button>
             <button class="game-button" @click="clearReportData">
-                <v-icon icon="mdi-delete-sweep" size="15" />清空数据
-            </button>
+                <v-icon icon="mdi-delete-sweep" size="15" />{{ $ui("清空数据 ") }}</button>
         </div>
 
         <div v-if="notice && (!isDesignPreview || showPreviewControls)" class="notice-line" :class="`notice-${noticeType}`">
-            {{ notice }}
-            <button aria-label="关闭提示" @click="notice = ''"><v-icon icon="mdi-close" size="14" /></button>
+            {{ $ui(notice) }}
+            <button :aria-label="$ui('关闭提示')" @click="notice = ''"><v-icon icon="mdi-close" size="14" /></button>
         </div>
 
-        <section class="combat-window" aria-label="详细战斗统计">
+        <section class="combat-window" :aria-label="$ui('详细战斗统计')">
             <header class="window-titlebar">
                 <v-icon icon="mdi-sword-cross" size="15" />
-                <span>详细战斗统计</span>
+                <span>{{ $ui("详细战斗统计") }}</span>
                 <v-icon class="window-close" icon="mdi-close-box-outline" size="17" />
             </header>
 
             <div v-if="dpsVisible" class="top-stat-grid">
                 <article v-for="metric in metrics" :key="metric.label" class="top-stat">
-                    <div class="top-stat-label">{{ metric.label }}</div>
-                    <div class="top-stat-value">{{ metric.value }}</div>
+                    <div class="top-stat-label">{{ $ui(metric.label) }}</div>
+                    <div class="top-stat-value">{{ $ui(metric.value) }}</div>
                 </article>
             </div>
 
             <div class="table-frame">
-                <nav class="combat-tabs" aria-label="技能分类">
+                <nav class="combat-tabs" :aria-label="$ui('技能分类')">
                     <button
                         v-for="tab in visibleCombatTabs"
                         :key="tab.id"
@@ -102,18 +90,18 @@
                         :class="{ active: activeTab === tab.id }"
                         :aria-current="activeTab === tab.id ? 'page' : undefined"
                         @click="activeTab = tab.id"
-                    >{{ tab.label }}</button>
+                    >{{ $ui(tab.label) }}</button>
                 </nav>
                 <div v-if="activeTab === 'summary'" class="combat-summary-panel">
-                    <h2>战斗汇总</h2>
+                    <h2>{{ $ui("战斗汇总") }}</h2>
                     <dl class="combat-summary-table">
                         <div v-for="item in combatSummaryRows" :key="item.label" class="combat-summary-row">
-                            <dt>{{ item.label }}</dt>
-                            <dd>{{ item.value }}</dd>
+                            <dt>{{ $ui(item.label) }}</dt>
+                            <dd>{{ $ui(item.value) }}</dd>
                         </div>
                     </dl>
 
-                    <section class="condition-panel" aria-label="状态效果">
+                    <section class="condition-panel" :aria-label="$ui('状态效果')">
                         <header class="condition-panel-header">
                             <button
                                 v-if="conditionTarget === 'ally'"
@@ -122,41 +110,34 @@
                                 :class="{ active: playerBuffSettingsOpen }"
                                 @click="togglePlayerBuffSettings"
                             >
-                                <v-icon icon="mdi-tune-variant" size="13" />管理 Buff
-                            </button>
+                                <v-icon icon="mdi-tune-variant" size="13" />{{ $ui("管理 Buff ") }}</button>
                             <div class="condition-panel-title">
-                                <strong>{{ conditionTarget === "ally" ? "玩家 Buff 覆盖率" : "怪物 Debuff 覆盖率" }}</strong>
-                                <span>{{ conditionTargetLabel }}</span>
-                                <span v-if="conditionTarget === 'monster' && bossHealthText" class="boss-health-readout">生命 {{ bossHealthText }}</span>
+                                <strong>{{ $ui(conditionTarget === "ally" ? "玩家 Buff 覆盖率" : "怪物 Debuff 覆盖率") }}</strong>
+                                <span>{{ $ui(conditionTargetLabel) }}</span>
+                                <span v-if="conditionTarget === 'monster' && bossHealthText" class="boss-health-readout">{{ $ui("生命 ") }}{{ $ui(bossHealthText) }}</span>
                             </div>
-                            <div class="condition-target-toggle" role="radiogroup" aria-label="状态效果对象">
+                            <div class="condition-target-toggle" role="radiogroup" :aria-label="$ui('状态效果对象')">
                                 <label :class="{ active: conditionTarget === 'ally' }">
-                                    <input v-model="conditionTarget" type="radio" value="ally" />
-                                    我方
-                                </label>
+                                    <input v-model="conditionTarget" type="radio" value="ally" />{{ $ui(" 我方 ") }}</label>
                                 <label :class="{ active: conditionTarget === 'monster' }">
-                                    <input v-model="conditionTarget" type="radio" value="monster" />
-                                    怪物
-                                </label>
+                                    <input v-model="conditionTarget" type="radio" value="monster" />{{ $ui(" 怪物 ") }}</label>
                             </div>
                         </header>
 
                         <div v-if="conditionTarget === 'ally' && playerBuffSettingsOpen" class="player-buff-settings">
-                            <div class="player-buff-settings-tip">
-                                搜索任意状态名称或 CC ID 添加；下方分类可删除已有项目。设置和收藏会保存在本机。
-                            </div>
+                            <div class="player-buff-settings-tip">{{ $ui(" 搜索任意状态名称或 CC ID 添加；下方分类可删除已有项目。设置和收藏会保存在本机。 ") }}</div>
                             <div class="player-buff-search-row">
                                 <v-icon icon="mdi-magnify" size="15" />
                                 <input
                                     v-model.trim="playerBuffInput"
                                     type="search"
-                                    aria-label="搜索 Buff 名称或 CC ID"
-                                    placeholder="搜索 Buff 名称或 CC ID"
+                                    :aria-label="$ui('搜索 Buff 名称或 CC ID')"
+                                    :placeholder="$ui('搜索 Buff 名称或 CC ID')"
                                     @input="playerBuffInputError = ''"
                                     @keyup.enter="addPlayerBuff"
                                 />
-                                <button type="button" @click="addPlayerBuff">添加首项</button>
-                                <button type="button" @click="resetPlayerBuffs">恢复默认</button>
+                                <button type="button" @click="addPlayerBuff">{{ $ui("添加首项") }}</button>
+                                <button type="button" @click="resetPlayerBuffs">{{ $ui("恢复默认") }}</button>
                             </div>
                             <div v-if="playerBuffInput && playerBuffSearchResults.length" class="player-buff-search-results">
                                 <button
@@ -170,11 +151,11 @@
                                         <span>CC</span>
                                         <img
                                             :src="conditionIconUrl(buff.id)"
-                                            :alt="`${buff.name}状态图标`"
+                                            :alt="$ui(`${buff.name}状态图标`)"
                                             @error="hideMissingConditionIcon"
                                         />
                                     </span>
-                                    <span><strong>{{ buff.name }}</strong><small>CC {{ buff.id }}</small></span>
+                                    <span><strong>{{ $ui(buff.name) }}</strong><small>CC {{ $ui(buff.id) }}</small></span>
                                     <v-icon
                                         :icon="configuredPlayerBuffIdSet.has(buff.id) ? 'mdi-check' : 'mdi-plus'"
                                         size="14"
@@ -182,13 +163,13 @@
                                 </button>
                             </div>
                             <div v-else-if="playerBuffInput" class="player-buff-search-empty">
-                                {{ playerBuffInputError || "没有匹配的状态" }}
+                                {{ $ui(playerBuffInputError || "没有匹配的状态") }}
                             </div>
 
                             <details v-for="group in playerBuffGroups" :key="group.name" class="player-buff-manage-group">
                                 <summary>
-                                    <span>{{ group.name }}</span>
-                                    <small>{{ selectedBuffCount(group) }}/{{ group.items.length }}</small>
+                                    <span>{{ $ui(group.name) }}</span>
+                                    <small>{{ $ui(selectedBuffCount(group)) }}/{{ $ui(group.items.length) }}</small>
                                     <v-icon icon="mdi-chevron-down" size="15" />
                                 </summary>
                                 <div class="player-buff-chip-list">
@@ -198,18 +179,18 @@
                                         type="button"
                                         class="player-buff-chip"
                                         :class="{ selected: configuredPlayerBuffIdSet.has(buff.id) }"
-                                        :title="buff.detail || buff.name"
+                                        :title="$ui(buff.detail || buff.name)"
                                         @click="togglePlayerBuff(buff.id)"
                                     >
-                                        <span>{{ configuredPlayerBuffIdSet.has(buff.id) ? "✓" : "+" }}</span>
-                                        {{ buff.name }} <small>{{ buff.id }}</small>
+                                        <span>{{ $ui(configuredPlayerBuffIdSet.has(buff.id) ? "✓" : "+") }}</span>
+                                        {{ $ui(buff.name) }} <small>{{ $ui(buff.id) }}</small>
                                     </button>
                                 </div>
                             </details>
                             <details v-if="customPlayerBuffs.length" class="player-buff-manage-group">
                                 <summary>
-                                    <span>自定义</span>
-                                    <small>{{ customPlayerBuffs.length }}</small>
+                                    <span>{{ $ui("自定义") }}</span>
+                                    <small>{{ $ui(customPlayerBuffs.length) }}</small>
                                     <v-icon icon="mdi-chevron-down" size="15" />
                                 </summary>
                                 <div class="player-buff-chip-list">
@@ -220,7 +201,7 @@
                                         class="player-buff-chip selected"
                                         @click="togglePlayerBuff(buff.id)"
                                     >
-                                        <span>×</span>{{ buff.name }} <small>{{ buff.id }}</small>
+                                        <span>×</span>{{ $ui(buff.name) }} <small>{{ $ui(buff.id) }}</small>
                                     </button>
                                 </div>
                             </details>
@@ -233,16 +214,16 @@
                                         <span>CC</span>
                                         <img
                                             :src="selectedConditionRow.iconUrl"
-                                            :alt="`${selectedConditionRow.name}状态图标`"
+                                            :alt="$ui(`${selectedConditionRow.name}状态图标`)"
                                             @error="hideMissingConditionIcon"
                                         />
                                     </div>
                                     <div>
-                                        <strong>{{ selectedConditionRow.name }}</strong>
-                                        <span>覆盖 {{ fmtPct(selectedConditionRow.coverage) }} · 生效 {{ fmtCoverageDuration(selectedConditionRow.activeSeconds) }}</span>
+                                        <strong>{{ $ui(selectedConditionRow.name) }}</strong>
+                                        <span>{{ $ui("覆盖 ") }}{{ $ui(fmtPct(selectedConditionRow.coverage)) }}{{ $ui(" · 生效 ") }}{{ $ui(fmtCoverageDuration(selectedConditionRow.activeSeconds)) }}</span>
                                     </div>
                                 </div>
-                                <button type="button" aria-label="关闭时间轴" @click="selectedConditionId = null">
+                                <button type="button" :aria-label="$ui('关闭时间轴')" @click="selectedConditionId = null">
                                     <v-icon icon="mdi-close" size="15" />
                                 </button>
                             </header>
@@ -253,7 +234,7 @@
                                         :key="index"
                                         class="condition-timeline-segment"
                                         :style="conditionSegmentStyle(segment)"
-                                        :title="`${fmtBattleElapsed(segment.start)} - ${fmtBattleElapsed(segment.end)}`"
+                                        :title="$ui(`${fmtBattleElapsed(segment.start)} - ${fmtBattleElapsed(segment.end)}`)"
                                     />
                                     <i
                                         v-for="tick in conditionTimelineScale.gridTicks"
@@ -274,7 +255,7 @@
                                         v-for="tick in conditionTimelineScale.labelTicks"
                                         :key="`label-${tick.seconds}`"
                                         :style="{ left: `${tick.pct}%` }"
-                                    >{{ fmtCoverageDuration(tick.seconds) }}</span>
+                                    >{{ $ui(fmtCoverageDuration(tick.seconds)) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -283,8 +264,8 @@
                             <section class="favorite-condition-section">
                                 <header>
                                     <v-icon icon="mdi-star" size="14" />
-                                    <strong>收藏</strong>
-                                    <span>{{ favoriteConditionRows.length ? "收藏的 Buff 固定显示" : "点击 Buff 右上角星标固定显示" }}</span>
+                                    <strong>{{ $ui("收藏") }}</strong>
+                                    <span>{{ $ui(favoriteConditionRows.length ? "收藏的 Buff 固定显示" : "点击 Buff 右上角星标固定显示") }}</span>
                                 </header>
                                 <div v-if="favoriteConditionRows.length" class="condition-grid favorite-condition-grid">
                                     <article
@@ -292,26 +273,26 @@
                                         :key="`favorite-${condition.entityId}-${condition.ccId}`"
                                         class="condition-card"
                                         :class="{ selected: selectedConditionId === condition.ccId }"
-                                        :title="`${condition.name}：覆盖 ${fmtPct(condition.coverage)}`"
+                                        :title="$ui(`${condition.name}：覆盖 ${fmtPct(condition.coverage)}`)"
                                     >
                                         <button
                                             type="button"
                                             class="condition-favorite-button active"
-                                            :aria-label="`取消收藏 ${condition.name}`"
-                                            title="星星只固定在 Buff 汇总中；桌面图标请使用铃铛提醒"
+                                            :aria-label="$ui(`取消收藏 ${condition.name}`)"
+                                            :title="$ui('星星只固定在 Buff 汇总中；桌面图标请使用铃铛提醒')"
                                             @click="toggleFavoriteCondition(condition.ccId)"
                                         ><v-icon icon="mdi-star" size="16" /></button>
-                                        <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-label="`设置 ${condition.name} 提醒`" title="添加到桌面 Buff 提醒" @click="openBuffAlertEditor(condition.ccId)">
+                                        <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-label="$ui(`设置 ${condition.name} 提醒`)" :title="$ui('添加到桌面 Buff 提醒')" @click="openBuffAlertEditor(condition.ccId)">
                                             <v-icon icon="mdi-bell-outline" size="15" />
                                         </button>
                                         <button type="button" class="condition-card-main" @click="selectCondition(condition.ccId)">
                                             <span class="condition-icon-wrap">
                                                 <span>CC</span>
-                                                <img :src="condition.iconUrl" :alt="`${condition.name}状态图标`" @error="hideMissingConditionIcon" />
+                                                <img :src="condition.iconUrl" :alt="$ui(`${condition.name}状态图标`)" @error="hideMissingConditionIcon" />
                                             </span>
-                                            <strong class="condition-coverage">{{ fmtPct(condition.coverage) }}</strong>
-                                            <span class="condition-name">{{ condition.name }}</span>
-                                            <small>CC {{ condition.ccId }}</small>
+                                            <strong class="condition-coverage">{{ $ui(fmtPct(condition.coverage)) }}</strong>
+                                            <span class="condition-name">{{ $ui(condition.name) }}</span>
+                                            <small>CC {{ $ui(condition.ccId) }}</small>
                                         </button>
                                     </article>
                                 </div>
@@ -320,8 +301,8 @@
                             <div class="condition-category-list">
                                 <details v-for="group in playerConditionGroups" :key="group.name" class="condition-category">
                                     <summary>
-                                        <span>{{ group.name }}</span>
-                                        <small>{{ group.activeCount }} 个生效 / {{ group.rows.length }} 个</small>
+                                        <span>{{ $ui(group.name) }}</span>
+                                        <small>{{ $ui(group.activeCount) }}{{ $ui(" 个生效 / ") }}{{ $ui(group.rows.length) }}{{ $ui(" 个") }}</small>
                                         <v-icon icon="mdi-chevron-down" size="16" />
                                     </summary>
                                     <div class="condition-grid">
@@ -330,26 +311,26 @@
                                             :key="`${group.name}-${condition.entityId}-${condition.ccId}`"
                                             class="condition-card"
                                             :class="{ selected: selectedConditionId === condition.ccId }"
-                                            :title="`${condition.name}：覆盖 ${fmtPct(condition.coverage)}`"
+                                            :title="$ui(`${condition.name}：覆盖 ${fmtPct(condition.coverage)}`)"
                                         >
                                             <button
                                                 type="button"
                                                 class="condition-favorite-button"
-                                                :aria-label="`收藏 ${condition.name}`"
-                                                title="星星只固定在 Buff 汇总中；桌面图标请使用铃铛提醒"
+                                                :aria-label="$ui(`收藏 ${condition.name}`)"
+                                                :title="$ui('星星只固定在 Buff 汇总中；桌面图标请使用铃铛提醒')"
                                                 @click="toggleFavoriteCondition(condition.ccId)"
                                             ><v-icon icon="mdi-star-outline" size="16" /></button>
-                                            <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-label="`设置 ${condition.name} 提醒`" title="添加到桌面 Buff 提醒" @click="openBuffAlertEditor(condition.ccId)">
+                                            <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-label="$ui(`设置 ${condition.name} 提醒`)" :title="$ui('添加到桌面 Buff 提醒')" @click="openBuffAlertEditor(condition.ccId)">
                                                 <v-icon icon="mdi-bell-outline" size="15" />
                                             </button>
                                             <button type="button" class="condition-card-main" @click="selectCondition(condition.ccId)">
                                                 <span class="condition-icon-wrap">
                                                     <span>CC</span>
-                                                    <img :src="condition.iconUrl" :alt="`${condition.name}状态图标`" @error="hideMissingConditionIcon" />
+                                                    <img :src="condition.iconUrl" :alt="$ui(`${condition.name}状态图标`)" @error="hideMissingConditionIcon" />
                                                 </span>
-                                                <strong class="condition-coverage">{{ fmtPct(condition.coverage) }}</strong>
-                                                <span class="condition-name">{{ condition.name }}</span>
-                                                <small>CC {{ condition.ccId }}</small>
+                                                <strong class="condition-coverage">{{ $ui(fmtPct(condition.coverage)) }}</strong>
+                                                <span class="condition-name">{{ $ui(condition.name) }}</span>
+                                                <small>CC {{ $ui(condition.ccId) }}</small>
                                             </button>
                                         </article>
                                     </div>
@@ -362,30 +343,30 @@
                                 :key="`${condition.entityId}-${condition.ccId}`"
                                 class="condition-card"
                                 :class="{ selected: selectedConditionId === condition.ccId }"
-                                :title="`${condition.name}：覆盖 ${fmtPct(condition.coverage)}`"
+                                :title="$ui(`${condition.name}：覆盖 ${fmtPct(condition.coverage)}`)"
                             >
-                                <button type="button" class="condition-alert-button" :class="{ active: isDebuffAlertEnabled(condition.ccId) }" :aria-label="`设置 ${condition.name} Debuff 提醒`" title="监控即将失效或遗漏的 Debuff" @click="toggleDebuffAlert(condition.ccId)">
+                                <button type="button" class="condition-alert-button" :class="{ active: isDebuffAlertEnabled(condition.ccId) }" :aria-label="$ui(`设置 ${condition.name} Debuff 提醒`)" :title="$ui('监控即将失效或遗漏的 Debuff')" @click="toggleDebuffAlert(condition.ccId)">
                                     <v-icon :icon="isDebuffAlertEnabled(condition.ccId) ? 'mdi-bell' : 'mdi-bell-outline'" size="15" />
                                 </button>
                                 <button type="button" class="condition-card-main" @click="selectCondition(condition.ccId)">
                                     <span class="condition-icon-wrap">
                                         <span>CC</span>
-                                        <img :src="condition.iconUrl" :alt="`${condition.name}状态图标`" @error="hideMissingConditionIcon" />
+                                        <img :src="condition.iconUrl" :alt="$ui(`${condition.name}状态图标`)" @error="hideMissingConditionIcon" />
                                     </span>
-                                    <strong class="condition-coverage">{{ fmtPct(condition.coverage) }}</strong>
-                                    <span class="condition-name">{{ condition.name }}</span>
-                                    <small>CC {{ condition.ccId }}</small>
+                                    <strong class="condition-coverage">{{ $ui(fmtPct(condition.coverage)) }}</strong>
+                                    <span class="condition-name">{{ $ui(condition.name) }}</span>
+                                    <small>CC {{ $ui(condition.ccId) }}</small>
                                 </button>
                             </article>
                         </div>
                         <div v-else class="condition-empty">
                             <v-icon icon="mdi-shield-off-outline" size="25" />
-                            <span>{{ conditionEmptyText }}</span>
+                            <span>{{ $ui(conditionEmptyText) }}</span>
                             <button
                                 v-if="conditionTarget === 'ally' && effectivePlayerBuffIds.length === 0"
                                 type="button"
                                 @click="resetPlayerBuffs"
-                            >恢复默认</button>
+                            >{{ $ui("恢复默认") }}</button>
                         </div>
 
                     </section>
@@ -393,13 +374,13 @@
 
                 <template v-else-if="activeTab === 'attack'">
                     <div class="skill-head skill-grid">
-                        <span>技能名</span>
-                        <span>累计伤害</span>
-                        <span>每秒伤害</span>
-                        <span>伤害占比</span>
-                        <span>最大伤害</span>
-                        <span>使用次数</span>
-                        <span>暴击发动次数</span>
+                        <span>{{ $ui("技能名") }}</span>
+                        <span>{{ $ui("累计伤害") }}</span>
+                        <span>{{ $ui("每秒伤害") }}</span>
+                        <span>{{ $ui("伤害占比") }}</span>
+                        <span>{{ $ui("最大伤害") }}</span>
+                        <span>{{ $ui("使用次数") }}</span>
+                        <span>{{ $ui("暴击发动次数") }}</span>
                     </div>
 
                     <div v-if="skillRows.length" class="skill-scroll">
@@ -411,47 +392,43 @@
                                 <img
                                     class="skill-icon"
                                     :src="skill.iconUrl"
-                                    :alt="`${skill.name}技能图标`"
+                                    :alt="$ui(`${skill.name}技能图标`)"
                                     @error="useFallbackIcon"
                                 />
-                                <span class="skill-name-text">{{ skill.name }}</span>
+                                <span class="skill-name-text">{{ $ui(skill.name) }}</span>
                             </div>
-                            <span>{{ fmtGameNumber(skill.totalDamage) }}</span>
-                            <span>{{ fmtGameNumber(skill.dps) }}</span>
-                            <span>{{ fmtPct(skill.ratio) }}</span>
-                            <span>{{ fmtGameNumber(skill.maxDamage) }}</span>
-                            <span>{{ skill.totalHits || "-" }}</span>
-                            <span>{{ skill.critHits }}({{ skill.noCritRate ? "—" : fmtPct(skill.critRate) }})</span>
+                            <span>{{ $ui(fmtGameNumber(skill.totalDamage)) }}</span>
+                            <span>{{ $ui(fmtGameNumber(skill.dps)) }}</span>
+                            <span>{{ $ui(fmtPct(skill.ratio)) }}</span>
+                            <span>{{ $ui(fmtGameNumber(skill.maxDamage)) }}</span>
+                            <span>{{ $ui(skill.totalHits || "-") }}</span>
+                            <span>{{ $ui(skill.critHits) }}({{ $ui(skill.noCritRate ? "—" : fmtPct(skill.critRate)) }})</span>
                         </div>
                     </div>
 
                     <div v-else class="empty-combat-state">
                         <v-icon icon="mdi-sword-cross" size="30" />
-                        <strong>等待战斗数据</strong>
-                        <span>进入战斗并对首领造成伤害后，攻击技能会显示在这里。</span>
+                        <strong>{{ $ui("等待战斗数据") }}</strong>
+                        <span>{{ $ui("进入战斗并对首领造成伤害后，攻击技能会显示在这里。") }}</span>
                     </div>
                 </template>
 
                 <div v-else class="reminder-settings-page">
-                    <section class="reminder-profile-toolbar" aria-label="提醒方案与时间微调">
+                    <section class="reminder-profile-toolbar" :aria-label="$ui('提醒方案与时间微调')">
                         <div class="reminder-profile-heading">
                             <v-icon icon="mdi-folder-cog-outline" size="17" />
                             <div>
-                                <strong>提醒方案</strong>
-                                <span>保存多套 Buff、Debuff、瞄准提醒与技能 CD 配置，切换职业时可直接套用。</span>
+                                <strong>{{ $ui("提醒方案") }}</strong>
+                                <span>{{ $ui("保存多套 Buff、Debuff、瞄准提醒与技能 CD 配置，切换职业时可直接套用。") }}</span>
                             </div>
                         </div>
-                        <label>
-                            当前方案
-                            <select v-model="selectedReminderProfileId" @change="switchReminderProfile">
+                        <label>{{ $ui(" 当前方案 ") }}<select v-model="selectedReminderProfileId" @change="switchReminderProfile">
                                 <option v-for="profile in reminderProfileStore.profiles" :key="profile.id" :value="profile.id">
                                     {{ profile.name }}
                                 </option>
                             </select>
                         </label>
-                        <label>
-                            方案名称
-                            <input
+                        <label>{{ $ui(" 方案名称 ") }}<input
                                 :value="activeReminderProfile?.name || ''"
                                 type="text"
                                 maxlength="32"
@@ -459,19 +436,17 @@
                             />
                         </label>
                         <button type="button" class="profile-action" @click="duplicateReminderProfile">
-                            <v-icon icon="mdi-content-copy" size="13" />复制为新方案
-                        </button>
+                            <v-icon icon="mdi-content-copy" size="13" />{{ $ui("复制为新方案 ") }}</button>
                         <button
                             type="button"
                             class="profile-action danger"
                             :disabled="reminderProfileStore.profiles.length <= 1"
                             @click="deleteActiveReminderProfile"
                         >
-                            <v-icon icon="mdi-delete-outline" size="13" />删除方案
-                        </button>
+                            <v-icon icon="mdi-delete-outline" size="13" />{{ $ui("删除方案 ") }}</button>
                         <div class="buff-time-adjustment">
-                            <span>Buff 时间整体微调</span>
-                            <button type="button" aria-label="减少一秒" @click="adjustBuffTime(-1)">−</button>
+                            <span>{{ $ui("Buff 时间整体微调") }}</span>
+                            <button type="button" :aria-label="$ui('减少一秒')" @click="adjustBuffTime(-1)">−</button>
                             <input
                                 v-model.number="buffOverlaySettings.timeAdjustmentSeconds"
                                 type="number"
@@ -481,32 +456,31 @@
                                 inputmode="numeric"
                                 @input="markBuffAlertSettingsDirty"
                             />
-                            <button type="button" aria-label="增加一秒" @click="adjustBuffTime(1)">+</button>
-                            <small>秒</small>
+                            <button type="button" :aria-label="$ui('增加一秒')" @click="adjustBuffTime(1)">+</button>
+                            <small>{{ $ui("秒") }}</small>
                         </div>
                     </section>
-                    <section class="buff-alert-settings" aria-label="Buff 提醒设置">
+                    <section class="buff-alert-settings" :aria-label="$ui('Buff 提醒设置')">
                         <header>
                             <div>
-                                <strong>桌面 Buff 提醒（可同时监控多个）</strong>
-                                <span>图标位置使用固定屏幕坐标；右侧可直接调整图标大小、音量和坐标。</span>
+                                <strong>{{ $ui("桌面 Buff 提醒（可同时监控多个）") }}</strong>
+                                <span>{{ $ui("图标位置使用固定屏幕坐标；右侧可直接调整图标大小、音量和坐标。") }}</span>
                             </div>
-                            <span v-if="reminderSettingsDirty" class="buff-alert-unsaved">有未保存修改</span>
+                            <span v-if="reminderSettingsDirty" class="buff-alert-unsaved">{{ $ui("有未保存修改") }}</span>
                             <slot name="reminder-settings-actions" :dirty="reminderSettingsDirty" />
                         </header>
                         <div class="buff-alert-picker">
-                            <label for="reminder-buff-alert-target">搜索桌面提醒</label>
+                            <label for="reminder-buff-alert-target">{{ $ui("搜索桌面提醒") }}</label>
                             <input
                                 id="reminder-buff-alert-target"
                                 v-model.trim="buffAlertInput"
                                 type="search"
-                                placeholder="输入 Buff 名称或 CC ID"
+                                :placeholder="$ui('输入 Buff 名称或 CC ID')"
                                 autocomplete="off"
                                 @keyup.enter="addFirstBuffAlertSearchResult"
                             />
                             <button type="button" class="buff-alert-add" :disabled="!buffAlertSearchResults.length" @click="addFirstBuffAlertSearchResult">
-                                <v-icon icon="mdi-plus" size="13" />添加
-                            </button>
+                                <v-icon icon="mdi-plus" size="13" />{{ $ui("添加 ") }}</button>
                         </div>
                         <div v-if="buffAlertInput && buffAlertSearchResults.length" class="buff-alert-search-results">
                             <button
@@ -518,9 +492,9 @@
                             >
                                 <span class="condition-icon-wrap compact">
                                     <span>CC</span>
-                                    <img :src="conditionIconUrl(buff.id)" :alt="`${buff.name}图标`" @error="hideMissingConditionIcon" />
+                                    <img :src="conditionIconUrl(buff.id)" :alt="$ui(`${buff.name}图标`)" @error="hideMissingConditionIcon" />
                                 </span>
-                                <span><strong>{{ buff.name }}</strong><small>CC {{ buff.id }}</small></span>
+                                <span><strong>{{ $ui(buff.name) }}</strong><small>CC {{ $ui(buff.id) }}</small></span>
                                 <v-icon :icon="buffOverlaySettings.rules[buff.id] ? 'mdi-check' : 'mdi-plus'" size="13" />
                             </button>
                         </div>
@@ -529,41 +503,30 @@
                                 <div class="buff-alert-identity">
                                     <span class="condition-icon-wrap compact">
                                         <span>CC</span>
-                                        <img :src="conditionIconUrl(rule.ccId)" :alt="`${conditionDisplayName(rule.ccId)}图标`" @error="hideMissingConditionIcon" />
+                                        <img :src="conditionIconUrl(rule.ccId)" :alt="$ui(`${conditionDisplayName(rule.ccId)}图标`)" @error="hideMissingConditionIcon" />
                                     </span>
-                                    <strong>{{ conditionDisplayName(rule.ccId) }}</strong>
-                                    <small>CC {{ rule.ccId }}</small>
+                                    <strong>{{ $ui(conditionDisplayName(rule.ccId)) }}</strong>
+                                    <small>CC {{ $ui(rule.ccId) }}</small>
                                 </div>
                                 <template v-if="isStackAlertCondition(rule.ccId)">
                                     <span v-if="isStackOnlyBuffAlertCondition(rule.ccId)" class="buff-alert-mode-note">
-                                        {{ rule.ccId === 1080 ? "层数型 Buff" : "Boss 机制负面状态" }} · 达到设定层数时提醒
-                                    </span>
+                                        {{ $ui(rule.ccId === 1080 ? "层数型 Buff" : "Boss 机制负面状态") }}{{ $ui(" · 达到设定层数时提醒 ") }}</span>
                                     <div class="buff-stack-alert-controls">
                                         <label class="buff-stack-alert-toggle">
-                                            <input v-model="rule.stackAlertEnabled" type="checkbox" @change="markBuffAlertSettingsDirty" />
-                                            层数提醒
-                                        </label>
-                                        <label v-if="rule.stackAlertEnabled" class="buff-stack-alert-threshold">
-                                            达到
-                                            <input v-model.number="rule.stackThreshold" type="number" min="1" max="99" step="1" @change="markBuffAlertSettingsDirty" />
-                                            层
-                                        </label>
+                                            <input v-model="rule.stackAlertEnabled" type="checkbox" @change="markBuffAlertSettingsDirty" />{{ $ui(" 层数提醒 ") }}</label>
+                                        <label v-if="rule.stackAlertEnabled" class="buff-stack-alert-threshold">{{ $ui(" 达到 ") }}<input v-model.number="rule.stackThreshold" type="number" min="1" max="99" step="1" @change="markBuffAlertSettingsDirty" />{{ $ui(" 层 ") }}</label>
                                         <label v-if="rule.stackAlertEnabled">
-                                            <input v-model="rule.stackScreenEnabled" type="checkbox" @change="markBuffAlertSettingsDirty" />
-                                            屏幕闪烁
-                                        </label>
+                                            <input v-model="rule.stackScreenEnabled" type="checkbox" @change="markBuffAlertSettingsDirty" />{{ $ui(" 屏幕闪烁 ") }}</label>
                                         <span v-if="rule.stackAlertEnabled && rule.stackScreenEnabled" class="buff-stack-alert-coordinates">
-                                            <span>提示位置</span>
+                                            <span>{{ $ui("提示位置") }}</span>
                                             <label>X <input v-model.number="rule.stackX" type="number" min="-32000" max="32000" step="1" @change="markBuffAlertSettingsDirty" /></label>
                                             <label>Y <input v-model.number="rule.stackY" type="number" min="-32000" max="32000" step="1" @change="markBuffAlertSettingsDirty" /></label>
                                         </span>
-                                        <label v-if="rule.stackAlertEnabled">
-                                            层数音效
-                                            <select v-model="rule.stackSoundMode" @change="markBuffAlertSettingsDirty">
-                                                <option value="none">不提示</option>
-                                                <option value="electronic">内置电子音</option>
-                                                <option value="voice">晓晓语音</option>
-                                                <option value="custom">自定义音效</option>
+                                        <label v-if="rule.stackAlertEnabled">{{ $ui(" 层数音效 ") }}<select v-model="rule.stackSoundMode" @change="markBuffAlertSettingsDirty">
+                                                <option value="none">{{ $ui("不提示") }}</option>
+                                                <option value="electronic">{{ $ui("内置电子音") }}</option>
+                                                <option value="voice">{{ $ui("晓晓语音") }}</option>
+                                                <option value="custom">{{ $ui("自定义音效") }}</option>
                                             </select>
                                         </label>
                                         <label v-if="rule.stackAlertEnabled && rule.stackSoundMode === 'custom'" class="buff-alert-file-picker">
@@ -572,50 +535,37 @@
                                                 accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"
                                                 @change="uploadCustomBuffStackSound(rule, $event)"
                                             />
-                                            <span>{{ rule.stackCustomSoundName || "选择 MP3 / WAV" }}</span>
+                                            <span>{{ $ui(rule.stackCustomSoundName || "选择 MP3 / WAV") }}</span>
                                         </label>
                                         <button v-if="rule.stackAlertEnabled && rule.stackSoundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('buff-stack', rule.ccId, conditionDisplayName(rule.ccId))">
-                                            <v-icon icon="mdi-account-voice" size="13" />本地TTS
-                                        </button>
+                                            <v-icon icon="mdi-account-voice" size="13" />{{ $ui("本地TTS ") }}</button>
                                         <button
                                             v-if="rule.stackAlertEnabled && rule.stackScreenEnabled"
                                             type="button"
                                             class="buff-alert-preview"
                                             @click="previewBuffStackAlert(rule)"
-                                        >预览位置与动画</button>
+                                        >{{ $ui("预览位置与动画") }}</button>
                                     </div>
                                 </template>
                                 <template v-if="!isStackOnlyBuffAlertCondition(rule.ccId)">
                                     <label>
-                                        <input v-model="rule.overlayEnabled" type="checkbox" @change="onBuffOverlayRuleChanged(rule)" />
-                                        显示图标
-                                    </label>
-                                    <label>
-                                        时长来源
-                                        <select v-model="rule.durationMode" @change="markBuffAlertSettingsDirty">
-                                            <option value="auto">自动读取</option>
-                                            <option value="manual">手动固定时长</option>
+                                        <input v-model="rule.overlayEnabled" type="checkbox" @change="onBuffOverlayRuleChanged(rule)" />{{ $ui(" 显示图标 ") }}</label>
+                                    <label>{{ $ui(" 时长来源 ") }}<select v-model="rule.durationMode" @change="markBuffAlertSettingsDirty">
+                                            <option value="auto">{{ $ui("自动读取") }}</option>
+                                            <option value="manual">{{ $ui("手动固定时长") }}</option>
                                         </select>
                                     </label>
-                                    <label v-if="rule.durationMode === 'manual'">
-                                        固定时长（秒）
-                                        <input v-model.number="rule.manualDurationSeconds" type="number" min="1" max="86400" @change="markBuffAlertSettingsDirty" />
+                                    <label v-if="rule.durationMode === 'manual'">{{ $ui(" 固定时长（秒） ") }}<input v-model.number="rule.manualDurationSeconds" type="number" min="1" max="86400" @change="markBuffAlertSettingsDirty" />
                                     </label>
                                     <label>
-                                        <input v-model="rule.flashEnabled" type="checkbox" @change="markBuffAlertSettingsDirty" />
-                                        到期前闪烁
+                                        <input v-model="rule.flashEnabled" type="checkbox" @change="markBuffAlertSettingsDirty" />{{ $ui(" 到期前闪烁 ") }}</label>
+                                    <label>{{ $ui(" 闪烁提前（秒） ") }}<input v-model.number="rule.flashThresholdSeconds" type="number" min="1" max="3600" @change="markBuffAlertSettingsDirty" />
                                     </label>
-                                    <label>
-                                        闪烁提前（秒）
-                                        <input v-model.number="rule.flashThresholdSeconds" type="number" min="1" max="3600" @change="markBuffAlertSettingsDirty" />
-                                    </label>
-                                    <label>
-                                        音效
-                                        <select v-model="rule.soundMode" @change="onBuffSoundModeChanged(rule)">
-                                            <option value="none">不提示</option>
-                                            <option value="electronic">欢快电子音</option>
-                                            <option value="voice">晓晓：音乐要结束了</option>
-                                            <option value="custom">自定义音效</option>
+                                    <label>{{ $ui(" 音效 ") }}<select v-model="rule.soundMode" @change="onBuffSoundModeChanged(rule)">
+                                            <option value="none">{{ $ui("不提示") }}</option>
+                                            <option value="electronic">{{ $ui("欢快电子音") }}</option>
+                                            <option value="voice">{{ $ui("晓晓：音乐要结束了") }}</option>
+                                            <option value="custom">{{ $ui("自定义音效") }}</option>
                                         </select>
                                     </label>
                                     <label v-if="rule.soundMode === 'custom'" class="buff-alert-file-picker">
@@ -627,11 +577,8 @@
                                         <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                     </label>
                                     <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('buff', rule.ccId, conditionDisplayName(rule.ccId))">
-                                        <v-icon icon="mdi-account-voice" size="13" />本地TTS
-                                    </button>
-                                    <label v-if="rule.soundMode !== 'none'">
-                                        音效提前（秒）
-                                        <input v-model.number="rule.soundThresholdSeconds" type="number" min="1" max="3600" @change="markBuffAlertSettingsDirty" />
+                                        <v-icon icon="mdi-account-voice" size="13" />{{ $ui("本地TTS ") }}</button>
+                                    <label v-if="rule.soundMode !== 'none'">{{ $ui(" 音效提前（秒） ") }}<input v-model.number="rule.soundThresholdSeconds" type="number" min="1" max="3600" @change="markBuffAlertSettingsDirty" />
                                     </label>
                                     <button
                                         v-if="rule.soundMode !== 'none'"
@@ -639,42 +586,39 @@
                                         class="buff-alert-preview"
                                         :disabled="rule.soundMode === 'custom' && !rule.customSoundId"
                                         @click="previewBuffAlertSound(rule.soundMode, true, rule.customSoundId)"
-                                    >试听</button>
+                                    >{{ $ui("试听") }}</button>
                                 </template>
                                 <button type="button" class="buff-alert-remove" @click="removeBuffAlertRule(rule.ccId)">
-                                    <v-icon icon="mdi-delete-outline" size="13" />删除
-                                </button>
-                                <span class="buff-alert-runtime-status">{{ buffAlertRuntimeStatus(rule) }}</span>
+                                    <v-icon icon="mdi-delete-outline" size="13" />{{ $ui("删除 ") }}</button>
+                                <span class="buff-alert-runtime-status">{{ $ui(buffAlertRuntimeStatus(rule)) }}</span>
                             </div>
                         </div>
-                        <p v-else>尚未添加提醒。添加后会在这里逐项显示，多个项目可同时启用。</p>
+                        <p v-else>{{ $ui("尚未添加提醒。添加后会在这里逐项显示，多个项目可同时启用。") }}</p>
                     </section>
 
-                    <section class="debuff-alert-settings" aria-label="Boss Debuff 提醒设置">
+                    <section class="debuff-alert-settings" :aria-label="$ui('Boss Debuff 提醒设置')">
                         <header>
                             <div>
-                                <strong>Boss Debuff 提醒</strong>
-                                <span>已配置的图标平时常亮；监测到当前怪物拥有对应 CC 后立即隐藏，状态移除后重新显示。</span>
+                                <strong>{{ $ui("Boss Debuff 提醒") }}</strong>
+                                <span>{{ $ui("已配置的图标平时常亮；监测到当前怪物拥有对应 CC 后立即隐藏，状态移除后重新显示。") }}</span>
                             </div>
                             <button type="button" class="common-debuff-button" @click="addCommonDebuffAlerts">
-                                <v-icon icon="mdi-playlist-plus" size="14" />常用debuff
-                            </button>
+                                <v-icon icon="mdi-playlist-plus" size="14" />{{ $ui("常用debuff ") }}</button>
                             <slot name="debuff-reminder-settings-actions" />
                         </header>
                         <div class="debuff-alert-toolbar">
                             <div class="buff-alert-picker debuff-alert-picker">
-                                <label for="reminder-debuff-alert-target">搜索提醒</label>
+                                <label for="reminder-debuff-alert-target">{{ $ui("搜索提醒") }}</label>
                                 <input
                                     id="reminder-debuff-alert-target"
                                     v-model.trim="debuffAlertInput"
                                     type="search"
-                                    placeholder="输入 Debuff 名称或 CC ID"
+                                    :placeholder="$ui('输入 Debuff 名称或 CC ID')"
                                     autocomplete="off"
                                     @keyup.enter="addFirstDebuffAlertSearchResult"
                                 />
                                 <button type="button" class="buff-alert-add" :disabled="!debuffAlertSearchResults.length" @click="addFirstDebuffAlertSearchResult">
-                                    <v-icon icon="mdi-plus" size="13" />添加
-                                </button>
+                                    <v-icon icon="mdi-plus" size="13" />{{ $ui("添加 ") }}</button>
                             </div>
                         </div>
                         <div v-if="debuffAlertInput && debuffAlertSearchResults.length" class="buff-alert-search-results">
@@ -685,29 +629,28 @@
                                 :disabled="Boolean(debuffAlertSettings.rules[debuff.id])"
                                 @click="addDebuffAlertRule(debuff.id)"
                             >
-                                <span class="condition-icon-wrap compact"><span>CC</span><img :src="conditionIconUrl(debuff.id)" :alt="`${debuff.name}图标`" @error="hideMissingConditionIcon" /></span>
-                                <span><strong>{{ debuff.name }}</strong><small>CC {{ debuff.id }}</small></span>
+                                <span class="condition-icon-wrap compact"><span>CC</span><img :src="conditionIconUrl(debuff.id)" :alt="$ui(`${debuff.name}图标`)" @error="hideMissingConditionIcon" /></span>
+                                <span><strong>{{ $ui(debuff.name) }}</strong><small>CC {{ $ui(debuff.id) }}</small></span>
                                 <v-icon :icon="debuffAlertSettings.rules[debuff.id] ? 'mdi-check' : 'mdi-plus'" size="13" />
                             </button>
                         </div>
-                        <section class="debuff-boss-manager" aria-label="自定义 Debuff Boss 种族">
+                        <section class="debuff-boss-manager" :aria-label="$ui('自定义 Debuff Boss 种族')">
                             <div class="debuff-boss-manager-copy">
-                                <strong>自定义 Boss 种族</strong>
-                                <span>这些种族即使血量低于 1 亿，也可作为唯一的 Debuff 监测主体。</span>
+                                <strong>{{ $ui("自定义 Boss 种族") }}</strong>
+                                <span>{{ $ui("这些种族即使血量低于 1 亿，也可作为唯一的 Debuff 监测主体。") }}</span>
                             </div>
                             <div class="buff-alert-picker debuff-boss-picker">
-                                <label for="reminder-debuff-boss-race">搜索种族</label>
+                                <label for="reminder-debuff-boss-race">{{ $ui("搜索种族") }}</label>
                                 <input
                                     id="reminder-debuff-boss-race"
                                     v-model.trim="debuffBossRaceInput"
                                     type="search"
-                                    placeholder="输入 Boss 名称或种族 ID"
+                                    :placeholder="$ui('输入 Boss 名称或种族 ID')"
                                     autocomplete="off"
                                     @keyup.enter="addFirstForcedDebuffBossRace"
                                 />
                                 <button type="button" class="buff-alert-add" :disabled="!debuffBossRaceSearchResults.length" @click="addFirstForcedDebuffBossRace">
-                                    <v-icon icon="mdi-plus" size="13" />添加
-                                </button>
+                                    <v-icon icon="mdi-plus" size="13" />{{ $ui("添加 ") }}</button>
                             </div>
                             <div v-if="debuffBossRaceInput && debuffBossRaceSearchResults.length" class="buff-alert-search-results debuff-boss-search-results">
                                 <button
@@ -717,45 +660,39 @@
                                     @click="addForcedDebuffBossRace(race.id)"
                                 >
                                     <v-icon icon="mdi-skull-scan-outline" size="17" />
-                                    <span><strong>{{ race.name }}</strong><small>种族 ID {{ race.id }}</small></span>
+                                    <span><strong>{{ $ui(race.name) }}</strong><small>{{ $ui("种族 ID ") }}{{ $ui(race.id) }}</small></span>
                                     <v-icon icon="mdi-plus" size="13" />
                                 </button>
                             </div>
                             <div v-if="configuredForcedDebuffBossRaces.length" class="debuff-boss-race-list">
                                 <span v-for="race in configuredForcedDebuffBossRaces" :key="race.id">
-                                    <b>{{ race.name }}</b>
-                                    <small>ID {{ race.id }}</small>
-                                    <button type="button" :aria-label="`删除 ${race.name}`" @click="removeForcedDebuffBossRace(race.id)"><v-icon icon="mdi-close" size="13" /></button>
+                                    <b>{{ $ui(race.name) }}</b>
+                                    <small>ID {{ $ui(race.id) }}</small>
+                                    <button type="button" :aria-label="$ui(`删除 ${race.name}`)" @click="removeForcedDebuffBossRace(race.id)"><v-icon icon="mdi-close" size="13" /></button>
                                 </span>
                             </div>
-                            <p v-else>未添加自定义种族；默认只监测估算血量达到 1 亿的目标。</p>
+                            <p v-else>{{ $ui("未添加自定义种族；默认只监测估算血量达到 1 亿的目标。") }}</p>
                         </section>
                         <div v-if="configuredDebuffAlertRules.length" class="debuff-alert-rule-list">
                             <div v-for="(rule, index) in configuredDebuffAlertRules" :key="rule.ccId" class="debuff-alert-rule">
                                 <div class="debuff-alert-identity">
-                                    <span class="condition-icon-wrap compact"><span>CC</span><img :src="conditionIconUrl(rule.ccId)" :alt="`${conditionDisplayName(rule.ccId)}图标`" @error="hideMissingConditionIcon" /></span>
-                                    <strong>{{ conditionDisplayName(rule.ccId) }}</strong>
-                                    <small>CC {{ rule.ccId }}</small>
+                                    <span class="condition-icon-wrap compact"><span>CC</span><img :src="conditionIconUrl(rule.ccId)" :alt="$ui(`${conditionDisplayName(rule.ccId)}图标`)" @error="hideMissingConditionIcon" /></span>
+                                    <strong>{{ $ui(conditionDisplayName(rule.ccId)) }}</strong>
+                                    <small>CC {{ $ui(rule.ccId) }}</small>
                                 </div>
-                                <div class="debuff-order-controls" aria-label="调整图标顺序">
-                                    <button type="button" :disabled="index === 0" :aria-label="`上移 ${conditionDisplayName(rule.ccId)}`" title="向前移动" @click="moveDebuffAlertRule(rule.ccId, -1)"><v-icon icon="mdi-chevron-up" size="15" /></button>
-                                    <button type="button" :disabled="index === configuredDebuffAlertRules.length - 1" :aria-label="`下移 ${conditionDisplayName(rule.ccId)}`" title="向后移动" @click="moveDebuffAlertRule(rule.ccId, 1)"><v-icon icon="mdi-chevron-down" size="15" /></button>
+                                <div class="debuff-order-controls" :aria-label="$ui('调整图标顺序')">
+                                    <button type="button" :disabled="index === 0" :aria-label="$ui(`上移 ${conditionDisplayName(rule.ccId)}`)" :title="$ui('向前移动')" @click="moveDebuffAlertRule(rule.ccId, -1)"><v-icon icon="mdi-chevron-up" size="15" /></button>
+                                    <button type="button" :disabled="index === configuredDebuffAlertRules.length - 1" :aria-label="$ui(`下移 ${conditionDisplayName(rule.ccId)}`)" :title="$ui('向后移动')" @click="moveDebuffAlertRule(rule.ccId, 1)"><v-icon icon="mdi-chevron-down" size="15" /></button>
                                 </div>
                                 <label class="debuff-warning-toggle">
-                                    <input v-model="rule.flashEnabled" type="checkbox" @change="markDebuffAlertSettingsDirty" />
-                                    到期前闪烁
+                                    <input v-model="rule.flashEnabled" type="checkbox" @change="markDebuffAlertSettingsDirty" />{{ $ui(" 到期前闪烁 ") }}</label>
+                                <label class="debuff-warning-seconds">{{ $ui(" 闪烁提前（秒） ") }}<input v-model.number="rule.warningSeconds" type="number" min="1" max="3600" step="1" :disabled="!rule.flashEnabled" @change="markDebuffAlertSettingsDirty" />
                                 </label>
-                                <label class="debuff-warning-seconds">
-                                    闪烁提前（秒）
-                                    <input v-model.number="rule.warningSeconds" type="number" min="1" max="3600" step="1" :disabled="!rule.flashEnabled" @change="markDebuffAlertSettingsDirty" />
-                                </label>
-                                <label class="debuff-sound-choice">
-                                    音效
-                                    <select :value="rule.soundEnabled ? rule.soundMode : 'none'" @change="onDebuffSoundSelectionChanged(rule, $event)">
-                                        <option value="none">不提示</option>
-                                        <option value="electronic">内置电子音</option>
-                                        <option value="voice">晓晓语音</option>
-                                        <option value="custom">自定义音效</option>
+                                <label class="debuff-sound-choice">{{ $ui(" 音效 ") }}<select :value="rule.soundEnabled ? rule.soundMode : 'none'" @change="onDebuffSoundSelectionChanged(rule, $event)">
+                                        <option value="none">{{ $ui("不提示") }}</option>
+                                        <option value="electronic">{{ $ui("内置电子音") }}</option>
+                                        <option value="voice">{{ $ui("晓晓语音") }}</option>
+                                        <option value="custom">{{ $ui("自定义音效") }}</option>
                                     </select>
                                 </label>
                                 <label v-if="rule.soundEnabled && rule.soundMode === 'custom'" class="buff-alert-file-picker">
@@ -763,38 +700,33 @@
                                     <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                 </label>
                                 <button v-if="rule.soundEnabled && rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('debuff', rule.ccId, conditionDisplayName(rule.ccId))">
-                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
-                                </button>
+                                    <v-icon icon="mdi-account-voice" size="13" />{{ $ui("本地TTS ") }}</button>
                                 <button
                                     v-if="rule.soundEnabled"
                                     type="button"
                                     class="buff-alert-preview"
                                     :disabled="rule.soundMode === 'custom' && !rule.customSoundId"
                                     @click="previewDebuffSound(rule, true)"
-                                >试听</button>
-                                <button type="button" class="buff-alert-remove" @click="removeDebuffAlert(rule.ccId)"><v-icon icon="mdi-delete-outline" size="13" />删除</button>
+                                >{{ $ui("试听") }}</button>
+                                <button type="button" class="buff-alert-remove" @click="removeDebuffAlert(rule.ccId)"><v-icon icon="mdi-delete-outline" size="13" />{{ $ui("删除") }}</button>
                             </div>
                         </div>
-                        <p v-else>尚未监控 Debuff。可在上方搜索名称或 CC ID，也可在“综合 → 怪物”的状态卡片右上角点击铃铛添加。</p>
+                        <p v-else>{{ $ui("尚未监控 Debuff。可在上方搜索名称或 CC ID，也可在“综合 → 怪物”的状态卡片右上角点击铃铛添加。") }}</p>
                     </section>
 
-                    <section class="boss-mechanic-settings" aria-label="Boss 特殊机制提醒设置">
+                    <section class="boss-mechanic-settings" :aria-label="$ui('Boss 特殊机制提醒设置')">
                         <header>
                             <div>
-                                <strong>Boss 特殊机制提醒</strong>
-                                <span>从怪物技能执行或机制实体生成信号开始倒计时；可分别选择声音和屏幕中央数字提示。</span>
+                                <strong>{{ $ui("Boss 特殊机制提醒") }}</strong>
+                                <span>{{ $ui("从怪物技能执行或机制实体生成信号开始倒计时；可分别选择声音和屏幕中央数字提示。") }}</span>
                             </div>
-                            <label class="boss-mechanic-volume">
-                                音量
-                                <input v-model.number="bossMechanicSettings.volume" type="number" min="0" max="100" step="1" @input="markBossMechanicSettingsDirty" />
+                            <label class="boss-mechanic-volume">{{ $ui(" 音量 ") }}<input v-model.number="bossMechanicSettings.volume" type="number" min="0" max="100" step="1" @input="markBossMechanicSettingsDirty" />
                                 <span>%</span>
                             </label>
-                            <label class="boss-mechanic-display-setting">
-                                大小
-                                <input v-model.number="bossMechanicSettings.scalePercent" type="number" min="50" max="200" step="5" @input="markBossMechanicSettingsDirty" />
+                            <label class="boss-mechanic-display-setting">{{ $ui(" 大小 ") }}<input v-model.number="bossMechanicSettings.scalePercent" type="number" min="50" max="200" step="5" @input="markBossMechanicSettingsDirty" />
                                 <span>%</span>
                             </label>
-                            <span v-if="bossMechanicSettingsDirty" class="boss-mechanic-unsaved">有未保存修改</span>
+                            <span v-if="bossMechanicSettingsDirty" class="boss-mechanic-unsaved">{{ $ui("有未保存修改") }}</span>
                             <button
                                 type="button"
                                 class="skill-cooldown-save"
@@ -802,35 +734,29 @@
                                 @click="persistBossMechanicSettings"
                             >
                                 <v-icon :icon="bossMechanicSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                                {{ bossMechanicSettingsSaved ? "已保存" : "保存设定" }}
+                                {{ $ui(bossMechanicSettingsSaved ? "已保存" : "保存设定") }}
                             </button>
                         </header>
                         <div class="boss-mechanic-rule-list">
                             <div v-for="rule in configuredBossMechanicRules" :key="rule.key" class="boss-mechanic-rule">
                                 <div class="boss-mechanic-identity">
                                     <v-icon :icon="rule.trigger === 'orb-spawn' ? 'mdi-orbit' : 'mdi-laser-pointer'" size="24" />
-                                    <strong>{{ rule.name }}</strong>
-                                    <small>{{ rule.trigger === "orb-spawn" ? "米耶尔环绕球生成信号" : `怪物技能 ${rule.skillId} 执行信号` }}</small>
+                                    <strong>{{ $ui(rule.name) }}</strong>
+                                    <small>{{ $ui(rule.trigger === "orb-spawn" ? "米耶尔环绕球生成信号" : `怪物技能 ${rule.skillId} 执行信号`) }}</small>
                                 </div>
-                                <label><input v-model="rule.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用提醒</label>
-                                <label>
-                                    倒计时（秒）
-                                    <input v-model.number="rule.countdownSeconds" type="number" min="1" max="120" step="0.1" @input="markBossMechanicSettingsDirty" />
+                                <label><input v-model="rule.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("启用提醒") }}</label>
+                                <label>{{ $ui(" 倒计时（秒） ") }}<input v-model.number="rule.countdownSeconds" type="number" min="1" max="120" step="0.1" @input="markBossMechanicSettingsDirty" />
                                 </label>
-                                <label><input v-model="rule.showCountdown" type="checkbox" @change="markBossMechanicSettingsDirty" />屏幕中央倒计时</label>
-                                <label class="boss-mechanic-rule-coordinate">
-                                    提示坐标
-                                    <b>X</b>
+                                <label><input v-model="rule.showCountdown" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("屏幕中央倒计时") }}</label>
+                                <label class="boss-mechanic-rule-coordinate">{{ $ui(" 提示坐标 ") }}<b>X</b>
                                     <input v-model.number="rule.x" type="number" min="-32000" max="32000" step="1" @input="markBossMechanicSettingsDirty" />
                                     <b>Y</b>
                                     <input v-model.number="rule.y" type="number" min="-32000" max="32000" step="1" @input="markBossMechanicSettingsDirty" />
                                 </label>
-                                <label>
-                                    音效
-                                    <select v-model="rule.soundMode" @change="markBossMechanicSettingsDirty">
-                                        <option value="none">不提示</option>
-                                        <option value="dedicated">专属机制音效</option>
-                                        <option value="custom">自定义 / 本地TTS</option>
+                                <label>{{ $ui(" 音效 ") }}<select v-model="rule.soundMode" @change="markBossMechanicSettingsDirty">
+                                        <option value="none">{{ $ui("不提示") }}</option>
+                                        <option value="dedicated">{{ $ui("专属机制音效") }}</option>
+                                        <option value="custom">{{ $ui("自定义 / 本地TTS") }}</option>
                                     </select>
                                 </label>
                                 <label v-if="rule.soundMode === 'custom'" class="buff-alert-file-picker">
@@ -838,93 +764,86 @@
                                     <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                 </label>
                                 <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('boss', rule.key, rule.name)">
-                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
-                                </button>
-                                <button type="button" class="buff-alert-preview" :disabled="rule.soundMode === 'custom' && !rule.customSoundId" @click="previewBossMechanicRule(rule.key)">测试提醒</button>
-                                <span class="buff-alert-runtime-status">{{ bossMechanicRuntimeStatus(rule.key) }}</span>
+                                    <v-icon icon="mdi-account-voice" size="13" />{{ $ui("本地TTS ") }}</button>
+                                <button type="button" class="buff-alert-preview" :disabled="rule.soundMode === 'custom' && !rule.customSoundId" @click="previewBossMechanicRule(rule.key)">{{ $ui("测试提醒") }}</button>
+                                <span class="buff-alert-runtime-status">{{ $ui(bossMechanicRuntimeStatus(rule.key)) }}</span>
                             </div>
                             <div class="boss-mechanic-rule boss-mechanic-health-rule">
                                 <div class="boss-mechanic-identity">
                                     <v-icon icon="mdi-heart-pulse" size="24" />
-                                    <strong>安乐碎片机制</strong>
-                                    <small>选中对应阶段的机制碎片时显示放大血条；各阶段可独立开启</small>
+                                    <strong>{{ $ui("安乐碎片机制") }}</strong>
+                                    <small>{{ $ui("选中对应阶段的机制碎片时显示放大血条；各阶段可独立开启") }}</small>
                                 </div>
-                                <div class="miel-shard-phase-options" aria-label="显示阶段">
-                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal80" type="checkbox" @change="markBossMechanicSettingsDirty" />普通米耶尔 80%</label>
-                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal60" type="checkbox" @change="markBossMechanicSettingsDirty" />普通米耶尔 60%</label>
-                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal40" type="checkbox" @change="markBossMechanicSettingsDirty" />普通米耶尔 40%</label>
-                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.regret80" type="checkbox" @change="markBossMechanicSettingsDirty" />米耶尔：悔恨 80%</label>
+                                <div class="miel-shard-phase-options" :aria-label="$ui('显示阶段')">
+                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal80" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("普通米耶尔 80%") }}</label>
+                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal60" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("普通米耶尔 60%") }}</label>
+                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal40" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("普通米耶尔 40%") }}</label>
+                                    <label><input v-model="bossMechanicSettings.mielShardHealthPhases.regret80" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("米耶尔：悔恨 80%") }}</label>
                                 </div>
-                                <label class="boss-mechanic-rule-coordinate" title="放大血条左上角的屏幕坐标；解锁覆盖层后也可以拖动预览血条">
-                                    血条坐标
-                                    <b>X</b>
+                                <label class="boss-mechanic-rule-coordinate" :title="$ui('放大血条左上角的屏幕坐标；解锁覆盖层后也可以拖动预览血条')">{{ $ui(" 血条坐标 ") }}<b>X</b>
                                     <input v-model.number="bossMechanicSettings.mielShardHealthBarX" type="number" min="-32000" max="32000" step="1" @input="markBossMechanicSettingsDirty" />
                                     <b>Y</b>
                                     <input v-model.number="bossMechanicSettings.mielShardHealthBarY" type="number" min="-32000" max="32000" step="1" @input="markBossMechanicSettingsDirty" />
                                 </label>
-                                <label title="只缩放放大血条，不影响环绕球与射线提醒">
-                                    大小
-                                    <input v-model.number="bossMechanicSettings.mielShardHealthBarScalePercent" type="number" min="50" max="200" step="5" @input="markBossMechanicSettingsDirty" />
+                                <label :title="$ui('只缩放放大血条，不影响环绕球与射线提醒')">{{ $ui(" 大小 ") }}<input v-model.number="bossMechanicSettings.mielShardHealthBarScalePercent" type="number" min="50" max="200" step="5" @input="markBossMechanicSettingsDirty" />
                                     <span>%</span>
                                 </label>
-                                <label>
-                                    透明度
-                                    <input v-model.number="bossMechanicSettings.mielShardHealthBarOpacityPercent" type="number" min="20" max="100" step="5" @input="markBossMechanicSettingsDirty" />
+                                <label>{{ $ui(" 透明度 ") }}<input v-model.number="bossMechanicSettings.mielShardHealthBarOpacityPercent" type="number" min="20" max="100" step="5" @input="markBossMechanicSettingsDirty" />
                                     <span>%</span>
                                 </label>
-                                <button type="button" class="buff-alert-preview" @click="previewMielShardHealthBar">预览血条</button>
-                                <span class="buff-alert-runtime-status">{{ mielShardHealthBarPreview ? "正在预览 5 秒，可解锁后拖动" : "不影响环绕球与射线提醒" }}</span>
+                                <button type="button" class="buff-alert-preview" @click="previewMielShardHealthBar">{{ $ui("预览血条") }}</button>
+                                <span class="buff-alert-runtime-status">{{ $ui(mielShardHealthBarPreview ? "正在预览 5 秒，可解锁后拖动" : "不影响环绕球与射线提醒") }}</span>
                             </div>
                         </div>
                     </section>
 
-                    <section class="boss-mechanic-settings effect-timer-settings" aria-label="伤害增益效果计时条设置">
+                    <section class="boss-mechanic-settings effect-timer-settings" :aria-label="$ui('伤害增益效果计时条设置')">
                         <header>
                             <div>
-                                <strong>伤害增益效果计时条</strong>
-                                <span>技能执行或角色状态出现时开始倒数；读条随剩余时间缩短，到期自动消失。</span>
+                                <strong>{{ $ui("伤害增益效果计时条") }}</strong>
+                                <span>{{ $ui("技能执行或角色状态出现时开始倒数；读条随剩余时间缩短，到期自动消失。") }}</span>
                             </div>
-                            <span v-if="effectTimerSettingsDirty" class="boss-mechanic-unsaved">有未保存修改</span>
+                            <span v-if="effectTimerSettingsDirty" class="boss-mechanic-unsaved">{{ $ui("有未保存修改") }}</span>
                             <button type="button" class="skill-cooldown-save" :class="{ 'needs-save': effectTimerSettingsDirty, saved: effectTimerSettingsSaved }" @click="persistEffectTimerSettings">
                                 <v-icon :icon="effectTimerSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                                {{ effectTimerSettingsSaved ? "已保存" : "保存设定" }}
+                                {{ $ui(effectTimerSettingsSaved ? "已保存" : "保存设定") }}
                             </button>
-                            <button type="button" class="buff-alert-preview" @click="addEffectTimerRule"><v-icon icon="mdi-plus" size="13" />添加计时条</button>
+                            <button type="button" class="buff-alert-preview" @click="addEffectTimerRule"><v-icon icon="mdi-plus" size="13" />{{ $ui("添加计时条") }}</button>
                         </header>
                         <div v-if="configuredEffectTimerRules.length" class="boss-mechanic-rule-list">
                             <div v-for="rule in configuredEffectTimerRules" :key="rule.key" class="boss-mechanic-rule effect-timer-rule">
                                 <div class="boss-mechanic-identity">
                                     <v-icon :icon="rule.sourceType === 'skill' ? 'mdi-sword-cross' : 'mdi-timer-sand'" size="24" />
-                                    <input v-model.trim="rule.name" :list="rule.sourceType === 'skill' ? 'effect-timer-skill-options' : 'effect-timer-condition-options'" type="text" maxlength="80" aria-label="技能或状态名称" @input="markEffectTimerSettingsDirty" @change="resolveEffectTimerSourceFromName(rule)" />
-                                    <small>{{ rule.sourceType === "skill" ? "技能" : "状态" }} ID {{ rule.sourceId }}</small>
+                                    <input v-model.trim="rule.name" :list="rule.sourceType === 'skill' ? 'effect-timer-skill-options' : 'effect-timer-condition-options'" type="text" maxlength="80" :aria-label="$ui('技能或状态名称')" @input="markEffectTimerSettingsDirty" @change="resolveEffectTimerSourceFromName(rule)" />
+                                    <small>{{ $ui(rule.sourceType === "skill" ? "技能" : "状态") }} ID {{ $ui(rule.sourceId) }}</small>
                                 </div>
-                                <label><input v-model="rule.enabled" type="checkbox" @change="markEffectTimerSettingsDirty" />启用</label>
-                                <label>触发来源<select v-model="rule.sourceType" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()"><option value="skill">技能</option><option value="condition">Character Condition</option></select></label>
-                                <label>技能 / 状态 ID<input v-model.number="rule.sourceId" type="number" min="1" step="1" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()" /></label>
-                                <label>作用对象<select v-model="rule.targetMode" @change="markEffectTimerSettingsDirty"><option value="self">自身</option><option value="monster">怪物</option></select></label>
-                                <label>持续时间（秒）<input v-model.number="rule.durationSeconds" type="number" min="0.1" max="86400" step="0.1" @input="markEffectTimerSettingsDirty" /></label>
-                                <label><input v-model="rule.alwaysVisible" type="checkbox" @change="markEffectTimerSettingsDirty" />到期后一直显示空条</label>
-                                <label>方向<select v-model="rule.orientation" @change="markEffectTimerSettingsDirty"><option value="horizontal">横向</option><option value="vertical">纵向</option></select></label>
-                                <label class="boss-mechanic-rule-coordinate">坐标 <b>X</b><input v-model.number="rule.x" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /><b>Y</b><input v-model.number="rule.y" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /></label>
-                                <label>大小<input v-model.number="rule.scalePercent" type="number" min="50" max="200" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
-                                <label>透明度<input v-model.number="rule.opacityPercent" type="number" min="20" max="100" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
-                                <button type="button" class="buff-alert-preview" @click="previewEffectTimer(rule)">预览</button>
-                                <button type="button" class="buff-alert-remove" @click="removeEffectTimerRule(rule.key)"><v-icon icon="mdi-delete-outline" size="13" />删除</button>
+                                <label><input v-model="rule.enabled" type="checkbox" @change="markEffectTimerSettingsDirty" />{{ $ui("启用") }}</label>
+                                <label>{{ $ui("触发来源") }}<select v-model="rule.sourceType" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()"><option value="skill">{{ $ui("技能") }}</option><option value="condition">Character Condition</option></select></label>
+                                <label>{{ $ui("技能 / 状态 ID") }}<input v-model.number="rule.sourceId" type="number" min="1" step="1" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()" /></label>
+                                <label>{{ $ui("作用对象") }}<select v-model="rule.targetMode" @change="markEffectTimerSettingsDirty"><option value="self">{{ $ui("自身") }}</option><option value="monster">{{ $ui("怪物") }}</option></select></label>
+                                <label>{{ $ui("持续时间（秒）") }}<input v-model.number="rule.durationSeconds" type="number" min="0.1" max="86400" step="0.1" @input="markEffectTimerSettingsDirty" /></label>
+                                <label><input v-model="rule.alwaysVisible" type="checkbox" @change="markEffectTimerSettingsDirty" />{{ $ui("到期后一直显示空条") }}</label>
+                                <label>{{ $ui("方向") }}<select v-model="rule.orientation" @change="markEffectTimerSettingsDirty"><option value="horizontal">{{ $ui("横向") }}</option><option value="vertical">{{ $ui("纵向") }}</option></select></label>
+                                <label class="boss-mechanic-rule-coordinate">{{ $ui("坐标 ") }}<b>X</b><input v-model.number="rule.x" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /><b>Y</b><input v-model.number="rule.y" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /></label>
+                                <label>{{ $ui("大小") }}<input v-model.number="rule.scalePercent" type="number" min="50" max="200" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
+                                <label>{{ $ui("透明度") }}<input v-model.number="rule.opacityPercent" type="number" min="20" max="100" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
+                                <button type="button" class="buff-alert-preview" @click="previewEffectTimer(rule)">{{ $ui("预览") }}</button>
+                                <button type="button" class="buff-alert-remove" @click="removeEffectTimerRule(rule.key)"><v-icon icon="mdi-delete-outline" size="13" />{{ $ui("删除") }}</button>
                             </div>
                         </div>
-                        <p v-else>尚未配置计时条。添加后可自由选择技能或 Character Condition 作为触发来源。</p>
-                        <datalist id="effect-timer-skill-options"><option v-for="item in allSkillDefinitions" :key="item.id" :value="item.name">技能 {{ item.id }}</option></datalist>
-                        <datalist id="effect-timer-condition-options"><option v-for="item in allConditionDefinitions" :key="item.id" :value="item.name">CC {{ item.id }}</option></datalist>
+                        <p v-else>{{ $ui("尚未配置计时条。添加后可自由选择技能或 Character Condition 作为触发来源。") }}</p>
+                        <datalist id="effect-timer-skill-options"><option v-for="item in allSkillDefinitions" :key="item.id" :value="item.name">{{ $ui("技能 ") }}{{ $ui(item.id) }}</option></datalist>
+                        <datalist id="effect-timer-condition-options"><option v-for="item in allConditionDefinitions" :key="item.id" :value="item.name">CC {{ $ui(item.id) }}</option></datalist>
                     </section>
 
-                    <section class="aim-reminder-settings" aria-label="穿心箭瞄准提醒设置">
+                    <section class="aim-reminder-settings" :aria-label="$ui('穿心箭瞄准提醒设置')">
                         <header>
                             <div>
-                                <strong>瞄准提醒</strong>
-                                <span>穿心箭锁定目标后显示独立紧凑读条；无需在技能 CD 中添加穿心箭。</span>
+                                <strong>{{ $ui("瞄准提醒") }}</strong>
+                                <span>{{ $ui("穿心箭锁定目标后显示独立紧凑读条；无需在技能 CD 中添加穿心箭。") }}</span>
                             </div>
                             <div class="aim-reminder-header-actions">
-                                <span v-if="aimReminderSettingsDirty" class="aim-reminder-unsaved">有未保存修改</span>
+                                <span v-if="aimReminderSettingsDirty" class="aim-reminder-unsaved">{{ $ui("有未保存修改") }}</span>
                                 <button
                                     type="button"
                                     class="aim-reminder-save skill-cooldown-save"
@@ -933,22 +852,16 @@
                                     @click="persistAimReminderSettings"
                                 >
                                     <v-icon :icon="aimReminderSettingsSaving ? 'mdi-loading' : aimReminderSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" :class="{ 'mdi-spin': aimReminderSettingsSaving }" size="13" />
-                                    {{ aimReminderSettingsSaving ? "保存中" : aimReminderSettingsSaved ? "已保存" : "保存设定" }}
+                                    {{ $ui(aimReminderSettingsSaving ? "保存中" : aimReminderSettingsSaved ? "已保存" : "保存设定") }}
                                 </button>
                             </div>
                         </header>
                         <div class="aim-reminder-controls">
                             <label class="aim-reminder-toggle">
-                                <input v-model="skillCooldownSettings.aimReminder.enabled" type="checkbox" @change="markAimReminderSettingsDirty" />
-                                启用瞄准提醒
-                            </label>
-                            <label class="aim-reminder-toggle" title="未使用穿心箭时也保留 0% 的紧凑提示；开始瞄准后自动进入读条">
-                                <input v-model="skillCooldownSettings.aimReminder.alwaysVisible" type="checkbox" :disabled="!skillCooldownSettings.aimReminder.enabled" @change="markAimReminderSettingsDirty" />
-                                未瞄准时一直显示
-                            </label>
-                            <label title="填写武器面板的基础射程；可从候选武器中选择，也可以直接输入其他武器射程">
-                                武器基础射程
-                                <input
+                                <input v-model="skillCooldownSettings.aimReminder.enabled" type="checkbox" @change="markAimReminderSettingsDirty" />{{ $ui(" 启用瞄准提醒 ") }}</label>
+                            <label class="aim-reminder-toggle" :title="$ui('未使用穿心箭时也保留 0% 的紧凑提示；开始瞄准后自动进入读条')">
+                                <input v-model="skillCooldownSettings.aimReminder.alwaysVisible" type="checkbox" :disabled="!skillCooldownSettings.aimReminder.enabled" @change="markAimReminderSettingsDirty" />{{ $ui(" 未瞄准时一直显示 ") }}</label>
+                            <label :title="$ui('填写武器面板的基础射程；可从候选武器中选择，也可以直接输入其他武器射程')">{{ $ui(" 武器基础射程 ") }}<input
                                     v-model.number="skillCooldownSettings.aimReminder.weaponRange"
                                     list="magnum-weapon-range-presets"
                                     type="number"
@@ -958,30 +871,26 @@
                                     @input="markAimReminderSettingsDirty"
                                 />
                                 <datalist id="magnum-weapon-range-presets">
-                                    <option value="2200">毁灭弓 2200</option>
-                                    <option value="2000">释魂弓 2000</option>
-                                    <option value="2100">释魂弩 2100</option>
+                                    <option value="2200">{{ $ui("毁灭弓 2200") }}</option>
+                                    <option value="2000">{{ $ui("释魂弓 2000") }}</option>
+                                    <option value="2100">{{ $ui("释魂弩 2100") }}</option>
                                 </datalist>
                             </label>
-                            <label title="鉴定射程会与武器基础射程相加，每级增加 70">
-                                鉴定射程
-                                <select v-model.number="skillCooldownSettings.aimReminder.rangeIdentificationLevel" @change="markAimReminderSettingsDirty">
+                            <label :title="$ui('鉴定射程会与武器基础射程相加，每级增加 70')">{{ $ui(" 鉴定射程 ") }}<select v-model.number="skillCooldownSettings.aimReminder.rangeIdentificationLevel" @change="markAimReminderSettingsDirty">
                                     <option
                                         v-for="option in magnumRangeIdentificationOptions"
                                         :key="option.level"
                                         :value="option.level"
                                     >
-                                        {{ option.level === 0 ? "无鉴定" : `${option.level}级（+${option.bonus}）` }}
+                                        {{ $ui(option.level === 0 ? "无鉴定" : `${option.level}级（+${option.bonus}）`) }}
                                     </option>
                                 </select>
                             </label>
                             <output class="aim-reminder-effective-range">
-                                <span>合计射程</span>
-                                <strong>{{ magnumAimEffectiveRangeText() }}</strong>
+                                <span>{{ $ui("合计射程") }}</span>
+                                <strong>{{ $ui(magnumAimEffectiveRangeText()) }}</strong>
                             </output>
-                            <label>
-                                瞄准校准
-                                <input
+                            <label>{{ $ui(" 瞄准校准 ") }}<input
                                     v-model.number="skillCooldownSettings.aimReminder.calibrationPercent"
                                     type="number"
                                     min="20"
@@ -991,9 +900,7 @@
                                 />
                                 %
                             </label>
-                            <label>
-                                尔格瞄准加成
-                                <input
+                            <label>{{ $ui(" 尔格瞄准加成 ") }}<input
                                     v-model.number="skillCooldownSettings.aimReminder.ergSpeedPercent"
                                     type="number"
                                     min="100"
@@ -1003,26 +910,20 @@
                                 />
                                 %
                             </label>
-                            <label>
-                                延迟微调
-                                <input
+                            <label>{{ $ui(" 延迟微调 ") }}<input
                                     v-model.number="skillCooldownSettings.aimReminder.fineTuneSeconds"
                                     type="number"
                                     min="-10"
                                     max="10"
                                     step="0.01"
                                     @input="markAimReminderSettingsDirty"
-                                />
-                                秒
-                            </label>
+                                />{{ $ui(" 秒 ") }}</label>
                             <output class="aim-reminder-calculated-time">
-                                <span>85%最佳时间</span>
-                                <strong>{{ magnumAimCalculatedBestText() }}</strong>
-                                <small>秒</small>
+                                <span>{{ $ui("85%最佳时间") }}</span>
+                                <strong>{{ $ui(magnumAimCalculatedBestText()) }}</strong>
+                                <small>{{ $ui("秒") }}</small>
                             </output>
-                            <label>
-                                整体大小
-                                <input
+                            <label>{{ $ui(" 整体大小 ") }}<input
                                     v-model.number="skillCooldownSettings.aimReminder.scalePercent"
                                     type="number"
                                     min="50"
@@ -1032,28 +933,25 @@
                                 />
                                 %
                             </label>
-                            <div class="aim-reminder-coordinates" title="以整个桌面左上角为 (0, 0)，坐标表示长条提示左上角">
-                                <span>提示左上角</span>
+                            <div class="aim-reminder-coordinates" :title="$ui('以整个桌面左上角为 (0, 0)，坐标表示长条提示左上角')">
+                                <span>{{ $ui("提示左上角") }}</span>
                                 <label>X <input v-model.number="skillCooldownSettings.aimReminder.x" type="number" min="-32000" max="32000" @input="markAimReminderSettingsDirty" /></label>
                                 <label>Y <input v-model.number="skillCooldownSettings.aimReminder.y" type="number" min="-32000" max="32000" @input="markAimReminderSettingsDirty" /></label>
                             </div>
                             <button type="button" class="aim-reminder-preview" :disabled="!skillCooldownSettings.aimReminder.enabled" @click="previewAimReminder">
-                                <v-icon icon="mdi-play-circle-outline" size="14" />预览进度与最佳提示
-                            </button>
+                                <v-icon icon="mdi-play-circle-outline" size="14" />{{ $ui("预览进度与最佳提示 ") }}</button>
                         </div>
-                        <p>合计射程＝武器基础射程＋鉴定等级×70。固定距离改版后的基础瞄准时间按 7×1000÷合计射程＋1 秒计算，再叠加瞄准校准、尔格与临时加速，得出系统 70%（画面显示 85%）的最佳射击时间；网络与画面延迟因人而异，请先预览或实战测试，再用“延迟微调”校正。无影箭、拉蒂卡秘术和疾速会自动识别并换算。</p>
+                        <p>{{ $ui("合计射程＝武器基础射程＋鉴定等级×70。固定距离改版后的基础瞄准时间按 7×1000÷合计射程＋1 秒计算，再叠加瞄准校准、尔格与临时加速，得出系统 70%（画面显示 85%）的最佳射击时间；网络与画面延迟因人而异，请先预览或实战测试，再用“延迟微调”校正。无影箭、拉蒂卡秘术和疾速会自动识别并换算。") }}</p>
                     </section>
 
-                    <section class="skill-cooldown-settings" aria-label="技能冷却完成提醒设置">
+                    <section class="skill-cooldown-settings" :aria-label="$ui('技能冷却完成提醒设置')">
                         <header>
                             <div>
-                                <strong>技能 CD 好了提示</strong>
-                                <span>每个技能可设置自己的屏幕坐标；螺旋爆裂与蓄势突击每次使用都会把一份短时 CD 加入累计 CD，达到上限后进入技能 CD。</span>
+                                <strong>{{ $ui("技能 CD 好了提示") }}</strong>
+                                <span>{{ $ui(`每个技能可设置自己的屏幕坐标；${skillDisplayName(59145)}与${skillDisplayName(59104)}每次使用都会把一份短时 CD 加入累计 CD，达到上限后进入技能 CD。`) }}</span>
                             </div>
                             <div class="skill-cooldown-header-actions">
-                                <label class="skill-cooldown-icon-size" for="skill-cooldown-icon-size">
-                                    图标大小
-                                    <input
+                                <label class="skill-cooldown-icon-size" for="skill-cooldown-icon-size">{{ $ui(" 图标大小 ") }}<input
                                         id="skill-cooldown-icon-size"
                                         v-model.number="skillCooldownSettings.iconSize"
                                         type="number"
@@ -1066,7 +964,7 @@
                                     />
                                     <span id="skill-cooldown-icon-size-unit">px</span>
                                 </label>
-                                <span v-if="skillCooldownSettingsDirty" class="skill-cooldown-unsaved">有未保存修改</span>
+                                <span v-if="skillCooldownSettingsDirty" class="skill-cooldown-unsaved">{{ $ui("有未保存修改") }}</span>
                                 <button
                                     type="button"
                                     class="skill-cooldown-save"
@@ -1075,23 +973,22 @@
                                     @click="persistSkillCooldownSettings"
                                 >
                                     <v-icon :icon="skillCooldownSettingsSaving ? 'mdi-loading' : skillCooldownSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" :class="{ 'mdi-spin': skillCooldownSettingsSaving }" size="13" />
-                                    {{ skillCooldownSettingsSaving ? "保存中" : skillCooldownSettingsSaved ? "已保存" : "保存设定" }}
+                                    {{ $ui(skillCooldownSettingsSaving ? "保存中" : skillCooldownSettingsSaved ? "已保存" : "保存设定") }}
                                 </button>
                             </div>
                         </header>
                         <div class="buff-alert-picker skill-cooldown-picker">
-                            <label for="skill-cooldown-target">搜索技能提醒</label>
+                            <label for="skill-cooldown-target">{{ $ui("搜索技能提醒") }}</label>
                             <input
                                 id="skill-cooldown-target"
                                 v-model.trim="skillCooldownInput"
                                 type="search"
-                                placeholder="输入技能名称或技能 ID"
+                                :placeholder="$ui('输入技能名称或技能 ID')"
                                 autocomplete="off"
                                 @keyup.enter="addFirstSkillCooldownSearchResult"
                             />
                             <button type="button" class="buff-alert-add" :disabled="!skillCooldownSearchResults.length" @click="addFirstSkillCooldownSearchResult">
-                                <v-icon icon="mdi-plus" size="13" />添加
-                            </button>
+                                <v-icon icon="mdi-plus" size="13" />{{ $ui("添加 ") }}</button>
                         </div>
                         <div v-if="skillCooldownInput && skillCooldownSearchResults.length" class="buff-alert-search-results skill-cooldown-search-results">
                             <button
@@ -1102,10 +999,10 @@
                                 @click="addSkillCooldownRule(skill.id)"
                             >
                                 <span class="skill-alert-icon compact">
-                                    <span>技能</span>
-                                    <img :src="skillIconUrl(skill.id)" :alt="`${skill.name}图标`" @error="hideMissingConditionIcon" />
+                                    <span>{{ $ui("技能") }}</span>
+                                    <img :src="skillIconUrl(skill.id)" :alt="$ui(`${skill.name}图标`)" @error="hideMissingConditionIcon" />
                                 </span>
-                                <span><strong>{{ skill.name }}</strong><small>ID {{ skill.id }}</small></span>
+                                <span><strong>{{ $ui(skill.name) }}</strong><small>ID {{ $ui(skill.id) }}</small></span>
                                 <v-icon :icon="skillCooldownSettings.rules[skill.id] && !skillCooldownSettings.rules[skill.id].barOnly ? 'mdi-check' : 'mdi-plus'" size="13" />
                             </button>
                         </div>
@@ -1113,28 +1010,21 @@
                             <div v-for="rule in configuredSkillCooldownRules" :key="rule.skillId" class="skill-cooldown-editor">
                                 <div class="buff-alert-identity">
                                     <span class="skill-alert-icon compact">
-                                        <span>技能</span>
-                                        <img :src="skillIconUrl(rule.skillId)" :alt="`${skillDisplayName(rule.skillId)}图标`" @error="hideMissingConditionIcon" />
+                                        <span>{{ $ui("技能") }}</span>
+                                        <img :src="skillIconUrl(rule.skillId)" :alt="$ui(`${skillDisplayName(rule.skillId)}图标`)" @error="hideMissingConditionIcon" />
                                     </span>
-                                    <strong>{{ skillDisplayName(rule.skillId) }}</strong>
-                                    <small>ID {{ rule.skillId }}</small>
+                                    <strong>{{ $ui(skillDisplayName(rule.skillId)) }}</strong>
+                                    <small>ID {{ $ui(rule.skillId) }}</small>
                                 </div>
                                 <p v-if="builtinSkillCooldownRuleDescription(rule.skillId)" class="skill-cooldown-builtin-rule">
                                     <v-icon icon="mdi-timer-sync-outline" size="14" />
-                                    {{ builtinSkillCooldownRuleDescription(rule.skillId) }}检测到对应包信号时自动更新当前剩余 CD。
-                                </p>
+                                    {{ $ui(builtinSkillCooldownRuleDescription(rule.skillId)) }}{{ $ui("检测到对应包信号时自动更新当前剩余 CD。 ") }}</p>
                                 <label>
-                                    <input v-model="rule.enabled" type="checkbox" @change="markSkillCooldownSettingsDirty" />
-                                    启用提醒
+                                    <input v-model="rule.enabled" type="checkbox" @change="markSkillCooldownSettingsDirty" />{{ $ui(" 启用提醒 ") }}</label>
+                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID">{{ $ui(" 多尔卡少于 ") }}<input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
+                                    <span>{{ $ui("点时弹框") }}</span>
                                 </label>
-                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID">
-                                    多尔卡少于
-                                    <input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
-                                    <span>点时弹框</span>
-                                </label>
-                                <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">
-                                    提示进度
-                                    <input
+                                <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">{{ $ui(" 提示进度 ") }}<input
                                         v-model.number="rule.progressThresholdPercent"
                                         type="number"
                                         min="1"
@@ -1144,46 +1034,39 @@
                                     />
                                     <span>%</span>
                                 </label>
-                                <label v-if="rule.skillId === 59047">技能 CD（秒）
-                                    <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
+                                <label v-if="rule.skillId === 59047">{{ $ui("技能 CD（秒） ") }}<input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
                                 </label>
                                 <div
                                     v-else-if="isCumulativeCooldownSkill(rule.skillId)"
                                     class="skill-cooldown-cumulative-fields"
-                                    title="每次使用都把完整短时 CD 加入当前剩余的累计 CD；例如短时 CD 为 3 秒时，第一下为 3 秒，1 秒后第二下为 2+3=5 秒；累计值持续回落，达到上限后进入技能 CD"
+                                    :title="$ui('每次使用都把完整短时 CD 加入当前剩余的累计 CD；例如短时 CD 为 3 秒时，第一下为 3 秒，1 秒后第二下为 2+3=5 秒；累计值持续回落，达到上限后进入技能 CD')"
                                 >
-                                    <label>短时 CD <input v-model.number="rule.shortCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
-                                    <label>累计 CD <input v-model.number="rule.cumulativeCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
-                                    <label>技能 CD <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
+                                    <label>{{ $ui("短时 CD ") }}<input v-model.number="rule.shortCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />{{ $ui(" 秒") }}</label>
+                                    <label>{{ $ui("累计 CD ") }}<input v-model.number="rule.cumulativeCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />{{ $ui(" 秒") }}</label>
+                                    <label>{{ $ui("技能 CD ") }}<input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />{{ $ui(" 秒") }}</label>
                                 </div>
-                                <label v-else-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)">
-                                    技能 CD（秒）
-                                    <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
+                                <label v-else-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)">{{ $ui(" 技能 CD（秒） ") }}<input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
                                 </label>
-                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)" title="宠物技能不会被托亚灵满充刷新">
-                                    技能归属
-                                    <select v-model="rule.ownerMode" @change="markSkillCooldownSettingsDirty">
-                                        <option value="auto">自动识别</option>
-                                        <option value="player">角色技能</option>
-                                        <option value="pet">宠物技能</option>
+                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)" :title="$ui('宠物技能不会被托亚灵满充刷新')">{{ $ui(" 技能归属 ") }}<select v-model="rule.ownerMode" @change="markSkillCooldownSettingsDirty">
+                                        <option value="auto">{{ $ui("自动识别") }}</option>
+                                        <option value="player">{{ $ui("角色技能") }}</option>
+                                        <option value="pet">{{ $ui("宠物技能") }}</option>
                                     </select>
                                 </label>
-                                <div class="skill-cooldown-coordinates" title="以整个桌面左上角为 (0, 0)，坐标表示技能图标左上角">
-                                    <span>{{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "弹框左上角" : "图标左上角" }}</span>
+                                <div class="skill-cooldown-coordinates" :title="$ui('以整个桌面左上角为 (0, 0)，坐标表示技能图标左上角')">
+                                    <span>{{ $ui(rule.skillId === DORCHA_MASTERY_SKILL_ID ? "弹框左上角" : "图标左上角") }}</span>
                                     <label>X <input v-model.number="rule.x" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
                                     <label>Y <input v-model.number="rule.y" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
                                 </div>
-                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID" title="同时缩放多尔卡弹框、文字和数字，默认 100%">
-                                    窗口大小
-                                    <input v-model.number="rule.scalePercent" aria-label="多尔卡精通窗口大小百分比" type="number" min="50" max="200" step="5" @input="markSkillCooldownSettingsDirty" />
+                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID" :title="$ui('同时缩放多尔卡弹框、文字和数字，默认 100%')">{{ $ui(" 窗口大小 ") }}<input v-model.number="rule.scalePercent" :aria-label="$ui('多尔卡精通窗口大小百分比')" type="number" min="50" max="200" step="5" @input="markSkillCooldownSettingsDirty" />
                                     <span>%</span>
                                 </label>
                                 <label>
-                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "提示音效" : "完成音效" }}
+                                    {{ $ui(rule.skillId === DORCHA_MASTERY_SKILL_ID ? "提示音效" : "完成音效") }}
                                     <select v-model="rule.soundMode" @change="onSkillCooldownSoundModeChanged(rule)">
-                                        <option value="default">默认提示音</option>
-                                        <option value="none">不提示</option>
-                                        <option value="custom">自定义音效</option>
+                                        <option value="default">{{ $ui("默认提示音") }}</option>
+                                        <option value="none">{{ $ui("不提示") }}</option>
+                                        <option value="custom">{{ $ui("自定义音效") }}</option>
                                     </select>
                                 </label>
                                 <label v-if="rule.soundMode === 'custom'" class="buff-alert-file-picker">
@@ -1195,27 +1078,25 @@
                                     <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                 </label>
                                 <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('skill', rule.skillId, skillDisplayName(rule.skillId))">
-                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
-                                </button>
+                                    <v-icon icon="mdi-account-voice" size="13" />{{ $ui("本地TTS ") }}</button>
                                 <button
                                     v-if="rule.soundMode !== 'none'"
                                     type="button"
                                     class="buff-alert-preview"
                                     :disabled="rule.soundMode === 'custom' && !rule.customSoundId"
                                     @click="previewSkillCooldownSound(rule, true)"
-                                >试听</button>
-                                <label :title="rule.skillId === DORCHA_MASTERY_SKILL_ID ? '始终显示当前多尔卡数量；未勾选时仅在数量不足时显示' : '勾选后，冷却期间灰色显示并显示倒计时；完成后恢复彩色'">
+                                >{{ $ui("试听") }}</button>
+                                <label :title="$ui(rule.skillId === DORCHA_MASTERY_SKILL_ID ? '始终显示当前多尔卡数量；未勾选时仅在数量不足时显示' : '勾选后，冷却期间灰色显示并显示倒计时；完成后恢复彩色')">
                                     <input v-model="rule.alwaysVisible" type="checkbox" @change="markSkillCooldownSettingsDirty" />
-                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : (rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)) ? "能量槽一直显示" : "技能图标一直显示" }}
+                                    {{ $ui(rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : (rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)) ? "能量槽一直显示" : "技能图标一直显示") }}
                                 </label>
-                                <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">预览位置与动画</button>
+                                <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">{{ $ui("预览位置与动画") }}</button>
                                 <button type="button" class="buff-alert-remove" @click="removeSkillCooldownRule(rule.skillId)">
-                                    <v-icon icon="mdi-delete-outline" size="13" />删除
-                                </button>
-                                <span class="buff-alert-runtime-status">{{ skillCooldownRuntimeStatus(rule.skillId) }}</span>
+                                    <v-icon icon="mdi-delete-outline" size="13" />{{ $ui("删除 ") }}</button>
+                                <span class="buff-alert-runtime-status">{{ $ui(skillCooldownRuntimeStatus(rule.skillId)) }}</span>
                             </div>
                         </div>
-                        <p v-else>尚未添加技能。先搜索技能，再填写该技能在你当前装备与状态下的实际 CD 秒数。</p>
+                        <p v-else>{{ $ui("尚未添加技能。先搜索技能，再填写该技能在你当前装备与状态下的实际 CD 秒数。") }}</p>
                     </section>
 
                 </div>
@@ -1225,35 +1106,29 @@
         <div v-if="localTtsDialogOpen" class="team-chart-backdrop local-tts-backdrop" @click.self="localTtsDialogOpen = false">
             <section class="local-tts-dialog" role="dialog" aria-modal="true" aria-labelledby="local-tts-title">
                 <header>
-                    <div><v-icon icon="mdi-account-voice" size="18" /><strong id="local-tts-title">Windows 本地 TTS</strong></div>
-                    <button type="button" aria-label="关闭本地TTS" @click="localTtsDialogOpen = false"><v-icon icon="mdi-close-box-outline" size="18" /></button>
+                    <div><v-icon icon="mdi-account-voice" size="18" /><strong id="local-tts-title">{{ $ui("Windows 本地 TTS") }}</strong></div>
+                    <button type="button" :aria-label="$ui('关闭本地TTS')" @click="localTtsDialogOpen = false"><v-icon icon="mdi-close-box-outline" size="18" /></button>
                 </header>
-                <label>
-                    提醒文字
-                    <textarea v-model="localTtsText" maxlength="120" rows="3" placeholder="输入要朗读的内容"></textarea>
-                    <small>{{ Array.from(localTtsText).length }}/120</small>
+                <label>{{ $ui(" 提醒文字 ") }}<textarea v-model="localTtsText" maxlength="120" rows="3" :placeholder="$ui('输入要朗读的内容')"></textarea>
+                    <small>{{ $ui(Array.from(localTtsText).length) }}/120</small>
                 </label>
                 <div class="local-tts-fields">
-                    <label>
-                        系统语音
-                        <select v-model="localTtsVoice" :disabled="localTtsVoicesLoading || !localTtsVoices.length">
-                            <option v-if="!localTtsVoices.length" value="">{{ localTtsVoicesLoading ? "正在读取…" : "未找到系统语音" }}</option>
-                            <option v-for="voice in localTtsVoices" :key="voice.name" :value="voice.name">{{ voice.description || voice.name }}（{{ voice.culture }}）</option>
+                    <label>{{ $ui(" 系统语音 ") }}<select v-model="localTtsVoice" :disabled="localTtsVoicesLoading || !localTtsVoices.length">
+                            <option v-if="!localTtsVoices.length" value="">{{ $ui(localTtsVoicesLoading ? "正在读取…" : "未找到系统语音") }}</option>
+                            <option v-for="voice in localTtsVoices" :key="voice.name" :value="voice.name">{{ $ui(voice.description || voice.name) }}（{{ $ui(voice.culture) }}）</option>
                         </select>
-                        <small>使用 Windows 已安装语音</small>
+                        <small>{{ $ui("使用 Windows 已安装语音") }}</small>
                     </label>
-                    <label>
-                        语速
-                        <input v-model.number="localTtsRate" type="number" min="-5" max="5" step="1" />
-                        <small>-5 慢　0 正常　5 快</small>
+                    <label>{{ $ui(" 语速 ") }}<input v-model.number="localTtsRate" type="number" min="-5" max="5" step="1" />
+                        <small>{{ $ui("-5 慢　0 正常　5 快") }}</small>
                     </label>
                 </div>
-                <div v-if="localTtsStatus" class="local-tts-status" :class="{ error: localTtsError }">{{ localTtsStatus }}</div>
+                <div v-if="localTtsStatus" class="local-tts-status" :class="{ error: localTtsError }">{{ $ui(localTtsStatus) }}</div>
                 <footer>
-                    <span>应用目标：{{ localTtsTarget?.label || "—" }}</span>
-                    <button type="button" class="game-button" @click="localTtsDialogOpen = false">取消</button>
+                    <span>{{ $ui("应用目标：") }}{{ $ui(localTtsTarget?.label || "—") }}</span>
+                    <button type="button" class="game-button" @click="localTtsDialogOpen = false">{{ $ui("取消") }}</button>
                     <button type="button" class="game-button confirm" :disabled="localTtsPending || !localTtsText.trim() || !localTtsVoice" @click="generateAndApplyLocalTTS">
-                        <v-icon icon="mdi-play-circle-outline" size="14" />{{ localTtsPending ? "生成中…" : "生成、应用并试听" }}
+                        <v-icon icon="mdi-play-circle-outline" size="14" />{{ $ui(localTtsPending ? "生成中…" : "生成、应用并试听") }}
                     </button>
                 </footer>
             </section>
@@ -1264,35 +1139,32 @@
                 <header class="team-chart-titlebar">
                     <div>
                         <v-icon icon="mdi-chart-areaspline" size="17" />
-                        <span id="team-chart-title">团队绘图</span>
+                        <span id="team-chart-title">{{ $ui("团队绘图") }}</span>
                     </div>
-                    <button type="button" aria-label="关闭团队绘图" @click="teamChartOpen = false">
+                    <button type="button" :aria-label="$ui('关闭团队绘图')" @click="teamChartOpen = false">
                         <v-icon icon="mdi-close-box-outline" size="18" />
                     </button>
                 </header>
                 <div class="team-chart-toolbar">
                     <div class="team-chart-context">
-                        <strong>{{ bossLabel }}</strong>
-                        <span>{{ reportSession ? `${fmtBattleClock(reportSession.startAt)} ~ ${fmtBattleClock(reportSession.endAt)}` : "尚无时间范围" }}</span>
+                        <strong>{{ $ui(bossLabel) }}</strong>
+                        <span>{{ $ui(reportSession ? `${fmtBattleClock(reportSession.startAt)} ~ ${fmtBattleClock(reportSession.endAt)}` : "尚无时间范围") }}</span>
                     </div>
-                    <div class="team-chart-view-switch" role="radiogroup" aria-label="团队绘图类型">
+                    <div class="team-chart-view-switch" role="radiogroup" :aria-label="$ui('团队绘图类型')">
                         <button type="button" role="radio" :aria-checked="teamChartView === 'damage'" :class="{ active: teamChartView === 'damage' }" @click="teamChartView = 'damage'">
-                            <v-icon icon="mdi-chart-areaspline" size="13" />累计输出
-                        </button>
+                            <v-icon icon="mdi-chart-areaspline" size="13" />{{ $ui("累计输出 ") }}</button>
                         <button type="button" role="radio" :aria-checked="teamChartView === 'dps'" :class="{ active: teamChartView === 'dps' }" @click="teamChartView = 'dps'">
-                            <v-icon icon="mdi-chart-line" size="13" />实时 DPS
-                        </button>
+                            <v-icon icon="mdi-chart-line" size="13" />{{ $ui("实时 DPS ") }}</button>
                         <button type="button" role="radio" :aria-checked="teamChartView === 'skills'" :class="{ active: teamChartView === 'skills' }" @click="teamChartView = 'skills'">
-                            <v-icon icon="mdi-timeline-clock-outline" size="13" />技能时间轴
-                        </button>
+                            <v-icon icon="mdi-timeline-clock-outline" size="13" />{{ $ui("技能时间轴 ") }}</button>
                     </div>
-                    <span class="team-chart-privacy"><v-icon icon="mdi-shield-account-outline" size="14" />默认仅显示阿尔卡纳职业</span>
+                    <span class="team-chart-privacy"><v-icon icon="mdi-shield-account-outline" size="14" />{{ $ui("默认仅显示") }}{{ arcanaLabel() }}</span>
                     <button
                         type="button"
                         class="game-button"
                         :class="{ active: teamUseIds }"
                         @click="requestTeamIdentityToggle"
-                    >{{ teamUseIds ? "隐藏队员" : "显示队员" }}</button>
+                    >{{ $ui(teamUseIds ? "隐藏队员" : "显示队员") }}</button>
                 </div>
                 <TeamCumulativeChart
                     v-if="teamChartView !== 'skills' && reportSession && teamChartPlayers.length"
@@ -1318,24 +1190,24 @@
                     :end-at="reportSession.endAt"
                     @update:personal-player-id="selectedPlayerId = $event"
                 />
-                <div v-else class="team-chart-empty">尚无可绘制的团队{{ teamChartView === "skills" ? "技能" : "伤害" }}记录。</div>
+                <div v-else class="team-chart-empty">{{ $ui("尚无可绘制的团队") }}{{ $ui(teamChartView === "skills" ? "技能" : "伤害") }}{{ $ui("记录。") }}</div>
                 <footer>
-                    <span>{{ teamChartView === "damage"
+                    <span>{{ $ui(teamChartView === "damage"
                         ? "时间轴下叠加显示全团累计伤害；血量轴下各线显示成员累计伤害，保留同血量时的多个时刻。"
                         : teamChartView === "dps" ? "近期 DPS 按所选时间窗口计算，累计 DPS 按累计伤害 / 已经过时间计算；点击峰值查看技能与同期状态。虚线标示无敌或倒地，拖选可放大，点击图例可隐藏曲线。"
-                        : "按所选队员的技能总伤害分轨；打开“显示队员”后可切换查看其他队员。这里只展示实际造成伤害的施放时间。" }}</span>
-                    <button type="button" class="game-button" @click="teamChartOpen = false">关闭</button>
+                        : "按所选队员的技能总伤害分轨；打开“显示队员”后可切换查看其他队员。这里只展示实际造成伤害的施放时间。") }}</span>
+                    <button type="button" class="game-button" @click="teamChartOpen = false">{{ $ui("关闭") }}</button>
                 </footer>
             </section>
         </div>
 
         <div v-if="teamIdentityWarningOpen" class="team-chart-backdrop privacy-warning-backdrop" @click.self="teamIdentityWarningOpen = false">
             <section class="team-privacy-dialog" role="alertdialog" aria-modal="true" aria-labelledby="team-privacy-title">
-                <header><v-icon icon="mdi-account-alert-outline" size="24" /><strong id="team-privacy-title">显示队员前请确认</strong></header>
-                <p>队员角色名属于队友的识别信息。生成或分享带角色名的团队图表前，请征得队友同意。</p>
+                <header><v-icon icon="mdi-account-alert-outline" size="24" /><strong id="team-privacy-title">{{ $ui("显示队员前请确认") }}</strong></header>
+                <p>{{ $ui("队员角色名属于队友的识别信息。生成或分享带角色名的团队图表前，请征得队友同意。") }}</p>
                 <div>
-                    <button type="button" class="game-button" @click="teamIdentityWarningOpen = false">取消</button>
-                    <button type="button" class="game-button confirm" @click="confirmTeamIdentityDisplay">我已征得同意，显示队员</button>
+                    <button type="button" class="game-button" @click="teamIdentityWarningOpen = false">{{ $ui("取消") }}</button>
+                    <button type="button" class="game-button confirm" @click="confirmTeamIdentityDisplay">{{ $ui("我已征得同意，显示队员") }}</button>
                 </div>
             </section>
         </div>
@@ -1343,6 +1215,8 @@
 </template>
 
 <script setup lang="ts">
+import { resourceRegion, uiLocale, uiText, normalizeNameSearch } from "@/uiLocale";
+import { arcanaLabel, conditionDefinitions, conditionResourceName, jobDetailText, jobDisplayName } from "@/gameNameDisplay";
 import { isEnergySkill, holyEnergyState, energyReminderReady, type SkillEnergyState } from "@/skillEnergy";
 import { deadIntervals, invulnerableIntervals } from "@/battleChartHistory";
 import type { PeakActor } from "@/teamDpsPeaks";
@@ -1582,6 +1456,7 @@ const PLAYER_BUFF_ID_MIGRATIONS = new Map([
     [951, 1159],
 ]);
 const FALLBACK_CONDITION_NAME_MAP = fallbackConditionNames as Record<string, string>;
+// Display names follow the selected server; detection and saved IDs stay stable.
 const FALLBACK_SKILL_NAME_MAP = fallbackSkillNames as Record<string, string>;
 const CONDITION_DISPLAY_NAME_OVERRIDES: Record<number, string> = {
     392: "闪电风暴 / 雷霆咆哮",
@@ -1987,7 +1862,7 @@ const nativeBossRaceNameKey = computed(() => [...new Set(bossOptions.value.map((
     .join("|"));
 
 watch(onlyBossTargets, (enabled) => saveOnlyBossTargets(enabled));
-watch(resourceNameVersion, () => scheduleNativeReminderSettingsSync());
+watch([resourceNameVersion, uiLocale], () => scheduleNativeReminderSettingsSync());
 watch(nativeBossRaceNameKey, () => scheduleNativeReminderSettingsSync());
 
 watch(dpsVisible, (visible) => {
@@ -2124,7 +1999,7 @@ const teamChartPlayers = computed<TeamChartPlayer[]>(() => {
     if (!currentSummary) return [];
     const baseLabels = currentSummary.players.map((player) => teamUseIds.value
         ? getDisplayName(player.name)
-        : player.jobName || "尚未识别职业",
+        : jobDisplayName(player.jobName) || "尚未识别职业",
     );
     const totals = new Map<string, number>();
     for (const label of baseLabels) totals.set(label, (totals.get(label) ?? 0) + 1);
@@ -2207,7 +2082,7 @@ const teamSkillTimelinePlayers = computed<SkillTimelinePlayer[]>(() => {
 function timelinePlayerLabels(players: PlayerSummary[]): string[] {
     const baseLabels = players.map((player) => teamUseIds.value
         ? getDisplayName(player.name)
-        : player.jobName || "尚未识别职业",
+        : jobDisplayName(player.jobName) || "尚未识别职业",
     );
     const totals = new Map<string, number>();
     for (const label of baseLabels) totals.set(label, (totals.get(label) ?? 0) + 1);
@@ -2227,7 +2102,7 @@ function previewTeamChartPlayers(useIds: boolean): TeamChartPlayer[] {
     ];
     return samples.map((sample) => ({
         entityId: sample.id,
-        label: useIds ? sample.name : sample.job,
+        label: useIds ? sample.name : jobDisplayName(sample.job),
         damages: sample.spikes.map((ratio, index): EntityDamage => ({
             Id: sample.id,
             At: previewSession.startAt + (index + 1) * previewSession.totalDuration / sample.spikes.length,
@@ -2284,9 +2159,11 @@ const magicCircleBuffs = computed<PlayerBuffDefinition[]>(() => {
 });
 
 const playerBuffGroups = computed<PlayerBuffGroup[]>(() => {
-    const groups = BASE_PLAYER_BUFF_GROUPS.map((group) => ({
+    const groups: PlayerBuffGroup[] = BASE_PLAYER_BUFF_GROUPS.map((group) => ({
         name: group.name,
-        items: group.items.map((item) => ({ ...item })),
+        items: group.items.map((item) => ({ ...item,
+            name: conditionResourceName(item.id, item.name), detail: jobDetailText(item.detail),
+        })),
     }));
     if (magicCircleBuffs.value.length) {
         groups.splice(3, 0, { name: "魔纹师（魔法阵）", items: magicCircleBuffs.value });
@@ -2312,25 +2189,13 @@ const customPlayerBuffs = computed(() => effectivePlayerBuffIds.value
 );
 const allConditionDefinitions = computed<PlayerBuffDefinition[]>(() => {
     resourceNameVersion.value;
-    const definitions = new Map<number, PlayerBuffDefinition>();
-    for (const group of playerBuffGroups.value) {
-        for (const item of group.items) definitions.set(item.id, item);
-    }
-    for (const [rawId, rawName] of Object.entries(fallbackConditionNames)) {
-        const id = Number(rawId);
-        if (!Number.isInteger(id) || id < 0 || HIDDEN_PLAYER_BUFF_IDS.has(id) || definitions.has(id)) continue;
-        definitions.set(id, { id, name: toSimplified(cleanName(rawName)) || `状态 ${id}` });
-    }
-    for (const [rawId, rawName] of Object.entries(condNameMap.value)) {
-        const id = Number(rawId);
-        if (!Number.isInteger(id) || id < 0 || HIDDEN_PLAYER_BUFF_IDS.has(id)) continue;
-        const name = toSimplified(cleanName(rawName)) || `状态 ${id}`;
-        if (!defaultPlayerBuffDefinitionMap.value.has(id)) definitions.set(id, { id, name });
-    }
-    return [...definitions.values()].sort((a, b) => a.id - b.id);
+    const clean = (names: Record<string, string>) => Object.fromEntries(Object.entries(names)
+        .map(([id, name]) => [id, toSimplified(cleanName(name)) || `状态 ${id}`]));
+    return conditionDefinitions(playerBuffGroups.value.flatMap(group => group.items),
+        clean(fallbackConditionNames), clean(condNameMap.value), resourceRegion.value, HIDDEN_PLAYER_BUFF_IDS);
 });
 const playerBuffSearchResults = computed<PlayerBuffDefinition[]>(() => {
-    const query = toSimplified(playerBuffInput.value.trim()).toLowerCase();
+    const query = normalizeNameSearch(playerBuffInput.value.trim());
     if (!query) return [];
     if (/^\d+$/.test(query)) {
         const id = Number(query);
@@ -2338,7 +2203,7 @@ const playerBuffSearchResults = computed<PlayerBuffDefinition[]>(() => {
         return [allConditionDefinitions.value.find((item) => item.id === id) ?? { id, name: `状态 ${id}` }];
     }
     return allConditionDefinitions.value
-        .filter((item) => item.name.toLowerCase().includes(query))
+        .filter((item) => normalizeNameSearch(item.name).includes(query))
         .slice(0, 20);
 });
 
@@ -2347,7 +2212,7 @@ const configuredBuffAlertRules = computed<BuffAlertRule[]>(() =>
         .sort((a, b) => conditionDisplayName(a.ccId).localeCompare(conditionDisplayName(b.ccId), "zh-CN") || a.ccId - b.ccId),
 );
 const buffAlertSearchResults = computed<PlayerBuffDefinition[]>(() => {
-    const query = toSimplified(buffAlertInput.value.trim()).toLowerCase();
+    const query = normalizeNameSearch(buffAlertInput.value.trim());
     if (!query) return [];
     if (/^\d+$/.test(query)) {
         const id = Number(query);
@@ -2355,11 +2220,11 @@ const buffAlertSearchResults = computed<PlayerBuffDefinition[]>(() => {
         return [allConditionDefinitions.value.find((item) => item.id === id) ?? { id, name: `状态 ${id}` }];
     }
     return allConditionDefinitions.value
-        .filter((item) => item.name.toLowerCase().includes(query))
+        .filter((item) => normalizeNameSearch(item.name).includes(query))
         .slice(0, 12);
 });
 const debuffAlertSearchResults = computed<PlayerBuffDefinition[]>(() => {
-    const query = toSimplified(debuffAlertInput.value.trim()).toLowerCase();
+    const query = normalizeNameSearch(debuffAlertInput.value.trim());
     if (!query) return [];
     if (/^\d+$/.test(query)) {
         const id = Number(query);
@@ -2367,7 +2232,7 @@ const debuffAlertSearchResults = computed<PlayerBuffDefinition[]>(() => {
         return [allConditionDefinitions.value.find((item) => item.id === id) ?? { id, name: `状态 ${id}` }];
     }
     return allConditionDefinitions.value
-        .filter((item) => item.name.toLowerCase().includes(query))
+        .filter((item) => normalizeNameSearch(item.name).includes(query))
         .slice(0, 12);
 });
 const allDebuffBossRaceDefinitions = computed<Array<{ id: number; name: string }>>(() => {
@@ -2379,7 +2244,7 @@ const allDebuffBossRaceDefinitions = computed<Array<{ id: number; name: string }
         .sort((a, b) => a.name.localeCompare(b.name, "zh-CN") || a.id - b.id);
 });
 const debuffBossRaceSearchResults = computed<Array<{ id: number; name: string }>>(() => {
-    const query = toSimplified(debuffBossRaceInput.value.trim()).toLowerCase();
+    const query = normalizeNameSearch(debuffBossRaceInput.value.trim());
     if (!query) return [];
     const configured = new Set(debuffAlertSettings.value.forcedBossRaceIds);
     if (/^\d+$/.test(query)) {
@@ -2389,7 +2254,7 @@ const debuffBossRaceSearchResults = computed<Array<{ id: number; name: string }>
             ?? { id, name: `种族 ${id}` }];
     }
     return allDebuffBossRaceDefinitions.value
-        .filter((item) => !configured.has(item.id) && item.name.toLowerCase().includes(query))
+        .filter((item) => !configured.has(item.id) && normalizeNameSearch(item.name).includes(query))
         .slice(0, 12);
 });
 const configuredForcedDebuffBossRaces = computed(() => debuffAlertSettings.value.forcedBossRaceIds
@@ -2426,7 +2291,7 @@ const allSkillDefinitions = computed<Array<{ id: number; name: string }>>(() => 
     return [...definitions].map(([id, name]) => ({ id, name }));
 });
 const skillCooldownSearchResults = computed<Array<{ id: number; name: string }>>(() => {
-    const query = toSimplified(skillCooldownInput.value.trim()).toLowerCase();
+    const query = normalizeNameSearch(skillCooldownInput.value.trim());
     if (!query) return [];
     if (/^\d+$/.test(query)) {
         const id = Number(query);
@@ -2434,7 +2299,7 @@ const skillCooldownSearchResults = computed<Array<{ id: number; name: string }>>
         return [{ id, name: skillDisplayName(id) }];
     }
     return allSkillDefinitions.value
-        .filter((item) => item.name.toLowerCase().includes(query))
+        .filter((item) => normalizeNameSearch(item.name).includes(query))
         .sort((a, b) => a.name.localeCompare(b.name, "zh-CN") || a.id - b.id)
         .slice(0, 12);
 });
@@ -2563,9 +2428,7 @@ function buildConditionCoverageRow(
     return {
         entityId: actor.id,
         ccId,
-        name: conditionTarget.value === "monster"
-            ? equivalentDebuffDisplayName(ccId) ?? conditionDisplayName(ccId)
-            : conditionDisplayName(ccId),
+        name: conditionDisplayName(ccId),
         iconUrl: conditionIconUrl(ccId),
         coverage: duration > 0 ? Math.min(1, activeSeconds / duration) : 0,
         activeSeconds,
@@ -2647,6 +2510,9 @@ function previewConditionRows(): ConditionCoverageRow[] {
 }
 
 function conditionDisplayName(ccId: number) {
+    if (resourceRegion.value === 'tw') {
+        return conditionResourceName(ccId, cleanName(FALLBACK_CONDITION_NAME_MAP[String(ccId)])) || `状态 ${ccId}`;
+    }
     const equivalentName = equivalentDebuffDisplayName(ccId);
     if (equivalentName) return equivalentName;
     const overrideName = CONDITION_DISPLAY_NAME_OVERRIDES[ccId];
@@ -2826,8 +2692,8 @@ function addFirstDebuffAlertSearchResult() {
 }
 
 function debuffBossRaceDisplayName(raceId: number) {
-    const override = BOSS_NAME_OVERRIDES[raceId];
-    if (override) return override;
+    const override = resourceRegion.value === "cn" ? BOSS_NAME_OVERRIDES[raceId] : undefined;
+    if (override) return uiText(override);
     const raw = toSimplified(cleanName(raceNameMap.value[raceId]));
     const name = raw.replace(new RegExp(`\\s+${raceId}$`), "").trim();
     return name || `种族 ${raceId}`;
@@ -3733,17 +3599,17 @@ async function syncNativeReminderSettings(): Promise<boolean> {
         : [];
     const buffRules = Object.fromEntries(Object.values(buffOverlaySettings.value.rules).map((rule) => [rule.ccId, {
         ...rule,
-        name: conditionDisplayName(rule.ccId),
+        name: resourceRegion.value === "cn" ? uiText(conditionDisplayName(rule.ccId)) : conditionDisplayName(rule.ccId),
         iconUrl: conditionIconUrl(rule.ccId),
     }]));
     const debuffRules = Object.fromEntries(Object.values(debuffAlertSettings.value.rules).map((rule) => [rule.ccId, {
         ...rule,
-        name: conditionDisplayName(rule.ccId),
+        name: resourceRegion.value === "cn" ? uiText(conditionDisplayName(rule.ccId)) : conditionDisplayName(rule.ccId),
         iconUrl: conditionIconUrl(rule.ccId),
     }]));
     const skillRules = Object.fromEntries(Object.values(skillCooldownSettings.value.rules).map((rule) => [rule.skillId, {
         ...rule,
-        name: skillDisplayName(rule.skillId),
+        name: resourceRegion.value === "cn" ? uiText(skillDisplayName(rule.skillId)) : skillDisplayName(rule.skillId),
         iconUrl: skillIconUrl(rule.skillId),
     }]));
     const nativeBossRaceIds = new Set<number>([
@@ -3788,6 +3654,7 @@ async function syncNativeReminderSettings(): Promise<boolean> {
         },
         bossMechanics: {
             ...bossMechanicSettings.value,
+            rules: Object.fromEntries(Object.entries(bossMechanicSettings.value.rules).map(([key, rule]) => [key, { ...rule, name: uiText(rule.name) }])),
         },
         effectTimers: {
             rules: Object.fromEntries(Object.values(effectTimerSettings.value.rules).map((rule) => [rule.key, {
@@ -4386,7 +4253,8 @@ function localSkillEnergy(skillId: number): SkillEnergyState | undefined {
 function skillCooldownRuntimeStatus(skillId: number) {
     if (isEnergySkill(skillId)) {
         const energy = localSkillEnergy(skillId);
-        const activation = skillId === 59047 ? '魔法穿刺（59046）' : '高贵的誓约（59088）';
+        const activationId = skillId === 59047 ? 59046 : 59088;
+        const activation = `${skillDisplayName(activationId)}（${activationId}）`;
         if (!energy?.Active) return `请开启${activation}，等待服务器能量数据`;
         const cd = skillCooldownRuntime.value[skillId];
         const remaining = Math.max(0, (cd?.readyAtMs ?? 0) - skillCooldownClock.value) / 1000;
@@ -4483,7 +4351,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
                 : skillCooldownRuntime.value[rule.skillId] ?? { usedAtMs: 0, readyAtMs: 0, generation: 0 };
             const item = {
                 skillId: rule.skillId,
-                name: skillDisplayName(rule.skillId),
+                name: resourceRegion.value === "cn" ? uiText(skillDisplayName(rule.skillId)) : skillDisplayName(rule.skillId),
                 iconUrl: skillIconUrl(rule.skillId),
                 alwaysVisible: rule.alwaysVisible,
                 barOnly: rule.barOnly === true,
@@ -4923,7 +4791,7 @@ function publishBuffOverlayState() {
             const condition = active.condition;
             items.push({
                 ccId: rule.ccId,
-                name: conditionDisplayName(rule.ccId),
+                name: resourceRegion.value === "cn" ? uiText(conditionDisplayName(rule.ccId)) : conditionDisplayName(rule.ccId),
                 iconUrl: conditionIconUrl(rule.ccId),
                 appliedAt: condition.At,
                 expiresAt: resolveBuffExpiresAt(condition, rule, buffOverlaySettings.value.timeAdjustmentSeconds),
@@ -4934,7 +4802,7 @@ function publishBuffOverlayState() {
         } else {
             items.push({
                 ccId: rule.ccId,
-                name: conditionDisplayName(rule.ccId),
+                name: resourceRegion.value === "cn" ? uiText(conditionDisplayName(rule.ccId)) : conditionDisplayName(rule.ccId),
                 iconUrl: conditionIconUrl(rule.ccId),
                 appliedAt: 0,
                 expiresAt: null,
@@ -4998,7 +4866,7 @@ function publishDebuffOverlayState() {
             if (decision === "hidden") continue;
             items.push({
                 ccId: rule.ccId,
-                name: conditionDisplayName(rule.ccId),
+                name: resourceRegion.value === "cn" ? uiText(conditionDisplayName(rule.ccId)) : conditionDisplayName(rule.ccId),
                 iconUrl: conditionIconUrl(rule.ccId),
                 appliedAt: condition?.At ?? appearedAt,
                 expiresAt,
@@ -5253,8 +5121,8 @@ const combatSummaryRows = computed(() => {
         { label: "暴击次数（概率）", value: `${fmtNumber(critHits)} (${fmtPct(player.critRate)})` },
         { label: "主动技能伤害（占比）", value: `${fmtNumber(activeDamage)} (${fmtPct(ratio(activeDamage))})` },
         { label: "特性伤害（连击，占比）", value: `${fmtNumber(traitDamage)} (${fmtPct(ratio(traitDamage))})` },
-        { label: "星尘伤害（轰击、爆闪，占比）", value: `${fmtNumber(stardustDamage)} (${fmtPct(ratio(stardustDamage))})` },
-        { label: "推测职业", value: player.jobName || "尚未识别" },
+        { label: `星尘伤害（${skillDisplayName(58100)}、${skillDisplayName(58101)}，占比）`, value: `${fmtNumber(stardustDamage)} (${fmtPct(ratio(stardustDamage))})` },
+        { label: "推测职业", value: jobDisplayName(player.jobName) || "尚未识别" },
     ];
     const localEntityId = actorManager.value.localEntityId;
     const aimReminderConfigured = isDesignPreview
@@ -5700,7 +5568,7 @@ function fmtCoverageDuration(seconds: number) {
 }
 
 function bossName(entity: Pick<EntityActor, "raceId" | "name">) {
-    return bossDisplayName(entity, raceNameMap.value);
+    return resourceRegion.value === "tw" ? bossDisplayName(entity, raceNameMap.value) : uiText(bossDisplayName(entity, raceNameMap.value));
 }
 
 function targetHealthName(entity: EntityActor) {
@@ -5725,6 +5593,7 @@ function cleanName(name: string | undefined) {
 }
 
 function toSimplified(text: string) {
+    if (resourceRegion.value === "tw") return text;
     const map: Record<string, string> = {
         "連": "连", "續": "续", "擊": "击", "閃": "闪", "護": "护", "轉": "转", "輪": "轮", "迴": "回",
         "龍": "龙", "雙": "双", "槍": "枪", "夢": "梦", "喚": "唤", "劍": "剑",
@@ -5756,13 +5625,13 @@ function fmtNumber(value: number) {
 
 function fmtCompact(value: number) {
     const absolute = Math.abs(value || 0);
-    if (absolute >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}亿`;
-    if (absolute >= 10_000) return `${(value / 10_000).toFixed(1)}万`;
+    if (absolute >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}${uiText("亿")}`;
+    if (absolute >= 10_000) return `${(value / 10_000).toFixed(1)}${uiText("万")}`;
     return fmtNumber(value);
 }
 
 function fmtBossHealth(value: number) {
-    return `${((Number.isFinite(value) ? value : 0) / 100_000_000).toFixed(2)}亿`;
+    return `${((Number.isFinite(value) ? value : 0) / 100_000_000).toFixed(2)}${uiText("亿")}`;
 }
 
 function fmtGameNumber(value: number) {

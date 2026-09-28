@@ -5,8 +5,8 @@
         <v-row dense class="mb-3">
             <v-col class="d-flex align-center" style="gap: 8px;">
                 <v-btn-toggle v-model="mode" mandatory density="compact" variant="outlined">
-                    <v-btn value="multi-fight"  size="small" prepend-icon="mdi-account-clock">多場 × 單人</v-btn>
-                    <v-btn value="multi-player" size="small" prepend-icon="mdi-account-multiple">單場 × 多人</v-btn>
+                    <v-btn value="multi-fight"  size="small" prepend-icon="mdi-account-clock">{{ $ui("多場 × 單人") }}</v-btn>
+                    <v-btn value="multi-player" size="small" prepend-icon="mdi-account-multiple">{{ $ui("單場 × 多人") }}</v-btn>
                 </v-btn-toggle>
                 <v-spacer />
                 <PlayerRenameDialog :players="renamePlayers" />
@@ -26,7 +26,7 @@
                         :items="playerOptions"
                         item-title="label"
                         item-value="name"
-                        label="選擇玩家"
+                        :label="$ui('選擇玩家')"
                         density="compact"
                         hide-details
                         clearable
@@ -36,10 +36,10 @@
                 <v-col cols="12" sm="4">
                     <v-autocomplete
                         v-model="selectedRaceId"
-                        :items="raceOptions"
+                        :items="$uiItems(raceOptions)"
                         item-title="label"
                         item-value="id"
-                        label="選擇 Boss"
+                        :label="$ui('選擇 Boss')"
                         density="compact"
                         hide-details
                         clearable
@@ -56,21 +56,19 @@
                         :color="selectedRaceId === q.raceId ? 'primary' : undefined"
                         :disabled="!selectedPlayerName || !q.available"
                         @click="selectedRaceId = selectedRaceId === q.raceId ? null : q.raceId"
-                    >{{ q.name }}</v-btn>
+                    >{{ $ui(q.name) }}</v-btn>
                 </v-col>
             </v-row>
 
             <!-- 提示 -->
             <v-row v-if="!selectedPlayerName || selectedRaceId == null" dense>
                 <v-col>
-                    <v-alert type="info" variant="tonal" density="compact" icon="mdi-cursor-pointer">
-                        請選擇玩家與 Boss 以顯示多場比較
-                    </v-alert>
+                    <v-alert type="info" variant="tonal" density="compact" icon="mdi-cursor-pointer">{{ $ui(" 請選擇玩家與 Boss 以顯示多場比較 ") }}</v-alert>
                 </v-col>
             </v-row>
             <v-row v-else-if="overviewItems.length === 0" dense>
                 <v-col>
-                    <v-alert type="warning" variant="tonal" density="compact">無符合條件的場次紀錄</v-alert>
+                    <v-alert type="warning" variant="tonal" density="compact">{{ $ui("無符合條件的場次紀錄") }}</v-alert>
                 </v-col>
             </v-row>
 
@@ -83,17 +81,15 @@
                                 class="text-subtitle-1 py-2 px-3 d-flex align-center"
                                 style="cursor: pointer; user-select: none"
                                 @click="collapsedModeAOverview = !collapsedModeAOverview"
-                            >
-                                場次總覽
-                                <v-spacer />
-                                <v-icon size="small" class="text-disabled">{{ collapsedModeAOverview ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                            >{{ $ui(" 場次總覽 ") }}<v-spacer />
+                                <v-icon size="small" class="text-disabled">{{ $ui(collapsedModeAOverview ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                             </v-card-title>
                             <v-expand-transition>
                             <div v-if="!collapsedModeAOverview">
                             <v-divider />
                             <v-card-text class="pa-0">
                                 <v-data-table
-                                    :headers="overviewHeaders"
+                                    :headers="$uiItems(overviewHeaders)"
                                     :items="overviewItems"
                                     density="compact"
                                     :items-per-page="-1"
@@ -101,36 +97,36 @@
                                     :sort-by="[{ key: 'startAt', order: 'desc' }]"
                                 >
                                     <template #item.startAt="{ item }">
-                                        <span class="text-caption">{{ fmtDateTime(item.startAt) }}</span>
-                                        <span class="text-caption text-disabled ml-1">～{{ fmtTime(item.endAt) }}</span>
+                                        <span class="text-caption">{{ $ui(fmtDateTime(item.startAt)) }}</span>
+                                        <span class="text-caption text-disabled ml-1">～{{ $ui(fmtTime(item.endAt)) }}</span>
                                     </template>
                                     <template #item.jobName="{ item }">
-                                        <span v-if="item.jobName" class="text-primary">{{ item.jobName }}</span>
+                                        <span v-if="item.jobName" class="text-primary">{{ $job(item.jobName) }}</span>
                                         <span v-else class="text-disabled">—</span>
-                                        <div class="text-caption text-disabled">{{ raceNameMap[item.player.raceId] ?? `Race ${item.player.raceId}` }}</div>
+                                        <div class="text-caption text-disabled">{{ $ui(raceNameMap[item.player.raceId] ?? `Race ${item.player.raceId}`) }}</div>
                                     </template>
                                     <template #item.totalDamage="{ item }">
-                                        {{ Math.round(item.totalDamage).toLocaleString() }}
+                                        {{ $ui(Math.round(item.totalDamage).toLocaleString()) }}
                                     </template>
                                     <template #item.partyRatio="{ item }">
-                                        {{ fmtPct(item.totalPartyDamage > 0 ? item.totalDamage / item.totalPartyDamage : 0) }}
+                                        {{ $ui(fmtPct(item.totalPartyDamage > 0 ? item.totalDamage / item.totalPartyDamage : 0)) }}
                                     </template>
                                     <template #item.activeDamage="{ item }">
-                                        <div>{{ Math.round(item.totalDamage * item.player.activeDamageRatio).toLocaleString() }}</div>
-                                        <div class="text-caption text-disabled">{{ fmtPct(item.player.activeDamageRatio) }}</div>
+                                        <div>{{ $ui(Math.round(item.totalDamage * item.player.activeDamageRatio).toLocaleString()) }}</div>
+                                        <div class="text-caption text-disabled">{{ $ui(fmtPct(item.player.activeDamageRatio)) }}</div>
                                     </template>
                                     <template #item.passiveDamage="{ item }">
-                                        <div>{{ Math.round(item.totalDamage * item.player.passiveDamageRatio).toLocaleString() }}</div>
-                                        <div class="text-caption text-disabled">{{ fmtPct(item.player.passiveDamageRatio) }}</div>
+                                        <div>{{ $ui(Math.round(item.totalDamage * item.player.passiveDamageRatio).toLocaleString()) }}</div>
+                                        <div class="text-caption text-disabled">{{ $ui(fmtPct(item.player.passiveDamageRatio)) }}</div>
                                     </template>
-                                    <template #item.critRate="{ item }">{{ fmtPct(item.player.critRate) }}</template>
-                                    <template #item.totalDPS="{ item }">{{ fmtDps(item.totalDPS) }}</template>
-                                    <template #item.effectiveDPS="{ item }">{{ fmtDps(item.effectiveDPS) }}</template>
+                                    <template #item.critRate="{ item }">{{ $ui(fmtPct(item.player.critRate)) }}</template>
+                                    <template #item.totalDPS="{ item }">{{ $ui(fmtDps(item.totalDPS)) }}</template>
+                                    <template #item.effectiveDPS="{ item }">{{ $ui(fmtDps(item.effectiveDPS)) }}</template>
                                     <template #item.individualEffectiveDPS="{ item }">
-                                        <div>{{ fmtDps(item.individualEffectiveDPS) }}</div>
+                                        <div>{{ $ui(fmtDps(item.individualEffectiveDPS)) }}</div>
                                         <div class="text-caption text-disabled">
-                                            {{ fmtDuration(item.player.individualEffectiveTime) }}
-                                            ({{ fmtPct(item.session.effectiveDuration > 0 ? item.player.individualEffectiveTime / item.session.effectiveDuration : 0) }})
+                                            {{ $ui(fmtDuration(item.player.individualEffectiveTime)) }}
+                                            ({{ $ui(fmtPct(item.session.effectiveDuration > 0 ? item.player.individualEffectiveTime / item.session.effectiveDuration : 0)) }})
                                         </div>
                                     </template>
                                 </v-data-table>
@@ -149,21 +145,19 @@
                                 class="text-subtitle-1 py-2 px-3 d-flex align-center"
                                 style="cursor: pointer; user-select: none"
                                 @click="toggleSkillDetailCollapsed(group.job)"
-                            >
-                                技能明細
-                                <span class="text-primary ml-2">{{ group.job }}</span>
-                                <span class="text-caption text-disabled ml-2">{{ group.fights.length }} 場</span>
+                            >{{ $ui(" 技能明細 ") }}<span class="text-primary ml-2">{{ $job(group.job) }}</span>
+                                <span class="text-caption text-disabled ml-2">{{ $ui(group.fights.length) }}{{ $ui(" 場") }}</span>
                                 <v-spacer />
-                                <v-icon size="small" class="text-disabled">{{ collapsedSkillDetail[group.job] ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                                <v-icon size="small" class="text-disabled">{{ $ui(collapsedSkillDetail[group.job] ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                             </v-card-title>
                             <v-expand-transition>
                             <div v-if="!collapsedSkillDetail[group.job]">
                             <v-divider />
                             <!-- 篩選（僅第一組顯示，避免重複） -->
                             <div v-if="gi === 0" class="d-flex flex-wrap align-center px-3 py-1 skill-filter-bar">
-                                <v-checkbox v-model="filterLowRatio" label="略過傷害佔比 <0.2% 的技能" density="compact" hide-details class="flex-grow-0" />
-                                <v-checkbox v-model="showActive"     label="顯示主動技能" density="compact" hide-details class="flex-grow-0 ml-3" />
-                                <v-checkbox v-model="showPassive"    label="顯示被動技能" density="compact" hide-details class="flex-grow-0 ml-3" />
+                                <v-checkbox v-model="filterLowRatio" :label="$ui('略過傷害佔比 <0.2% 的技能')" density="compact" hide-details class="flex-grow-0" />
+                                <v-checkbox v-model="showActive"     :label="$ui('顯示主動技能')" density="compact" hide-details class="flex-grow-0 ml-3" />
+                                <v-checkbox v-model="showPassive"    :label="$ui('顯示被動技能')" density="compact" hide-details class="flex-grow-0 ml-3" />
                             </div>
                             <v-divider v-if="gi === 0" />
                             <v-card-text class="pa-0">
@@ -171,12 +165,12 @@
                                     <table class="skill-cmp-table">
                                         <thead>
                                             <tr>
-                                                <th class="cell-skill-name">技能</th>
-                                                <th class="cell-metric-label">指標</th>
+                                                <th class="cell-skill-name">{{ $ui("技能") }}</th>
+                                                <th class="cell-metric-label">{{ $ui("指標") }}</th>
                                                 <th v-for="fight in group.fights" :key="fight.entityKey" class="cell-fight-col">
-                                                    {{ fmtDateTime(fight.startAt) }}
+                                                    {{ $ui(fmtDateTime(fight.startAt)) }}
                                                 </th>
-                                                <th class="cell-fight-col cell-avg">平均</th>
+                                                <th class="cell-fight-col cell-avg">{{ $ui("平均") }}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -187,34 +181,34 @@
                                                     :class="{ 'row-skill-sep': si > 0 && mi === 0 }"
                                                 >
                                                     <td v-if="mi === 0" :rowspan="(group.passiveSkillIds.has(skillId) ? SKILL_METRICS_PASSIVE : SKILL_METRICS).length" class="cell-skill-name cell-sticky">
-                                                        {{ skillNameMap[skillId] ?? `#${skillId}` }}
+                                                        {{ $ui(skillNameMap[skillId] ?? `#${skillId}`) }}
                                                     </td>
-                                                    <td class="cell-metric-label">{{ metric.label }}</td>
+                                                    <td class="cell-metric-label">{{ $ui(metric.label) }}</td>
                                                     <template v-for="fight in group.fights" :key="fight.entityKey">
                                                         <template v-for="s in [fight.player.skillStats.find(x => x.skillId === skillId)]" :key="0">
                                                             <td class="cell-val">
-                                                                <template v-if="metric.key === 'ratio'">{{ s ? fmtPct(fight.player.totalDamage > 0 ? s.totalDamage / fight.player.totalDamage : 0) : '—' }}</template>
-                                                                <template v-else-if="metric.key === 'totalDamage'">{{ s ? Math.round(s.totalDamage).toLocaleString() : '—' }}</template>
-                                                                <template v-else-if="metric.key === 'useCount'">{{ s ? s.totalHits : '—' }}</template>
-                                                                <template v-else-if="metric.key === 'damagePerUse'">{{ s ? Math.round(s.damagePerUse).toLocaleString() : '—' }}</template>
+                                                                <template v-if="metric.key === 'ratio'">{{ $ui(s ? fmtPct(fight.player.totalDamage > 0 ? s.totalDamage / fight.player.totalDamage : 0) : '—') }}</template>
+                                                                <template v-else-if="metric.key === 'totalDamage'">{{ $ui(s ? Math.round(s.totalDamage).toLocaleString() : '—') }}</template>
+                                                                <template v-else-if="metric.key === 'useCount'">{{ $ui(s ? s.totalHits : '—') }}</template>
+                                                                <template v-else-if="metric.key === 'damagePerUse'">{{ $ui(s ? Math.round(s.damagePerUse).toLocaleString() : '—') }}</template>
                                                                 <template v-else-if="metric.key === 'critRate'">
                                                                     <span v-if="!s || s.noCritRate" class="text-disabled">—</span>
-                                                                    <span v-else>{{ fmtPct(s.critRate) }}</span>
+                                                                    <span v-else>{{ $ui(fmtPct(s.critRate)) }}</span>
                                                                 </template>
                                                                 <template v-else-if="metric.key === 'critDmg'">
                                                                     <span v-if="!s || s.maxCritDamage == null" class="text-disabled">—</span>
-                                                                    <span v-else>{{ Math.round(s.minCritDamage!).toLocaleString() }}<span class="text-disabled"> ~ </span>{{ Math.round(s.maxCritDamage).toLocaleString() }}</span>
+                                                                    <span v-else>{{ $ui(Math.round(s.minCritDamage!).toLocaleString()) }}<span class="text-disabled"> ~ </span>{{ $ui(Math.round(s.maxCritDamage).toLocaleString()) }}</span>
                                                                 </template>
                                                                 <template v-else-if="metric.key === 'nonCritDmg'">
                                                                     <span v-if="!s || s.maxNonCritDamage == null" class="text-disabled">—</span>
-                                                                    <span v-else>{{ Math.round(s.minNonCritDamage!).toLocaleString() }}<span class="text-disabled"> ~ </span>{{ Math.round(s.maxNonCritDamage).toLocaleString() }}</span>
+                                                                    <span v-else>{{ $ui(Math.round(s.minNonCritDamage!).toLocaleString()) }}<span class="text-disabled"> ~ </span>{{ $ui(Math.round(s.maxNonCritDamage).toLocaleString()) }}</span>
                                                                 </template>
                                                                 <template v-else-if="metric.key === 'triggerSources'">
                                                                     <div v-if="s && s.triggerSources.length" style="line-height: 1.6">
                                                                         <div v-for="src in s.triggerSources" :key="src.skillId" class="d-flex" style="white-space: nowrap; gap: 6px;">
-                                                                            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">{{ skillNameMap[src.skillId] ?? `#${src.skillId}` }}</span>
-                                                                            <span class="text-disabled">{{ src.count }}次</span>
-                                                                            <span class="text-disabled">{{ fmtPct(s.totalDamage > 0 ? src.damage / s.totalDamage : 0) }}</span>
+                                                                            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">{{ $ui(skillNameMap[src.skillId] ?? `#${src.skillId}`) }}</span>
+                                                                            <span class="text-disabled">{{ $ui(src.count) }}{{ $ui("次") }}</span>
+                                                                            <span class="text-disabled">{{ $ui(fmtPct(s.totalDamage > 0 ? src.damage / s.totalDamage : 0)) }}</span>
                                                                         </div>
                                                                     </div>
                                                                     <span v-else class="text-disabled">—</span>
@@ -227,7 +221,7 @@
                                                     <template v-else v-for="avg in [calcAvg(group.fights.map(f => ({ totalDamage: f.player.totalDamage, skillStats: f.player.skillStats })), skillId, metric.key)]" :key="0">
                                                         <td class="cell-val cell-avg">
                                                             <span v-if="avg === null" class="text-disabled">—</span>
-                                                            <span v-else>{{ avg }}</span>
+                                                            <span v-else>{{ $ui(avg) }}</span>
                                                         </td>
                                                     </template>
                                                 </tr>
@@ -255,10 +249,10 @@
                 <v-col cols="12" sm="5">
                     <v-autocomplete
                         v-model="selectedFightKey"
-                        :items="fightOptions"
+                        :items="$uiItems(fightOptions)"
                         item-title="label"
                         item-value="key"
-                        label="選擇場次"
+                        :label="$ui('選擇場次')"
                         density="compact"
                         hide-details
                         clearable
@@ -268,8 +262,8 @@
                 <v-col cols="12" sm="3">
                     <v-autocomplete
                         v-model="selectedJob"
-                        :items="jobOptions"
-                        label="選擇職業"
+                        :items="$uiItems(jobOptions)"
+                        :label="$ui('選擇職業')"
                         density="compact"
                         hide-details
                         clearable
@@ -286,21 +280,19 @@
                         :color="quickFightRaceId === q.raceId ? 'primary' : undefined"
                         :disabled="!q.available"
                         @click="quickSelectFight(q.raceId)"
-                    >{{ q.name }}</v-btn>
+                    >{{ $ui(q.name) }}</v-btn>
                 </v-col>
             </v-row>
 
             <!-- 提示 -->
             <v-row v-if="!selectedFightKey || !selectedJob" dense>
                 <v-col>
-                    <v-alert type="info" variant="tonal" density="compact" icon="mdi-cursor-pointer">
-                        請選擇場次與職業以顯示單場比較
-                    </v-alert>
+                    <v-alert type="info" variant="tonal" density="compact" icon="mdi-cursor-pointer">{{ $ui(" 請選擇場次與職業以顯示單場比較 ") }}</v-alert>
                 </v-col>
             </v-row>
             <v-row v-else-if="comparedPlayers.length === 0" dense>
                 <v-col>
-                    <v-alert type="warning" variant="tonal" density="compact">此場次中無該職業的玩家</v-alert>
+                    <v-alert type="warning" variant="tonal" density="compact">{{ $ui("此場次中無該職業的玩家") }}</v-alert>
                 </v-col>
             </v-row>
 
@@ -313,18 +305,16 @@
                                 class="text-subtitle-1 py-2 px-3 d-flex align-center"
                                 style="cursor: pointer; user-select: none"
                                 @click="collapsedModeBOverview = !collapsedModeBOverview"
-                            >
-                                玩家總覽
-                                <span class="text-primary ml-2">{{ selectedJob }}</span>
+                            >{{ $ui(" 玩家總覽 ") }}<span class="text-primary ml-2">{{ $job(selectedJob) }}</span>
                                 <v-spacer />
-                                <v-icon size="small" class="text-disabled">{{ collapsedModeBOverview ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                                <v-icon size="small" class="text-disabled">{{ $ui(collapsedModeBOverview ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                             </v-card-title>
                             <v-expand-transition>
                             <div v-if="!collapsedModeBOverview">
                             <v-divider />
                             <v-card-text class="pa-0">
                                 <v-data-table
-                                    :headers="modeBOverviewHeaders"
+                                    :headers="$uiItems(modeBOverviewHeaders)"
                                     :items="modeBOverviewItems"
                                     density="compact"
                                     :items-per-page="-1"
@@ -333,30 +323,30 @@
                                 >
                                     <template #item.name="{ item }">
                                         <span class="font-weight-medium">{{ getDisplayName(item.name) }}</span>
-                                        <div class="text-caption text-disabled">{{ raceNameMap[item.raceId] ?? `Race ${item.raceId}` }}</div>
+                                        <div class="text-caption text-disabled">{{ $ui(raceNameMap[item.raceId] ?? `Race ${item.raceId}`) }}</div>
                                     </template>
                                     <template #item.totalDamage="{ item }">
-                                        {{ Math.round(item.totalDamage).toLocaleString() }}
+                                        {{ $ui(Math.round(item.totalDamage).toLocaleString()) }}
                                     </template>
                                     <template #item.partyRatio="{ item }">
-                                        {{ fmtPct(item.totalPartyDamage > 0 ? item.totalDamage / item.totalPartyDamage : 0) }}
+                                        {{ $ui(fmtPct(item.totalPartyDamage > 0 ? item.totalDamage / item.totalPartyDamage : 0)) }}
                                     </template>
                                     <template #item.activeDamage="{ item }">
-                                        <div>{{ Math.round(item.totalDamage * item.activeDamageRatio).toLocaleString() }}</div>
-                                        <div class="text-caption text-disabled">{{ fmtPct(item.activeDamageRatio) }}</div>
+                                        <div>{{ $ui(Math.round(item.totalDamage * item.activeDamageRatio).toLocaleString()) }}</div>
+                                        <div class="text-caption text-disabled">{{ $ui(fmtPct(item.activeDamageRatio)) }}</div>
                                     </template>
                                     <template #item.passiveDamage="{ item }">
-                                        <div>{{ Math.round(item.totalDamage * item.passiveDamageRatio).toLocaleString() }}</div>
-                                        <div class="text-caption text-disabled">{{ fmtPct(item.passiveDamageRatio) }}</div>
+                                        <div>{{ $ui(Math.round(item.totalDamage * item.passiveDamageRatio).toLocaleString()) }}</div>
+                                        <div class="text-caption text-disabled">{{ $ui(fmtPct(item.passiveDamageRatio)) }}</div>
                                     </template>
-                                    <template #item.critRate="{ item }">{{ fmtPct(item.critRate) }}</template>
-                                    <template #item.totalDPS="{ item }">{{ fmtDps(item.totalDPS) }}</template>
-                                    <template #item.effectiveDPS="{ item }">{{ fmtDps(item.effectiveDPS) }}</template>
+                                    <template #item.critRate="{ item }">{{ $ui(fmtPct(item.critRate)) }}</template>
+                                    <template #item.totalDPS="{ item }">{{ $ui(fmtDps(item.totalDPS)) }}</template>
+                                    <template #item.effectiveDPS="{ item }">{{ $ui(fmtDps(item.effectiveDPS)) }}</template>
                                     <template #item.individualEffectiveDPS="{ item }">
-                                        <div>{{ fmtDps(item.individualEffectiveDPS) }}</div>
+                                        <div>{{ $ui(fmtDps(item.individualEffectiveDPS)) }}</div>
                                         <div class="text-caption text-disabled">
-                                            {{ fmtDuration(item.individualEffectiveTime) }}
-                                            ({{ fmtPct(modeBSession && modeBSession.effectiveDuration > 0 ? item.individualEffectiveTime / modeBSession.effectiveDuration : 0) }})
+                                            {{ $ui(fmtDuration(item.individualEffectiveTime)) }}
+                                            ({{ $ui(fmtPct(modeBSession && modeBSession.effectiveDuration > 0 ? item.individualEffectiveTime / modeBSession.effectiveDuration : 0)) }})
                                         </div>
                                     </template>
                                 </v-data-table>
@@ -375,19 +365,17 @@
                                 class="text-subtitle-1 py-2 px-3 d-flex align-center"
                                 style="cursor: pointer; user-select: none"
                                 @click="collapsedModeBSkill = !collapsedModeBSkill"
-                            >
-                                技能明細
-                                <span class="text-primary ml-2">{{ selectedJob }}</span>
+                            >{{ $ui(" 技能明細 ") }}<span class="text-primary ml-2">{{ $job(selectedJob) }}</span>
                                 <v-spacer />
-                                <v-icon size="small" class="text-disabled">{{ collapsedModeBSkill ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                                <v-icon size="small" class="text-disabled">{{ $ui(collapsedModeBSkill ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                             </v-card-title>
                             <v-expand-transition>
                             <div v-if="!collapsedModeBSkill">
                             <v-divider />
                             <div class="d-flex flex-wrap align-center px-3 py-1 skill-filter-bar">
-                                <v-checkbox v-model="filterLowRatio" label="略過傷害佔比 <0.2% 的技能" density="compact" hide-details class="flex-grow-0" />
-                                <v-checkbox v-model="showActive"     label="顯示主動技能" density="compact" hide-details class="flex-grow-0 ml-3" />
-                                <v-checkbox v-model="showPassive"    label="顯示被動技能" density="compact" hide-details class="flex-grow-0 ml-3" />
+                                <v-checkbox v-model="filterLowRatio" :label="$ui('略過傷害佔比 <0.2% 的技能')" density="compact" hide-details class="flex-grow-0" />
+                                <v-checkbox v-model="showActive"     :label="$ui('顯示主動技能')" density="compact" hide-details class="flex-grow-0 ml-3" />
+                                <v-checkbox v-model="showPassive"    :label="$ui('顯示被動技能')" density="compact" hide-details class="flex-grow-0 ml-3" />
                             </div>
                             <v-divider />
                             <v-card-text class="pa-0">
@@ -395,12 +383,12 @@
                                     <table class="skill-cmp-table">
                                         <thead>
                                             <tr>
-                                                <th class="cell-skill-name">技能</th>
-                                                <th class="cell-metric-label">指標</th>
+                                                <th class="cell-skill-name">{{ $ui("技能") }}</th>
+                                                <th class="cell-metric-label">{{ $ui("指標") }}</th>
                                                 <th v-for="p in comparedPlayers" :key="p.entityId" class="cell-fight-col">
                                                     {{ getDisplayName(p.name) }}
                                                 </th>
-                                                <th class="cell-fight-col cell-avg">平均</th>
+                                                <th class="cell-fight-col cell-avg">{{ $ui("平均") }}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -411,34 +399,34 @@
                                                     :class="{ 'row-skill-sep': si > 0 && mi === 0 }"
                                                 >
                                                     <td v-if="mi === 0" :rowspan="(modeBPassiveSkillIds.has(skillId) ? SKILL_METRICS_PASSIVE : SKILL_METRICS).length" class="cell-skill-name cell-sticky">
-                                                        {{ skillNameMap[skillId] ?? `#${skillId}` }}
+                                                        {{ $ui(skillNameMap[skillId] ?? `#${skillId}`) }}
                                                     </td>
-                                                    <td class="cell-metric-label">{{ metric.label }}</td>
+                                                    <td class="cell-metric-label">{{ $ui(metric.label) }}</td>
                                                     <template v-for="p in comparedPlayers" :key="p.entityId">
                                                         <template v-for="s in [p.skillStats.find(x => x.skillId === skillId)]" :key="0">
                                                             <td class="cell-val">
-                                                                <template v-if="metric.key === 'ratio'">{{ s ? fmtPct(p.totalDamage > 0 ? s.totalDamage / p.totalDamage : 0) : '—' }}</template>
-                                                                <template v-else-if="metric.key === 'totalDamage'">{{ s ? Math.round(s.totalDamage).toLocaleString() : '—' }}</template>
-                                                                <template v-else-if="metric.key === 'useCount'">{{ s ? s.totalHits : '—' }}</template>
-                                                                <template v-else-if="metric.key === 'damagePerUse'">{{ s ? Math.round(s.damagePerUse).toLocaleString() : '—' }}</template>
+                                                                <template v-if="metric.key === 'ratio'">{{ $ui(s ? fmtPct(p.totalDamage > 0 ? s.totalDamage / p.totalDamage : 0) : '—') }}</template>
+                                                                <template v-else-if="metric.key === 'totalDamage'">{{ $ui(s ? Math.round(s.totalDamage).toLocaleString() : '—') }}</template>
+                                                                <template v-else-if="metric.key === 'useCount'">{{ $ui(s ? s.totalHits : '—') }}</template>
+                                                                <template v-else-if="metric.key === 'damagePerUse'">{{ $ui(s ? Math.round(s.damagePerUse).toLocaleString() : '—') }}</template>
                                                                 <template v-else-if="metric.key === 'critRate'">
                                                                     <span v-if="!s || s.noCritRate" class="text-disabled">—</span>
-                                                                    <span v-else>{{ fmtPct(s.critRate) }}</span>
+                                                                    <span v-else>{{ $ui(fmtPct(s.critRate)) }}</span>
                                                                 </template>
                                                                 <template v-else-if="metric.key === 'critDmg'">
                                                                     <span v-if="!s || s.maxCritDamage == null" class="text-disabled">—</span>
-                                                                    <span v-else>{{ Math.round(s.minCritDamage!).toLocaleString() }}<span class="text-disabled"> ~ </span>{{ Math.round(s.maxCritDamage).toLocaleString() }}</span>
+                                                                    <span v-else>{{ $ui(Math.round(s.minCritDamage!).toLocaleString()) }}<span class="text-disabled"> ~ </span>{{ $ui(Math.round(s.maxCritDamage).toLocaleString()) }}</span>
                                                                 </template>
                                                                 <template v-else-if="metric.key === 'nonCritDmg'">
                                                                     <span v-if="!s || s.maxNonCritDamage == null" class="text-disabled">—</span>
-                                                                    <span v-else>{{ Math.round(s.minNonCritDamage!).toLocaleString() }}<span class="text-disabled"> ~ </span>{{ Math.round(s.maxNonCritDamage).toLocaleString() }}</span>
+                                                                    <span v-else>{{ $ui(Math.round(s.minNonCritDamage!).toLocaleString()) }}<span class="text-disabled"> ~ </span>{{ $ui(Math.round(s.maxNonCritDamage).toLocaleString()) }}</span>
                                                                 </template>
                                                                 <template v-else-if="metric.key === 'triggerSources'">
                                                                     <div v-if="s && s.triggerSources.length" style="line-height: 1.6">
                                                                         <div v-for="src in s.triggerSources" :key="src.skillId" class="d-flex" style="white-space: nowrap; gap: 6px;">
-                                                                            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">{{ skillNameMap[src.skillId] ?? `#${src.skillId}` }}</span>
-                                                                            <span class="text-disabled">{{ src.count }}次</span>
-                                                                            <span class="text-disabled">{{ fmtPct(s.totalDamage > 0 ? src.damage / s.totalDamage : 0) }}</span>
+                                                                            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">{{ $ui(skillNameMap[src.skillId] ?? `#${src.skillId}`) }}</span>
+                                                                            <span class="text-disabled">{{ $ui(src.count) }}{{ $ui("次") }}</span>
+                                                                            <span class="text-disabled">{{ $ui(fmtPct(s.totalDamage > 0 ? src.damage / s.totalDamage : 0)) }}</span>
                                                                         </div>
                                                                     </div>
                                                                     <span v-else class="text-disabled">—</span>
@@ -451,7 +439,7 @@
                                                     <template v-else v-for="avg in [calcAvg(comparedPlayers.map(p => ({ totalDamage: p.totalDamage, skillStats: p.skillStats })), skillId, metric.key)]" :key="0">
                                                         <td class="cell-val cell-avg">
                                                             <span v-if="avg === null" class="text-disabled">—</span>
-                                                            <span v-else>{{ avg }}</span>
+                                                            <span v-else>{{ $ui(avg) }}</span>
                                                         </td>
                                                     </template>
                                                 </tr>
@@ -474,6 +462,7 @@
 
 <script lang="ts">
 import { defineComponent, inject, computed, ref, onMounted, onUnmounted, type Ref } from "vue";
+import { jobDisplayName } from "@/gameNameDisplay";
 import { ActorManager, EntityActor } from "@/eventActor";
 import { buildBossSummary, type BossSummary, type PlayerSummary, type SkillStat } from "@/summaryCollector";
 import { getDisplayName } from "@/store";
@@ -734,7 +723,7 @@ export default defineComponent({
             const jobs = new Set<string>();
             for (const p of fightSummaryB.value?.players ?? [])
                 if (p.jobName) jobs.add(p.jobName);
-            return [...jobs].sort();
+            return [...jobs].sort().map(value => ({ title: jobDisplayName(value), value }));
         });
 
         // 選取職業的玩家（null 已排除）

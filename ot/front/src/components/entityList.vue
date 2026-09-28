@@ -3,13 +3,13 @@
         <v-expansion-panel>
             <v-expansion-panel-title>
                 <v-sheet>
-                    {{ getDisplayName(v.name) }} {{ raceNameMap[v.raceId] }} {{ v.guildName }}
+                    {{ getDisplayName(v.name) }} {{ $ui(raceNameMap[v.raceId]) }} {{ $ui(v.guildName) }}
                 </v-sheet>
             </v-expansion-panel-title>
             <v-expansion-panel-text class="pa-3">
                 <v-sheet width="100%" class="mb-2">
-                    h: {{ v.body.Height.toFixed(2) }} w: {{ v.body.Weight.toFixed(2) }} u: {{
-                        v.body.Upper.toFixed(2) }} l: {{ v.body.Lower.toFixed(2) }}
+                    h: {{ $ui(v.body.Height.toFixed(2)) }} w: {{ $ui(v.body.Weight.toFixed(2)) }} u: {{
+                        $ui(v.body.Upper.toFixed(2)) }} l: {{ $ui(v.body.Lower.toFixed(2)) }}
                 </v-sheet>
                 <v-sheet width="100%" class="mb-2">
                     <condition-image-list :conditions="Object.values(v.conditionMap).sort((a, b) => a.CCId - b.CCId)" />
@@ -21,7 +21,7 @@
                     <v-sheet width="48px" height="96px"
                         :style='`background: url("/res/invimage/${region}/${item.ItemId}/${item.ItemId}.png") no-repeat; background-position: center;`' />
                     <v-sheet>
-                        {{ itemNameMap[item.ItemId] }} {{ item.PocketType }}
+                        {{ $ui(itemNameMap[item.ItemId]) }} {{ $ui(item.PocketType) }}
                     </v-sheet>
                 </v-sheet>
             </v-expansion-panel-text>

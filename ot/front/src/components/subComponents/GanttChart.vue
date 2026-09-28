@@ -18,8 +18,8 @@
                             class="gantt-label-icon"
                         />
                         <div class="gantt-label-text">
-                            <div class="gantt-label-name" :title="row.label">{{ row.label }}</div>
-                            <div v-if="row.sublabel" class="gantt-label-sub">{{ row.sublabel }}</div>
+                            <div class="gantt-label-name" :title="$ui(row.label)">{{ $ui(row.label) }}</div>
+                            <div v-if="row.sublabel" class="gantt-label-sub">{{ $ui(row.sublabel) }}</div>
                         </div>
                     </div>
                     <div class="gantt-bars">
@@ -63,7 +63,7 @@
                             :key="tick.value"
                             class="gantt-tick"
                             :style="{ left: tick.pct + '%' }"
-                        >{{ tick.label }}</div>
+                        >{{ $ui(tick.label) }}</div>
                     </div>
                 </div>
 

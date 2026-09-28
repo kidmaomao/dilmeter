@@ -1,0 +1,131 @@
+name: Release OT Hotfix
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Numeric updater version (must exceed the previous OT version)
+        required: true
+        default: '1.5.3'
+      display_version:
+        description: Version shown in the OT interface
+        required: true
+        default: '1.5.2 R2'
+      tag:
+        description: OT release tag (ot-v prefix avoids the all-variant release workflow)
+        required: true
+        default: 'ot-v1.5.2-r2'
+      base_release:
+        description: Release whose CN and RT assets must remain unchanged
+        required: true
+        default: 'v1.5.2'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dilmeter-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DILMETER_APP_VERSION: ${{ inputs.version }}
+      DILMETER_DISPLAY_VERSION: ${{ inputs.display_version }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      BASE_RELEASE: ${{ inputs.base_release }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ot/front/package-lock.json
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 1.24.11
+          cache-dependency-path: ot/go.sum
+
+      - name: Validate release inputs
+        shell: pwsh
+        run: |
+          if ($env:DILMETER_APP_VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid updater version' }
+          if ($env:DILMETER_DISPLAY_VERSION -notmatch '^\d+\.\d+\.\d+(?: R\d+)?$') { throw 'Invalid display version' }
+          if ($env:RELEASE_TAG -notmatch '^ot-v\d+\.\d+\.\d+(?:-r\d+)?$') { throw 'Invalid OT release tag' }
+          if ($env:BASE_RELEASE -notmatch '^(?:ot-)?v\d+\.\d+\.\d+(?:-r\d+)?$') { throw 'Invalid base release' }
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'Release already exists; do not overwrite a published hotfix' }
+          $global:LASTEXITCODE = 0
+
+      - name: Verify OT frontend
+        working-directory: ot/front
+        shell: pwsh
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx vue-tsc --noEmit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:tw-resources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:team-dps-peaks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Update OT Windows metadata
+        shell: pwsh
+        run: |
+          $path = 'ot/cmd/dilmeterapi/winres/winres.json'
+          $data = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+          $info = $data.RT_VERSION.'#1'.'0000'
+          $info.fixed.file_version = "$env:DILMETER_APP_VERSION.0"
+          $info.fixed.product_version = "$env:DILMETER_APP_VERSION.0"
+          $info.info.'0804'.FileVersion = "$env:DILMETER_APP_VERSION.0"
+          $info.info.'0804'.ProductVersion = $env:DILMETER_DISPLAY_VERSION
+          $info.info.'0804'.OriginalFilename = "DilmeterOT-v$env:DILMETER_APP_VERSION.exe"
+          [IO.File]::WriteAllText((Join-Path $PWD $path), ($data | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
+
+      - name: Build and package OT
+        shell: pwsh
+        run: |
+          go install github.com/tc-hib/go-winres@v0.3.3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /c ot\build.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /c ot\build_backend.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /c ot\package_release.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Carry forward unchanged CN and RT assets
+        shell: pwsh
+        run: |
+          $releaseDir = Join-Path $PWD "artifacts/release-v$env:DILMETER_APP_VERSION"
+          gh release download $env:BASE_RELEASE --pattern 'DilmeterCN.*' --pattern 'DilmeterRT.*' --dir $releaseDir
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $base = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:BASE_RELEASE" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($name in @('DilmeterCN.zip', 'DilmeterCN.json', 'DilmeterRT.zip', 'DilmeterRT.json')) {
+            $asset = @($base.assets | Where-Object name -eq $name)
+            $path = Join-Path $releaseDir $name
+            $digest = 'sha256:' + (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($asset.Count -ne 1 -or $asset[0].digest -ne $digest) { throw "Base asset mismatch: $name" }
+          }
+          foreach ($app in @('DilmeterCN', 'DilmeterRT', 'DilmeterOT')) {
+            $manifest = Get-Content -LiteralPath (Join-Path $releaseDir "$app.json") -Raw | ConvertFrom-Json
+            $zip = Get-Item -LiteralPath (Join-Path $releaseDir "$app.zip")
+            if ($manifest.size -ne $zip.Length -or $manifest.sha256 -ne (Get-FileHash -LiteralPath $zip.FullName).Hash.ToLowerInvariant()) { throw "Invalid $app manifest" }
+          }
+
+      - name: Publish verified OT hotfix
+        shell: pwsh
+        run: |
+          $latest = gh api "repos/$env:GITHUB_REPOSITORY/releases/latest" --jq '.tag_name'
+          if ($LASTEXITCODE -ne 0 -or $latest -ne $env:BASE_RELEASE) { throw 'Latest release changed; recheck preserved assets before publishing' }
+          $releaseDir = Join-Path $PWD "artifacts/release-v$env:DILMETER_APP_VERSION"
+          $assets = @(Get-ChildItem -LiteralPath $releaseDir -File | Where-Object Name -match '^Dilmeter(?:CN|RT|OT)\.(?:zip|json)$')
+          if ($assets.Count -ne 6) { throw 'Expected exactly six release assets' }
+          gh release create $env:RELEASE_TAG @($assets.FullName) --draft --target $env:GITHUB_SHA --title "DilmeterOT v$env:DILMETER_DISPLAY_VERSION Hotfix" --notes-file 'ot/release-notes-current.txt'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release edit $env:RELEASE_TAG --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -145,7 +145,7 @@ func initializeTray(mainHWND uintptr) error {
 		UCallbackMessage: trayCallbackMsg,
 		HIcon:            icon,
 	}
-	tip, _ := windows.UTF16FromString(fmt.Sprintf("%s v%s", AppName, AppVersion))
+	tip, _ := windows.UTF16FromString(fmt.Sprintf("%s v%s", AppName, AppDisplayVersion))
 	copy(trayIconData.SzTip[:], tip)
 	if result, _, _ := procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&trayIconData))); result == 0 {
 		shutdownTray()

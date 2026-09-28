@@ -5,33 +5,29 @@
         variant="tonal"
         prepend-icon="mdi-swap-vertical"
         @click="open"
-    >
-        匯入 / 匯出
-    </v-btn>
+    >{{ $ui(" 匯入 / 匯出 ") }}</v-btn>
 
     <!-- ── Dialog ── -->
     <v-dialog v-model="dialogOpen" max-width="680" scrollable>
         <v-card>
-            <v-card-title class="text-subtitle-1 py-3 px-4">
-                設定 匯入 / 匯出
-            </v-card-title>
+            <v-card-title class="text-subtitle-1 py-3 px-4">{{ $ui(" 設定 匯入 / 匯出 ") }}</v-card-title>
             <v-divider />
 
             <v-card-text class="pa-4">
 
                 <!-- ═══ 匯出 ═══ -->
-                <div class="section-title mb-2">匯出</div>
+                <div class="section-title mb-2">{{ $ui("匯出") }}</div>
                 <div class="d-flex flex-wrap mb-2" style="gap: 8px;">
                     <v-checkbox
                         v-model="exportOpts.skillCC"
-                        label="職業技能 CC 分析規則"
+                        :label="$ui('職業技能 CC 分析規則')"
                         density="compact"
                         hide-details
                         class="flex-grow-0"
                     />
                     <v-checkbox
                         v-model="exportOpts.customCond"
-                        label="自訂條件分析設定"
+                        :label="$ui('自訂條件分析設定')"
                         density="compact"
                         hide-details
                         class="flex-grow-0"
@@ -54,39 +50,33 @@
                         variant="tonal"
                         prepend-icon="mdi-content-copy"
                         @click="copyExport"
-                    >
-                        複製
-                    </v-btn>
+                    >{{ $ui(" 複製 ") }}</v-btn>
                     <v-btn
                         size="small"
                         variant="tonal"
                         prepend-icon="mdi-download"
                         @click="downloadExport"
-                    >
-                        下載 JSON
-                    </v-btn>
+                    >{{ $ui(" 下載 JSON ") }}</v-btn>
                     <v-fade-transition>
-                        <span v-if="copied" class="text-caption text-success align-self-center ml-1">
-                            已複製！
-                        </span>
+                        <span v-if="copied" class="text-caption text-success align-self-center ml-1">{{ $ui(" 已複製！ ") }}</span>
                     </v-fade-transition>
                 </div>
 
                 <v-divider class="my-4" />
 
                 <!-- ═══ 匯入 ═══ -->
-                <div class="section-title mb-2">匯入</div>
+                <div class="section-title mb-2">{{ $ui("匯入") }}</div>
                 <div class="d-flex flex-wrap mb-2" style="gap: 8px;">
                     <v-checkbox
                         v-model="importOpts.skillCC"
-                        label="職業技能 CC 分析規則"
+                        :label="$ui('職業技能 CC 分析規則')"
                         density="compact"
                         hide-details
                         class="flex-grow-0"
                     />
                     <v-checkbox
                         v-model="importOpts.customCond"
-                        label="自訂條件分析設定"
+                        :label="$ui('自訂條件分析設定')"
                         density="compact"
                         hide-details
                         class="flex-grow-0"
@@ -94,7 +84,7 @@
                 </div>
                 <v-textarea
                     v-model="importText"
-                    placeholder="貼上 JSON 或使用「上傳檔案」"
+                    :placeholder="$ui('貼上 JSON 或使用「上傳檔案」')"
                     rows="8"
                     variant="outlined"
                     density="compact"
@@ -108,9 +98,7 @@
                         variant="tonal"
                         prepend-icon="mdi-upload"
                         @click="triggerFileUpload"
-                    >
-                        上傳檔案
-                    </v-btn>
+                    >{{ $ui(" 上傳檔案 ") }}</v-btn>
                     <input
                         ref="fileInputRef"
                         type="file"
@@ -125,10 +113,8 @@
                         prepend-icon="mdi-check"
                         :disabled="!importText.trim()"
                         @click="applyImport"
-                    >
-                        套用
-                    </v-btn>
-                    <span class="text-caption text-disabled">⚠ 套用將覆蓋選取的設定</span>
+                    >{{ $ui(" 套用 ") }}</v-btn>
+                    <span class="text-caption text-disabled">{{ $ui("⚠ 套用將覆蓋選取的設定") }}</span>
                 </div>
 
                 <!-- 匯入結果提示 -->
@@ -141,7 +127,7 @@
                     closable
                     @click:close="importResult = null"
                 >
-                    {{ importResult.msg }}
+                    {{ $ui(importResult.msg) }}
                 </v-alert>
 
             </v-card-text>
@@ -149,7 +135,7 @@
             <v-divider />
             <v-card-actions class="px-4 py-2">
                 <v-spacer />
-                <v-btn variant="text" @click="dialogOpen = false">關閉</v-btn>
+                <v-btn variant="text" @click="dialogOpen = false">{{ $ui("關閉") }}</v-btn>
             </v-card-actions>
         </v-card>
     </v-dialog>

@@ -37,7 +37,11 @@ var logger = util.NewLogger("dilmeterapi")
 var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterOT"
-var AppVersion = "1.5.2"
+
+// The legacy updater compares only three numeric components. Reserve 1.5.3
+// for the OT 1.5.2 R2 hotfix so existing 1.5.2 clients receive this release.
+var AppVersion = "1.5.3"
+var AppDisplayVersion = "1.5.2 R2"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {
@@ -189,10 +193,11 @@ func startWebsocketServer(ctx context.Context, cfg config, newClientCb func(*web
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"name":         AppName,
-			"version":      AppVersion,
-			"buildVariant": BuildVariant,
-			"buildTime":    BuildTime,
+			"name":          AppName,
+			"version":       AppDisplayVersion,
+			"updateVersion": AppVersion,
+			"buildVariant":  BuildVariant,
+			"buildTime":     BuildTime,
 		})
 	})
 	mux.HandleFunc("/api/activate", handleAppActivate)
@@ -336,6 +341,8 @@ func localFirstResourceHandler(localFS fs.FS, upstream http.Handler) http.Handle
 }
 
 func bundledConditionIconPath(requestPath string) (string, bool) {
+	// Common condition IDs share the bundled icon across CN and TW.
+	requestPath = strings.Replace(requestPath, "/res/characterconditionimage/tw/", "/res/characterconditionimage/cn/", 1)
 	const prefix = "/res/characterconditionimage/cn/"
 	if !strings.HasPrefix(requestPath, prefix) {
 		return "", false

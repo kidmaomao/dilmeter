@@ -1,9 +1,7 @@
 <template>
     <v-card variant="outlined">
         <!-- ── 標題列 ── -->
-        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">
-            玩家技能 CC 分析
-            <v-spacer />
+        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">{{ $ui(" 玩家技能 CC 分析 ") }}<v-spacer />
             <v-btn
                 v-if="!collapsed"
                 icon
@@ -21,7 +19,7 @@
                 @click="collapsed = !collapsed"
             >
                 <v-icon size="small" class="text-disabled">
-                    {{ collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}
+                    {{ $ui(collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up') }}
                 </v-icon>
             </v-btn>
         </v-card-title>
@@ -40,8 +38,8 @@
                             variant="outlined"
                             mandatory
                         >
-                            <v-btn :value="false" size="x-small">僅 %</v-btn>
-                            <v-btn :value="true"  size="x-small">顯示次數</v-btn>
+                            <v-btn :value="false" size="x-small">{{ $ui("僅 %") }}</v-btn>
+                            <v-btn :value="true"  size="x-small">{{ $ui("顯示次數") }}</v-btn>
                         </v-btn-toggle>
                     </div>
 
@@ -49,9 +47,7 @@
                     <div
                         v-if="playerTableData.length === 0"
                         class="text-center text-disabled text-body-2 py-4"
-                    >
-                        無資料
-                    </div>
+                    >{{ $ui(" 無資料 ") }}</div>
 
                     <!-- 各玩家區塊 -->
                     <template v-else>
@@ -62,28 +58,22 @@
                         >
                             <!-- 玩家名稱 + 職業 chip -->
                             <div class="d-flex align-center mb-1">
-                                <span class="text-body-2 font-weight-bold">{{ ptd.displayName }}</span>
+                                <span class="text-body-2 font-weight-bold">{{ $ui(ptd.displayName) }}</span>
                                 <v-chip
                                     size="x-small"
                                     class="ml-2"
                                     :color="ptd.jobConfig ? 'primary' : undefined"
                                     variant="tonal"
                                 >
-                                    {{ ptd.jobConfig?.name ?? '未偵測' }}
+                                    {{ $job(ptd.jobConfig?.name ?? '未偵測') }}
                                 </v-chip>
                             </div>
 
                             <!-- 無職業 -->
-                            <div v-if="!ptd.jobConfig" class="text-caption text-disabled">
-                                無法偵測到職業（未使用職業專主技能）
-                            </div>
+                            <div v-if="!ptd.jobConfig" class="text-caption text-disabled">{{ $ui(" 無法偵測到職業（未使用職業專主技能） ") }}</div>
 
                             <!-- 無可顯示的 rule -->
-                            <div v-else-if="ptd.visibleRules.length === 0" class="text-caption text-disabled">
-                                此職業無可顯示的規則
-                                <v-btn size="x-small" variant="text" class="ml-1" @click="settingsOpen = true">
-                                    前往設定
-                                </v-btn>
+                            <div v-else-if="ptd.visibleRules.length === 0" class="text-caption text-disabled">{{ $ui(" 此職業無可顯示的規則 ") }}<v-btn size="x-small" variant="text" class="ml-1" @click="settingsOpen = true">{{ $ui(" 前往設定 ") }}</v-btn>
                             </div>
 
                             <!-- 技能 × rule 矩陣表格 -->
@@ -91,13 +81,13 @@
                                 <table class="cc-matrix-table">
                                     <thead>
                                         <tr>
-                                            <th class="col-skill">技能</th>
+                                            <th class="col-skill">{{ $ui("技能") }}</th>
                                             <th
                                                 v-for="rule in ptd.visibleRules"
                                                 :key="rule.ruleId"
                                                 class="col-rule"
                                             >
-                                                {{ rule.label }}
+                                                {{ $ui(rule.label) }}
                                             </th>
                                         </tr>
                                     </thead>
@@ -107,7 +97,7 @@
                                             v-for="row in ptd.skillRows"
                                             :key="row.skillId"
                                         >
-                                            <td class="col-skill skill-name">{{ row.skillName }}</td>
+                                            <td class="col-skill skill-name">{{ $ui(row.skillName) }}</td>
                                             <td
                                                 v-for="(cell, ci) in row.cells"
                                                 :key="ci"
@@ -118,10 +108,10 @@
                                                         class="cell-pct"
                                                         :style="{ color: pctColor(cell.pct) }"
                                                     >
-                                                        {{ cell.pct != null ? cell.pct.toFixed(1) + '%' : '—' }}
+                                                        {{ $ui(cell.pct != null ? cell.pct.toFixed(1) + '%' : '—') }}
                                                     </span>
                                                     <span v-if="showCounts" class="cell-count">
-                                                        ({{ cell.withCC }}/{{ cell.total }})
+                                                        ({{ $ui(cell.withCC) }}/{{ $ui(cell.total) }})
                                                     </span>
                                                 </template>
                                                 <span v-else class="text-disabled">—</span>
@@ -130,7 +120,7 @@
 
                                         <!-- 合計列 -->
                                         <tr class="overall-row">
-                                            <td class="col-skill skill-name font-weight-bold">合計</td>
+                                            <td class="col-skill skill-name font-weight-bold">{{ $ui("合計") }}</td>
                                             <td
                                                 v-for="(cell, ci) in ptd.overallCells"
                                                 :key="ci"
@@ -141,10 +131,10 @@
                                                         class="cell-pct font-weight-bold"
                                                         :style="{ color: pctColor(cell.pct) }"
                                                     >
-                                                        {{ cell.pct != null ? cell.pct.toFixed(1) + '%' : '—' }}
+                                                        {{ $ui(cell.pct != null ? cell.pct.toFixed(1) + '%' : '—') }}
                                                     </span>
                                                     <span v-if="showCounts" class="cell-count">
-                                                        ({{ cell.withCC }}/{{ cell.total }})
+                                                        ({{ $ui(cell.withCC) }}/{{ $ui(cell.total) }})
                                                     </span>
                                                 </template>
                                                 <span v-else class="text-disabled">—</span>
@@ -165,12 +155,8 @@
         ════════════════════════════════════════ -->
         <v-dialog v-model="settingsOpen" max-width="720" scrollable>
             <v-card>
-                <v-card-title class="text-subtitle-1 d-flex align-center py-3 px-4">
-                    規則設定
-                    <v-spacer />
-                    <v-btn size="x-small" variant="outlined" @click="onResetDefaults">
-                        重置為預設
-                    </v-btn>
+                <v-card-title class="text-subtitle-1 d-flex align-center py-3 px-4">{{ $ui(" 規則設定 ") }}<v-spacer />
+                    <v-btn size="x-small" variant="outlined" @click="onResetDefaults">{{ $ui(" 重置為預設 ") }}</v-btn>
                 </v-card-title>
 
                 <!-- 職業 Tabs -->
@@ -181,7 +167,7 @@
                         :value="cfg.id"
                         size="small"
                     >
-                        {{ cfg.name }}
+                        {{ $job(cfg.name) }}
                     </v-tab>
                 </v-tabs>
 
@@ -194,16 +180,13 @@
                             :key="cfg.id"
                             :value="cfg.id"
                         >
-                            <div class="text-caption text-disabled mb-3 mt-1">
-                                偵測技能：{{ cfg.detectionSkillIds.join(', ') }}
+                            <div class="text-caption text-disabled mb-3 mt-1">{{ $ui(" 偵測技能：") }}{{ $ui(cfg.detectionSkillIds.join(', ')) }}
                             </div>
 
                             <div
                                 v-if="cfg.rules.length === 0"
                                 class="text-body-2 text-disabled text-center py-4"
-                            >
-                                此職業未設定任何規則
-                            </div>
+                            >{{ $ui(" 此職業未設定任何規則 ") }}</div>
 
                             <!-- 規則卡片 -->
                             <div
@@ -216,7 +199,7 @@
                                     <v-text-field
                                         v-if="editData[rule.ruleId]"
                                         v-model="editData[rule.ruleId].label"
-                                        label="規則名稱"
+                                        :label="$ui('規則名稱')"
                                         density="compact"
                                         hide-details
                                         variant="outlined"
@@ -234,7 +217,7 @@
                                             >
                                                 <v-icon size="small">mdi-table-column</v-icon>
                                                 <span class="ml-1 text-caption">
-                                                    {{ editData[rule.ruleId].showInTable ? '顯示' : '隱藏' }}
+                                                    {{ $ui(editData[rule.ruleId].showInTable ? '顯示' : '隱藏') }}
                                                 </span>
                                             </v-btn>
                                         </template>
@@ -254,14 +237,14 @@
                                     <!-- 技能多選 -->
                                     <v-autocomplete
                                         v-model="editData[rule.ruleId].skillIds"
-                                        :items="skillSelectItems"
+                                        :items="$uiItems(skillSelectItems)"
                                         item-title="title"
                                         item-value="value"
                                         multiple
                                         chips
                                         closable-chips
                                         clearable
-                                        label="技能（空 = 全部非被動技能）"
+                                        :label="$ui('技能（空 = 全部非被動技能）')"
                                         density="compact"
                                         hide-details
                                         variant="outlined"
@@ -272,14 +255,14 @@
                                         <v-col cols="6">
                                             <v-autocomplete
                                                 v-model="editData[rule.ruleId].selfCCIds"
-                                                :items="ccSelectItems"
+                                                :items="$uiItems(ccSelectItems)"
                                                 item-title="title"
                                                 item-value="value"
                                                 multiple
                                                 chips
                                                 closable-chips
                                                 clearable
-                                                label="自身 Buff CC"
+                                                :label="$ui('自身 Buff CC')"
                                                 density="compact"
                                                 hide-details
                                                 variant="outlined"
@@ -288,14 +271,14 @@
                                         <v-col cols="6">
                                             <v-autocomplete
                                                 v-model="editData[rule.ruleId].targetCCIds"
-                                                :items="ccSelectItems"
+                                                :items="$uiItems(ccSelectItems)"
                                                 item-title="title"
                                                 item-value="value"
                                                 multiple
                                                 chips
                                                 closable-chips
                                                 clearable
-                                                label="目標 Debuff CC"
+                                                :label="$ui('目標 Debuff CC')"
                                                 density="compact"
                                                 hide-details
                                                 variant="outlined"
@@ -310,19 +293,17 @@
                                 variant="outlined"
                                 prepend-icon="mdi-plus"
                                 @click="addRule(cfg.id)"
-                            >
-                                新增規則
-                            </v-btn>
+                            >{{ $ui(" 新增規則 ") }}</v-btn>
                         </v-window-item>
                     </v-window>
                 </v-card-text>
 
                 <v-divider />
                 <v-card-actions class="px-4 py-2">
-                    <span class="text-caption text-disabled">AND 邏輯：自身與目標的 CC 必須全部同時存在</span>
+                    <span class="text-caption text-disabled">{{ $ui("AND 邏輯：自身與目標的 CC 必須全部同時存在") }}</span>
                     <v-spacer />
-                    <v-btn variant="text" @click="settingsOpen = false">取消</v-btn>
-                    <v-btn color="primary" variant="tonal" @click="saveSettings">儲存</v-btn>
+                    <v-btn variant="text" @click="settingsOpen = false">{{ $ui("取消") }}</v-btn>
+                    <v-btn color="primary" variant="tonal" @click="saveSettings">{{ $ui("儲存") }}</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>

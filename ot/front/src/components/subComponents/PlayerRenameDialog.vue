@@ -4,16 +4,12 @@
         variant="text"
         prepend-icon="mdi-account-edit"
         @click="open"
-    >
-        改名
-    </v-btn>
+    >{{ $ui(" 改名 ") }}</v-btn>
 
     <v-dialog v-model="dialog" max-width="480px" scrollable>
         <v-card>
             <v-card-title class="d-flex align-center">
-                <v-icon class="mr-2">mdi-account-edit</v-icon>
-                改變玩家顯示名稱
-                <v-spacer />
+                <v-icon class="mr-2">mdi-account-edit</v-icon>{{ $ui(" 改變玩家顯示名稱 ") }}<v-spacer />
                 <v-btn icon variant="text" @click="dialog = false">
                     <v-icon>mdi-close</v-icon>
                 </v-btn>
@@ -24,9 +20,7 @@
                 <div
                     v-if="tempMappings.length === 0"
                     class="text-center text-caption text-disabled py-4"
-                >
-                    尚無玩家資料
-                </div>
+                >{{ $ui(" 尚無玩家資料 ") }}</div>
                 <v-list density="compact" class="pa-0">
                     <v-list-item
                         v-for="m in tempMappings"
@@ -35,7 +29,7 @@
                     >
                         <v-row dense align="center">
                             <v-col cols="5" class="text-caption text-truncate">
-                                {{ m.originalName }}
+                                {{ $ui(m.originalName) }}
                             </v-col>
                             <v-col cols="1" class="text-center text-disabled">→</v-col>
                             <v-col cols="6">
@@ -44,7 +38,7 @@
                                     density="compact"
                                     variant="outlined"
                                     hide-details
-                                    :placeholder="m.originalName"
+                                    :placeholder="$ui(m.originalName)"
                                 />
                             </v-col>
                         </v-row>
@@ -54,12 +48,10 @@
 
             <v-divider />
             <v-card-actions>
-                <v-btn size="small" variant="text" color="error" @click="clearAll">
-                    清除全部
-                </v-btn>
+                <v-btn size="small" variant="text" color="error" @click="clearAll">{{ $ui(" 清除全部 ") }}</v-btn>
                 <v-spacer />
-                <v-btn variant="text" @click="dialog = false">取消</v-btn>
-                <v-btn color="primary" variant="flat" @click="apply">套用</v-btn>
+                <v-btn variant="text" @click="dialog = false">{{ $ui("取消") }}</v-btn>
+                <v-btn color="primary" variant="flat" @click="apply">{{ $ui("套用") }}</v-btn>
             </v-card-actions>
         </v-card>
     </v-dialog>

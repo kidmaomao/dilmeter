@@ -12,7 +12,8 @@ param(
 
     [string]$Notes = '',
 
-    [string]$NotesPath = ''
+    [string]$NotesPath = '',
+    [string]$DisplayVersion = ''
 )
 
 if ($NotesPath) {
@@ -35,6 +36,7 @@ finally {
 $hash = ([System.BitConverter]::ToString($hashBytes)).Replace("-", "").ToLowerInvariant()
 $manifest = [ordered]@{
     version = $Version
+    displayVersion = $(if ($DisplayVersion) { $DisplayVersion } else { $Version })
     url = "https://github.com/kidmaomao/dilmeter/releases/latest/download/$AppName.zip"
     sha256 = $hash
     size = $zip.Length

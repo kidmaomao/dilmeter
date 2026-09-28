@@ -1,3 +1,4 @@
+import { resourceRegion } from "./uiLocale";
 /**
  * Official CN display names for puppet damage skills. AI variants are genuine
  * skill damage and intentionally share the same user-facing name.
@@ -36,7 +37,9 @@ export const SKILL_DISPLAY_NAME_OVERRIDES: Readonly<Record<number, string>> = {
 export function normalizeSkillDisplayName(
     skillId: number,
     resourceName?: string,
+    selectedRegion: string = resourceRegion.value,
 ): string {
+    if (selectedRegion !== "cn") return resourceName?.trim() || "";
     return SKILL_DISPLAY_NAME_OVERRIDES[skillId]
         || PUPPET_DAMAGE_SKILL_NAMES[skillId]
         || resourceName?.trim()

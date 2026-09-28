@@ -1,29 +1,29 @@
 <template>
     <div class="healer-rule-editor">
         <div class="healer-rule-identity">
-            <span class="healer-condition-icon"><span>CC</span><img :src="`/condition-icons/${rule.ccId}.png`" :alt="`${rule.name}图标`" @error="($event.target as HTMLImageElement).style.display = 'none'" /></span>
-            <strong v-if="builtin">{{ rule.name }}</strong><input v-else v-model="rule.name" class="healer-rule-name" maxlength="48" :aria-label="`Buff ${rule.ccId}名称`" @input="emit('change')" />
-            <small>CC {{ rule.ccId }}</small>
+            <span class="healer-condition-icon"><span>CC</span><img :src="`/condition-icons/${rule.ccId}.png`" :alt="$ui(`${rule.name}图标`)" @error="($event.target as HTMLImageElement).style.display = 'none'" /></span>
+            <strong v-if="builtin">{{ $ui(rule.name) }}</strong><input v-else v-model="rule.name" class="healer-rule-name" maxlength="48" :aria-label="$ui(`Buff ${rule.ccId}名称`)" @input="emit('change')" />
+            <small>CC {{ $ui(rule.ccId) }}</small>
         </div>
-        <label><input v-model="rule.overlayEnabled" type="checkbox" :aria-label="`${rule.name}显示图标`" @change="emit('change')" />显示图标</label>
-        <label>时长来源<select v-model="rule.durationMode" :aria-label="`${rule.name}时长来源`" @change="emit('change')"><option value="auto">自动读取</option><option value="manual">手动固定时长</option></select></label>
-        <label v-if="rule.durationMode === 'manual'">固定时长（秒）<input v-model.number="rule.manualDurationSeconds" :aria-label="`${rule.name}固定时长`" type="number" min="1" max="86400" @input="emit('change')" /></label>
-        <label><input v-model="rule.flashEnabled" type="checkbox" :aria-label="`${rule.name}到期前闪烁`" @change="emit('change')" />到期前闪烁</label>
-        <label>闪烁提前（秒）<input v-model.number="rule.flashSeconds" :aria-label="`${rule.name}闪烁提前秒数`" type="number" min="0" max="60" @input="emit('change')" /></label>
-        <HealerSoundPicker v-model="rule.sound" :label="rule.name" :volume="volume" :disabled="disabled || soundDisabled" @update:model-value="emit('change')" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)">
-            <label>音效提前（秒）<input v-model.number="rule.warningSeconds" :aria-label="`${rule.name}音效提前秒数`" type="number" min="0" max="60" @input="emit('change')" /></label>
+        <label><input v-model="rule.overlayEnabled" type="checkbox" :aria-label="$ui(`${rule.name}显示图标`)" @change="emit('change')" />{{ $ui("显示图标") }}</label>
+        <label>{{ $ui("时长来源") }}<select v-model="rule.durationMode" :aria-label="$ui(`${rule.name}时长来源`)" @change="emit('change')"><option value="auto">{{ $ui("自动读取") }}</option><option value="manual">{{ $ui("手动固定时长") }}</option></select></label>
+        <label v-if="rule.durationMode === 'manual'">{{ $ui("固定时长（秒）") }}<input v-model.number="rule.manualDurationSeconds" :aria-label="$ui(`${rule.name}固定时长`)" type="number" min="1" max="86400" @input="emit('change')" /></label>
+        <label><input v-model="rule.flashEnabled" type="checkbox" :aria-label="$ui(`${rule.name}到期前闪烁`)" @change="emit('change')" />{{ $ui("到期前闪烁") }}</label>
+        <label>{{ $ui("闪烁提前（秒）") }}<input v-model.number="rule.flashSeconds" :aria-label="$ui(`${rule.name}闪烁提前秒数`)" type="number" min="0" max="60" @input="emit('change')" /></label>
+        <HealerSoundPicker v-model="rule.sound" :label="$ui(rule.name)" :volume="volume" :disabled="disabled || soundDisabled" @update:model-value="emit('change')" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)">
+            <label>{{ $ui("音效提前（秒）") }}<input v-model.number="rule.warningSeconds" :aria-label="$ui(`${rule.name}音效提前秒数`)" type="number" min="0" max="60" @input="emit('change')" /></label>
         </HealerSoundPicker>
-        <label title="同一轮即将结束／已结束共用次数，包含首次">提醒次数<input v-model.number="rule.repeatCount" :aria-label="`${rule.name}提醒次数`" type="number" min="1" max="10" :disabled="disabled || soundDisabled || rule.sound.kind === 'none'" @input="emit('change')" /></label>
-        <label title="最短间隔；多条声音同时触发时会排开播放">间隔（秒）<input v-model.number="rule.repeatIntervalSeconds" :aria-label="`${rule.name}提醒间隔秒数`" type="number" min="2" max="300" :disabled="disabled || soundDisabled || rule.sound.kind === 'none' || rule.repeatCount <= 1" @input="emit('change')" /></label>
-        <button v-if="!builtin" type="button" class="healer-rule-remove" :aria-label="`删除Buff ${rule.name}`" @click="emit('remove')"><v-icon icon="mdi-trash-can-outline" size="13" />删除</button>
+        <label :title="$ui('同一轮即将结束／已结束共用次数，包含首次')">{{ $ui("提醒次数") }}<input v-model.number="rule.repeatCount" :aria-label="$ui(`${rule.name}提醒次数`)" type="number" min="1" max="10" :disabled="disabled || soundDisabled || rule.sound.kind === 'none'" @input="emit('change')" /></label>
+        <label :title="$ui('最短间隔；多条声音同时触发时会排开播放')">{{ $ui("间隔（秒）") }}<input v-model.number="rule.repeatIntervalSeconds" :aria-label="$ui(`${rule.name}提醒间隔秒数`)" type="number" min="2" max="300" :disabled="disabled || soundDisabled || rule.sound.kind === 'none' || rule.repeatCount <= 1" @input="emit('change')" /></label>
+        <button v-if="!builtin" type="button" class="healer-rule-remove" :aria-label="$ui(`删除Buff ${rule.name}`)" @click="emit('remove')"><v-icon icon="mdi-trash-can-outline" size="13" />{{ $ui("删除") }}</button>
         <div class="healer-death-settings">
-            <label><input v-model="rule.deathLoss.enabled" type="checkbox" :aria-label="`${rule.name}死亡丢失提醒`" @change="emit('change')" />死亡丢失提醒</label>
-            <HealerSoundPicker v-model="rule.deathLoss.sound" :label="`${rule.name}死亡丢失`" :volume="volume" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled" @update:model-value="emit('change')" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" />
-            <label>提醒次数<input v-model.number="rule.deathLoss.repeatCount" :aria-label="`${rule.name}死亡丢失提醒次数`" type="number" min="1" max="10" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled || rule.deathLoss.sound.kind === 'none'" @input="emit('change')" /></label>
-            <label>间隔（秒）<input v-model.number="rule.deathLoss.repeatIntervalSeconds" :aria-label="`${rule.name}死亡丢失提醒间隔秒数`" type="number" min="2" max="300" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled || rule.deathLoss.sound.kind === 'none' || rule.deathLoss.repeatCount <= 1" @input="emit('change')" /></label>
-            <small>与正常到期独立计数；关闭后不播放死亡丢失声音，悬浮图标仍显示缺失。</small>
+            <label><input v-model="rule.deathLoss.enabled" type="checkbox" :aria-label="$ui(`${rule.name}死亡丢失提醒`)" @change="emit('change')" />{{ $ui("死亡丢失提醒") }}</label>
+            <HealerSoundPicker v-model="rule.deathLoss.sound" :label="$ui(`${rule.name}死亡丢失`)" :volume="volume" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled" @update:model-value="emit('change')" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" />
+            <label>{{ $ui("提醒次数") }}<input v-model.number="rule.deathLoss.repeatCount" :aria-label="$ui(`${rule.name}死亡丢失提醒次数`)" type="number" min="1" max="10" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled || rule.deathLoss.sound.kind === 'none'" @input="emit('change')" /></label>
+            <label>{{ $ui("间隔（秒）") }}<input v-model.number="rule.deathLoss.repeatIntervalSeconds" :aria-label="$ui(`${rule.name}死亡丢失提醒间隔秒数`)" type="number" min="2" max="300" :disabled="disabled || soundDisabled || !rule.deathLoss.enabled || rule.deathLoss.sound.kind === 'none' || rule.deathLoss.repeatCount <= 1" @input="emit('change')" /></label>
+            <small>{{ $ui("与正常到期独立计数；关闭后不播放死亡丢失声音，悬浮图标仍显示缺失。") }}</small>
         </div>
-        <span class="healer-rule-status">{{ status }}</span>
+        <span class="healer-rule-status">{{ $ui(status) }}</span>
     </div>
 </template>
 

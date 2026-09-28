@@ -1,24 +1,23 @@
 <template>
     <span class="healer-sound-picker">
-        <label>音效
-            <select :value="modelValue.kind" :aria-label="`${label}音效`" :disabled="disabled" @change="setKind">
-                <option value="none">不提示</option>
-                <option value="electronic">内置电子音</option>
-                <option value="healer-health">晓晓：队友血量过低</option>
-                <option value="healer-music">晓晓：队友音乐时间到了</option>
-                <option value="healer-buff">晓晓：队友增益即将结束</option>
-                <option value="healer-death">晓晓：队友死亡，增益消失</option>
-                <option value="voice">晓晓：音乐要结束了</option>
-                <option value="skill-ready">轻快提示音</option>
-                <option value="custom">自定义音效</option>
+        <label>{{ $ui("音效 ") }}<select :value="modelValue.kind" :aria-label="$ui(`${label}音效`)" :disabled="disabled" @change="setKind">
+                <option value="none">{{ $ui("不提示") }}</option>
+                <option value="electronic">{{ $ui("内置电子音") }}</option>
+                <option value="healer-health">{{ $ui("晓晓：队友血量过低") }}</option>
+                <option value="healer-music">{{ $ui("晓晓：队友音乐时间到了") }}</option>
+                <option value="healer-buff">{{ $ui("晓晓：队友增益即将结束") }}</option>
+                <option value="healer-death">{{ $ui("晓晓：队友死亡，增益消失") }}</option>
+                <option value="voice">{{ $ui("晓晓：音乐要结束了") }}</option>
+                <option value="skill-ready">{{ $ui("轻快提示音") }}</option>
+                <option value="custom">{{ $ui("自定义音效") }}</option>
             </select>
         </label>
         <label v-if="modelValue.kind === 'custom'" class="healer-file-picker">
-            <input type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" :aria-label="`${label}自定义音效`" :disabled="disabled" @change="upload" />
-            <span>{{ modelValue.name || '选择 MP3 / WAV' }}</span>
+            <input type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" :aria-label="$ui(`${label}自定义音效`)" :disabled="disabled" @change="upload" />
+            <span>{{ $ui(modelValue.name || '选择 MP3 / WAV') }}</span>
         </label>
         <slot />
-        <button type="button" :aria-label="`试听${label}`" :disabled="disabled || modelValue.kind === 'none' || modelValue.kind === 'custom' && !modelValue.soundId" @click="preview">试听</button>
+        <button type="button" :aria-label="$ui(`试听${label}`)" :disabled="disabled || modelValue.kind === 'none' || modelValue.kind === 'custom' && !modelValue.soundId" @click="preview">{{ $ui("试听") }}</button>
     </span>
 </template>
 

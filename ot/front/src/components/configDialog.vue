@@ -16,7 +16,7 @@
                             <img width="16" height="16"
                                 :src="`/res/characterconditionimage/${region}/${ccId}/${ccId}.png`" class="mr-2" />
                         </template>
-                        <v-list-item-title>{{ condNameMap[ccId] ?? `CC ${ccId}` }}</v-list-item-title>
+                        <v-list-item-title>{{ $ui(condNameMap[ccId] ?? `CC ${ccId}`) }}</v-list-item-title>
                         <template v-slot:append>
                             <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
                                 @click="onRemoveHiddenCC(ccId)" />
@@ -31,7 +31,7 @@
                 </div>
                 <v-list v-else density="compact">
                     <v-list-item v-for="raceId in hiddenRaceList" :key="raceId">
-                        <v-list-item-title>{{ raceNameMap[raceId] ?? `Race ${raceId}` }}</v-list-item-title>
+                        <v-list-item-title>{{ $ui(raceNameMap[raceId] ?? `Race ${raceId}`) }}</v-list-item-title>
                         <template v-slot:append>
                             <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
                                 @click="onRemoveHiddenRace(raceId)" />

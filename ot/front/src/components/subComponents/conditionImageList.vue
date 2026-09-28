@@ -8,7 +8,7 @@
     </template>
 
     <v-tooltip v-if="condTooltip" v-model="condTooltipValue" :activator="condTooltipParent">
-        {{ condNameMap[condTooltip.CCId] }}
+        {{ $ui(condNameMap[condTooltip.CCId]) }}
     </v-tooltip>
 </template>
 

@@ -1,6 +1,10 @@
 import { createApp } from "vue";
 import App from "@/App.vue";
 import * as store from "@/store";
+import { uiLocale, uiText, uiItems } from "@/uiLocale";
+import { jobDisplayName } from "@/gameNameDisplay";
+import { watch } from "vue";
+import { zhHans, zhHant } from "vuetify/locale";
 // mdi
 import "@mdi/font/css/materialdesignicons.css";
 
@@ -10,12 +14,17 @@ import "@/uiColorTheme.css";
 import { createVuetify } from "vuetify";
 
 const vuetify = createVuetify({
+    locale: { locale: uiLocale.value === "zh-TW" ? "zhHant" : "zhHans", messages: { zhHans, zhHant } },
     theme: {
         defaultTheme: "dark",
     },
 });
 
 const app = createApp(App);
+app.config.globalProperties.$ui = uiText;
+app.config.globalProperties.$uiItems = uiItems;
+app.config.globalProperties.$job = jobDisplayName;
+watch(uiLocale, value => { vuetify.locale.current.value = value === "zh-TW" ? "zhHant" : "zhHans"; });
 
 // register global variables
 for (const _key in store) {

@@ -9,37 +9,37 @@
         <section
             v-if="activeTargetHealth || (activeBoss && visibleItems.length)"
             class="overlay-debuff-list"
-            aria-label="目标血量与 Boss Debuff 提醒"
+            :aria-label="$ui('目标血量与 Boss Debuff 提醒')"
         >
             <div
                 v-if="activeTargetHealth"
                 class="target-health-bar"
                 role="meter"
-                aria-label="选中目标血量"
+                :aria-label="$ui('选中目标血量')"
                 :aria-valuenow="targetHealthPercent"
                 aria-valuemin="0"
                 aria-valuemax="100"
-                :title="targetHealthTitle"
+                :title="$ui(targetHealthTitle)"
             >
                 <span class="target-health-fill" :style="{ width: `${targetHealthPercent}%` }"></span>
-                <strong class="target-health-name">{{ activeTargetHealth.name }}</strong>
-                <span class="target-health-percent">{{ targetHealthPercent.toFixed(2) }} %</span>
+                <strong class="target-health-name">{{ $ui(activeTargetHealth.name) }}</strong>
+                <span class="target-health-percent">{{ $ui(targetHealthPercent.toFixed(2)) }} %</span>
             </div>
-            <div v-if="activeBoss && visibleItems.length" class="overlay-boss-arrival" role="status">{{ activeBoss.name }}</div>
+            <div v-if="activeBoss && visibleItems.length" class="overlay-boss-arrival" role="status">{{ $ui(activeBoss.name) }}</div>
             <div v-if="activeBoss && visibleItems.length" class="overlay-debuff-items">
                 <article
                     v-for="item in visibleItems"
                     :key="`${item.ccId}-${item.appliedAt}-${item.state}`"
                     class="overlay-debuff"
                     :class="{ flashing: item.state === 'expiring', missing: item.state === 'missing' }"
-                    :title="`${item.name}（CC ${item.ccId}）`"
+                    :title="$ui(`${item.name}（CC ${item.ccId}）`)"
                 >
                     <div class="overlay-icon-ring">
-                        <span class="overlay-icon-fallback">{{ item.ccId }}</span>
-                        <img :src="item.iconUrl" :alt="`${item.name}图标`" @load="showImage" @error="retryImage" />
+                        <span class="overlay-icon-fallback">{{ $ui(item.ccId) }}</span>
+                        <img :src="item.iconUrl" :alt="$ui(`${item.name}图标`)" @load="showImage" @error="retryImage" />
                     </div>
                     <span v-if="item.state === 'expiring' && remainingSeconds(item) !== null" class="overlay-countdown">
-                        {{ displaySeconds(item) }}
+                        {{ $ui(displaySeconds(item)) }}
                     </span>
                 </article>
             </div>

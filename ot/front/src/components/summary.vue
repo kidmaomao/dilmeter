@@ -6,10 +6,10 @@
             <v-col cols="12" sm="5">
                 <v-autocomplete
                     v-model="selectedBossId"
-                    :items="bossOptions"
+                    :items="$uiItems(bossOptions)"
                     item-title="label"
                     item-value="id"
-                    label="選擇 Boss / 怪物"
+                    :label="$ui('選擇 Boss / 怪物')"
                     density="compact"
                     hide-details
                     clearable
@@ -26,7 +26,7 @@
                     :disabled="!q.entityKey"
                     @click="quickSelectBoss(q.raceId, q.entityKey)"
                 >
-                    {{ q.name }}
+                    {{ $ui(q.name) }}
                 </v-btn>
                 <v-spacer />
                 <PlayerRenameDialog :players="renamePlayers" />
@@ -41,18 +41,14 @@
                     variant="tonal"
                     density="compact"
                     icon="mdi-cursor-pointer"
-                >
-                    請從上方選擇 Boss / 怪物以顯示 Summary
-                </v-alert>
+                >{{ $ui(" 請從上方選擇 Boss / 怪物以顯示 Summary ") }}</v-alert>
             </v-col>
         </v-row>
 
         <!-- ── 無資料 ──────────────────────────────────────────────── -->
         <v-row v-else-if="!summary" dense>
             <v-col cols="12">
-                <v-alert type="warning" variant="tonal" density="compact">
-                    此目標尚無足夠的傷害紀錄
-                </v-alert>
+                <v-alert type="warning" variant="tonal" density="compact">{{ $ui(" 此目標尚無足夠的傷害紀錄 ") }}</v-alert>
             </v-col>
         </v-row>
 
@@ -73,10 +69,8 @@
                             class="text-subtitle-1 py-2 px-3 d-flex align-center"
                             style="cursor: pointer; user-select: none"
                             @click="secCollapsed.overview = !secCollapsed.overview"
-                        >
-                            戰鬥概覽
-                            <v-spacer />
-                            <v-icon size="small" class="text-disabled">{{ secCollapsed.overview ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                        >{{ $ui(" 戰鬥概覽 ") }}<v-spacer />
+                            <v-icon size="small" class="text-disabled">{{ $ui(secCollapsed.overview ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                         </v-card-title>
                         <v-expand-transition>
                         <div v-if="!secCollapsed.overview">
@@ -84,41 +78,38 @@
                         <v-card-text class="pa-3">
                             <v-row dense>
                                 <v-col cols="6" sm="3">
-                                    <div class="text-caption text-disabled">總戰鬥時間</div>
+                                    <div class="text-caption text-disabled">{{ $ui("總戰鬥時間") }}</div>
                                     <div class="text-body-1 font-weight-bold">
-                                        {{ fmtDuration(summary.session.totalDuration) }}
+                                        {{ $ui(fmtDuration(summary.session.totalDuration)) }}
                                     </div>
                                     <div class="text-caption text-disabled">
-                                        {{ fmtTime(summary.session.startAt) }}
+                                        {{ $ui(fmtTime(summary.session.startAt)) }}
                                         ～
-                                        {{ fmtTime(summary.session.endAt) }}
+                                        {{ $ui(fmtTime(summary.session.endAt)) }}
                                     </div>
                                 </v-col>
                                 <v-col cols="6" sm="3">
-                                    <div class="text-caption text-disabled">有效輸出時間</div>
+                                    <div class="text-caption text-disabled">{{ $ui("有效輸出時間") }}</div>
                                     <div class="text-body-1 font-weight-bold text-success">
-                                        {{ fmtDuration(summary.session.effectiveDuration) }}
+                                        {{ $ui(fmtDuration(summary.session.effectiveDuration)) }}
                                     </div>
                                     <div class="text-caption text-disabled">
-                                        {{ fmtPct(summary.session.effectiveDuration / summary.session.totalDuration) }}
+                                        {{ $ui(fmtPct(summary.session.effectiveDuration / summary.session.totalDuration)) }}
                                     </div>
                                 </v-col>
                                 <v-col cols="6" sm="3">
-                                    <div class="text-caption text-disabled">無法輸出時間</div>
+                                    <div class="text-caption text-disabled">{{ $ui("無法輸出時間") }}</div>
                                     <div class="text-body-1 font-weight-bold text-error">
-                                        {{ fmtDuration(summary.session.inactiveDuration) }}
+                                        {{ $ui(fmtDuration(summary.session.inactiveDuration)) }}
                                     </div>
-                                    <div class="text-caption text-disabled">
-                                        無敵段：{{ summary.session.invincibleIntervals.length }} 次
-                                    </div>
+                                    <div class="text-caption text-disabled">{{ $ui(" 無敵段：") }}{{ $ui(summary.session.invincibleIntervals.length) }}{{ $ui(" 次 ") }}</div>
                                 </v-col>
                                 <v-col cols="6" sm="3">
-                                    <div class="text-caption text-disabled">全隊總傷害</div>
+                                    <div class="text-caption text-disabled">{{ $ui("全隊總傷害") }}</div>
                                     <div class="text-body-1 font-weight-bold">
-                                        {{ Math.round(summary.totalDamage).toLocaleString() }}
+                                        {{ $ui(Math.round(summary.totalDamage).toLocaleString()) }}
                                     </div>
-                                    <div class="text-caption text-disabled">
-                                        有效 DPS {{ fmtDps(summary.totalDamage / summary.session.effectiveDuration) }}
+                                    <div class="text-caption text-disabled">{{ $ui(" 有效 DPS ") }}{{ $ui(fmtDps(summary.totalDamage / summary.session.effectiveDuration)) }}
                                     </div>
                                 </v-col>
                             </v-row>
@@ -127,7 +118,7 @@
                             <v-row dense class="mt-2">
                                 <v-col cols="12">
                                     <div class="d-flex align-center mb-1" style="gap: 8px">
-                                        <span class="text-caption text-disabled">時間分布</span>
+                                        <span class="text-caption text-disabled">{{ $ui("時間分布") }}</span>
                                         <v-chip
                                             v-if="selectedTimeRange"
                                             size="x-small"
@@ -135,7 +126,7 @@
                                             closable
                                             @click:close="selectedTimeRange = null"
                                         >
-                                            {{ fmtTime(selectedTimeRange.startAt) }} – {{ fmtTime(selectedTimeRange.endAt) }}
+                                            {{ $ui(fmtTime(selectedTimeRange.startAt)) }} – {{ $ui(fmtTime(selectedTimeRange.endAt)) }}
                                         </v-chip>
                                     </div>
                                     <div class="d-flex rounded overflow-hidden" style="height: 12px; gap: 1px">
@@ -149,13 +140,13 @@
                                                     ? 'timeline-seg-selected' : ''
                                             ]"
                                             :style="{ flex: seg.flex }"
-                                            :title="seg.active ? `${fmtTime(seg.startAt)} – ${fmtTime(seg.endAt)}` : undefined"
+                                            :title="$ui(seg.active ? `${fmtTime(seg.startAt)} – ${fmtTime(seg.endAt)}` : undefined)"
                                             @click="seg.active && (selectedTimeRange = (selectedTimeRange && seg.startAt === selectedTimeRange.startAt && seg.endAt === selectedTimeRange.endAt) ? null : { startAt: seg.startAt, endAt: seg.endAt })"
                                         />
                                     </div>
                                     <div class="d-flex text-caption text-disabled mt-1" style="gap: 12px">
-                                        <span><span class="text-success">■</span> 有效（可點擊篩選）</span>
-                                        <span><span class="text-error">■</span> 無效（無敵 / 空窗）</span>
+                                        <span><span class="text-success">■</span>{{ $ui(" 有效（可點擊篩選）") }}</span>
+                                        <span><span class="text-error">■</span>{{ $ui(" 無效（無敵 / 空窗）") }}</span>
                                     </div>
                                 </v-col>
                             </v-row>
@@ -167,27 +158,27 @@
                                 style="cursor: pointer; user-select: none"
                                 @click="bossSkillCollapsed = !bossSkillCollapsed"
                             >
-                                <span class="text-caption text-disabled flex-grow-1">BOSS 技能使用次數</span>
+                                <span class="text-caption text-disabled flex-grow-1">{{ $ui("BOSS 技能使用次數") }}</span>
                                 <v-icon size="small" class="text-disabled">
-                                    {{ bossSkillCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}
+                                    {{ $ui(bossSkillCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up') }}
                                 </v-icon>
                             </div>
                             <v-expand-transition>
                                 <div v-if="!bossSkillCollapsed">
                                     <v-data-table
-                                        :headers="bossSkillHeaders"
+                                        :headers="$uiItems(bossSkillHeaders)"
                                         :items="summary.bossSkillStats"
                                         density="compact"
                                         :items-per-page="-1"
                                         hide-default-footer
-                                        no-data-text="無資料"
+                                        :no-data-text="$ui('無資料')"
                                         :sort-by="[{ key: 'totalHits', order: 'desc' }]"
                                     >
                                         <template #item.skillId="{ item }">
-                                            {{ skillNameMap[item.skillId] ?? `#${item.skillId}` }}
+                                            {{ $ui(skillNameMap[item.skillId] ?? `#${item.skillId}`) }}
                                         </template>
                                         <template #item.totalDamage="{ item }">
-                                            {{ Math.round(item.totalDamage).toLocaleString() }}
+                                            {{ $ui(Math.round(item.totalDamage).toLocaleString()) }}
                                         </template>
                                     </v-data-table>
                                 </div>
@@ -200,15 +191,15 @@
                                         class="text-caption text-disabled flex-grow-1"
                                         style="cursor: pointer; user-select: none"
                                         @click="bossCondCollapsed = !bossCondCollapsed"
-                                    >BOSS 狀態覆蓋率</span>
+                                    >{{ $ui("BOSS 狀態覆蓋率") }}</span>
                                     <v-btn-toggle
                                         v-model="bossCondTab"
                                         mandatory
                                         density="compact"
                                         variant="outlined"
                                     >
-                                        <v-btn value="icons" size="x-small">圖示</v-btn>
-                                        <v-btn value="gantt" size="x-small">甘特</v-btn>
+                                        <v-btn value="icons" size="x-small">{{ $ui("圖示") }}</v-btn>
+                                        <v-btn value="gantt" size="x-small">{{ $ui("甘特") }}</v-btn>
                                     </v-btn-toggle>
                                     <v-btn
                                         size="x-small"
@@ -223,7 +214,7 @@
                                         style="cursor: pointer"
                                         @click="bossCondCollapsed = !bossCondCollapsed"
                                     >
-                                        {{ bossCondCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}
+                                        {{ $ui(bossCondCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up') }}
                                     </v-icon>
                                 </div>
 
@@ -232,10 +223,10 @@
                                     <div v-if="bossCondSettingsOpen" class="mb-2">
                                         <v-autocomplete
                                             v-model="bossCondIncludeIds"
-                                            :items="bossCondOptions"
+                                            :items="$uiItems(bossCondOptions)"
                                             item-title="name"
                                             item-value="ccId"
-                                            label="顯示的狀態（空白 = 全部）"
+                                            :label="$ui('顯示的狀態（空白 = 全部）')"
                                             density="compact"
                                             hide-details
                                             multiple
@@ -268,18 +259,18 @@
                                                             style="image-rendering: pixelated"
                                                         />
                                                         <span class="text-caption font-weight-medium" style="font-size: 0.65rem; text-align: center; line-height: 1.2">
-                                                            {{ fmtPct(row.coverageEffective) }}
+                                                            {{ $ui(fmtPct(row.coverageEffective)) }}
                                                         </span>
                                                         <span class="text-caption text-disabled" style="font-size: 0.6rem; text-align: center; line-height: 1.2">
-                                                            {{ fmtPct(row.coverageTotal) }}
+                                                            {{ $ui(fmtPct(row.coverageTotal)) }}
                                                         </span>
                                                     </div>
                                                 </template>
                                                 <div class="text-caption">
-                                                    <div class="font-weight-bold">{{ row.name }}</div>
-                                                    <div>有效時間覆蓋：{{ fmtPct(row.coverageEffective) }}</div>
-                                                    <div class="text-disabled">總時間覆蓋：{{ fmtPct(row.coverageTotal) }}</div>
-                                                    <div class="text-disabled">活躍時長：{{ fmtDuration(row.activeSec) }}</div>
+                                                    <div class="font-weight-bold">{{ $ui(row.name) }}</div>
+                                                    <div>{{ $ui("有效時間覆蓋：") }}{{ $ui(fmtPct(row.coverageEffective)) }}</div>
+                                                    <div class="text-disabled">{{ $ui("總時間覆蓋：") }}{{ $ui(fmtPct(row.coverageTotal)) }}</div>
+                                                    <div class="text-disabled">{{ $ui("活躍時長：") }}{{ $ui(fmtDuration(row.activeSec)) }}</div>
                                                 </div>
                                             </v-tooltip>
                                         </div>
@@ -293,8 +284,8 @@
                                                     density="compact"
                                                     variant="outlined"
                                                 >
-                                                    <v-btn value="elapsed" size="x-small">經過時間</v-btn>
-                                                    <v-btn value="clock"   size="x-small">實際時刻</v-btn>
+                                                    <v-btn value="elapsed" size="x-small">{{ $ui("經過時間") }}</v-btn>
+                                                    <v-btn value="clock"   size="x-small">{{ $ui("實際時刻") }}</v-btn>
                                                 </v-btn-toggle>
                                             </div>
                                             <GanttChart
@@ -324,10 +315,8 @@
                             class="text-subtitle-1 py-2 px-3 d-flex align-center"
                             style="cursor: pointer; user-select: none"
                             @click="secCollapsed.dpsChart = !secCollapsed.dpsChart"
-                        >
-                            DPS 曲線
-                            <v-spacer />
-                            <v-icon size="small" class="text-disabled">{{ secCollapsed.dpsChart ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                        >{{ $ui(" DPS 曲線 ") }}<v-spacer />
+                            <v-icon size="small" class="text-disabled">{{ $ui(secCollapsed.dpsChart ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                         </v-card-title>
                         <v-expand-transition>
                         <div v-if="!secCollapsed.dpsChart">
@@ -349,9 +338,7 @@
             <v-row dense class="mb-2">
                 <v-col cols="12">
                     <v-card variant="outlined">
-                        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">
-                            玩家輸出
-                            <v-spacer />
+                        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">{{ $ui(" 玩家輸出 ") }}<v-spacer />
                             <v-menu
                                 v-model="colSettingsOpen"
                                 :close-on-content-click="false"
@@ -367,7 +354,7 @@
                                     />
                                 </template>
                                 <v-card min-width="200" class="pa-1">
-                                    <div class="text-caption text-disabled px-3 pt-2 pb-1 font-weight-bold">玩家欄位</div>
+                                    <div class="text-caption text-disabled px-3 pt-2 pb-1 font-weight-bold">{{ $ui("玩家欄位") }}</div>
                                     <v-list density="compact" class="pa-0">
                                         <v-list-item
                                             v-for="col in PLAYER_COL_DEFS"
@@ -375,7 +362,7 @@
                                             class="px-2 py-0"
                                         >
                                             <v-checkbox
-                                                :label="col.label"
+                                                :label="$ui(col.label)"
                                                 :model-value="visiblePlayerCols.includes(col.key)"
                                                 @update:model-value="(v) => togglePlayerCol(col.key, !!v)"
                                                 density="compact"
@@ -384,7 +371,7 @@
                                         </v-list-item>
                                     </v-list>
                                     <v-divider class="my-1" />
-                                    <div class="text-caption text-disabled px-3 pt-1 pb-1 font-weight-bold">技能欄位</div>
+                                    <div class="text-caption text-disabled px-3 pt-1 pb-1 font-weight-bold">{{ $ui("技能欄位") }}</div>
                                     <v-list density="compact" class="pa-0">
                                         <v-list-item
                                             v-for="col in SKILL_COL_DEFS"
@@ -392,7 +379,7 @@
                                             class="px-2 py-0"
                                         >
                                             <v-checkbox
-                                                :label="col.label"
+                                                :label="$ui(col.label)"
                                                 :model-value="visibleSkillCols.includes(col.key)"
                                                 @update:model-value="(v) => toggleSkillCol(col.key, !!v)"
                                                 density="compact"
@@ -409,7 +396,7 @@
                                 class="ml-1"
                                 @click="secCollapsed.playerOutput = !secCollapsed.playerOutput"
                             >
-                                <v-icon size="small" class="text-disabled">{{ secCollapsed.playerOutput ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                                <v-icon size="small" class="text-disabled">{{ $ui(secCollapsed.playerOutput ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                             </v-btn>
                         </v-card-title>
                         <v-expand-transition>
@@ -424,20 +411,18 @@
                             class="px-4 py-1 text-caption text-disabled"
                             style="border-bottom: 1px solid rgba(128,128,128,0.2); padding-right: 52px !important"
                         >
-                            <v-col sm="2">名稱</v-col>
-                            <v-col v-if="visiblePlayerCols.includes('totalDamage')"   sm="2" class="text-right pr-2">總傷害 / 佔比</v-col>
-                            <v-col v-if="visiblePlayerCols.includes('activeDamage')"  sm="2" class="text-right pr-2">主動 / 被動</v-col>
-                            <v-col v-if="visiblePlayerCols.includes('critRate')"      sm="1" class="text-right pr-2">暴擊</v-col>
-                            <v-col v-if="visiblePlayerCols.includes('totalDPS')"      sm="1" class="text-right pr-2">全場 DPS</v-col>
-                            <v-col v-if="visiblePlayerCols.includes('effectiveDPS')"  sm="2" class="text-right pr-2">有效 DPS</v-col>
-                            <v-col v-if="visiblePlayerCols.includes('individualDPS')" sm="2" class="text-right pr-2">
-                                個人有效 DPS
-                                <v-tooltip location="top" max-width="240">
+                            <v-col sm="2">{{ $ui("名稱") }}</v-col>
+                            <v-col v-if="visiblePlayerCols.includes('totalDamage')"   sm="2" class="text-right pr-2">{{ $ui("總傷害 / 佔比") }}</v-col>
+                            <v-col v-if="visiblePlayerCols.includes('activeDamage')"  sm="2" class="text-right pr-2">{{ $ui("主動 / 被動") }}</v-col>
+                            <v-col v-if="visiblePlayerCols.includes('critRate')"      sm="1" class="text-right pr-2">{{ $ui("暴擊") }}</v-col>
+                            <v-col v-if="visiblePlayerCols.includes('totalDPS')"      sm="1" class="text-right pr-2">{{ $ui("全場 DPS") }}</v-col>
+                            <v-col v-if="visiblePlayerCols.includes('effectiveDPS')"  sm="2" class="text-right pr-2">{{ $ui("有效 DPS") }}</v-col>
+                            <v-col v-if="visiblePlayerCols.includes('individualDPS')" sm="2" class="text-right pr-2">{{ $ui(" 個人有效 DPS ") }}<v-tooltip location="top" max-width="240">
                                     <template v-slot:activator="{ props }">
                                         <v-icon v-bind="props" size="x-small" class="ml-1">mdi-information-outline</v-icon>
                                     </template>
-                                    <div>括號內為個人有效時間 / 團隊有效時間</div>
-                                    <div class="mt-1 text-disabled">超過 100% 表示機制 / 無敵時間時仍有對王造成傷害</div>
+                                    <div>{{ $ui("括號內為個人有效時間 / 團隊有效時間") }}</div>
+                                    <div class="mt-1 text-disabled">{{ $ui("超過 100% 表示機制 / 無敵時間時仍有對王造成傷害") }}</div>
                                 </v-tooltip>
                             </v-col>
                         </v-row>
@@ -455,49 +440,49 @@
                                                 {{ getDisplayName(player.name) }}
                                             </div>
                                             <div class="text-caption text-disabled">
-                                                <span v-if="player.jobName" class="text-primary mr-1">{{ player.jobName }}</span>
-                                                {{ raceNameMap[player.raceId] ?? player.raceId }}
+                                                <span v-if="player.jobName" class="text-primary mr-1">{{ $job(player.jobName) }}</span>
+                                                {{ $ui(raceNameMap[player.raceId] ?? player.raceId) }}
                                             </div>
                                         </v-col>
                                         <!-- 總傷害 + 佔比 -->
                                         <v-col v-if="visiblePlayerCols.includes('totalDamage')" cols="6" sm="2" class="text-right pr-2">
                                             <div class="text-body-2">
-                                                {{ Math.round(player.totalDamage).toLocaleString() }}
+                                                {{ $ui(Math.round(player.totalDamage).toLocaleString()) }}
                                             </div>
                                             <div class="text-caption text-disabled">
-                                                {{ fmtPct(summary.effectiveBossDamage > 0 ? player.totalDamage / summary.effectiveBossDamage : 0) }}
+                                                {{ $ui(fmtPct(summary.effectiveBossDamage > 0 ? player.totalDamage / summary.effectiveBossDamage : 0)) }}
                                             </div>
                                         </v-col>
                                         <!-- 主動 / 被動 -->
                                         <v-col v-if="visiblePlayerCols.includes('activeDamage')" cols="6" sm="2" class="text-right pr-2">
                                             <div class="text-body-2">
-                                                {{ fmtPct(player.activeDamageRatio) }}
+                                                {{ $ui(fmtPct(player.activeDamageRatio)) }}
                                                 <span class="text-disabled">/</span>
-                                                {{ fmtPct(player.passiveDamageRatio) }}
+                                                {{ $ui(fmtPct(player.passiveDamageRatio)) }}
                                             </div>
                                         </v-col>
                                         <!-- 暴擊率 -->
                                         <v-col v-if="visiblePlayerCols.includes('critRate')" cols="6" sm="1" class="text-right pr-2">
                                             <div class="text-body-2">
-                                                {{ fmtPct(player.critRate) }}
+                                                {{ $ui(fmtPct(player.critRate)) }}
                                             </div>
                                         </v-col>
                                         <!-- 全場 DPS -->
                                         <v-col v-if="visiblePlayerCols.includes('totalDPS')" cols="6" sm="1" class="text-right pr-2">
-                                            <div class="text-body-2">{{ fmtDps(player.totalDPS) }}</div>
+                                            <div class="text-body-2">{{ $ui(fmtDps(player.totalDPS)) }}</div>
                                         </v-col>
                                         <!-- 有效 DPS -->
                                         <v-col v-if="visiblePlayerCols.includes('effectiveDPS')" cols="6" sm="2" class="text-right pr-2">
-                                            <div class="text-body-2">{{ fmtDps(player.effectiveDPS) }}</div>
+                                            <div class="text-body-2">{{ $ui(fmtDps(player.effectiveDPS)) }}</div>
                                         </v-col>
                                         <!-- 個人有效 DPS -->
                                         <v-col v-if="visiblePlayerCols.includes('individualDPS')" cols="6" sm="2" class="text-right pr-2">
                                             <div class="text-body-2">
-                                                {{ fmtDps(player.individualEffectiveDPS) }}
+                                                {{ $ui(fmtDps(player.individualEffectiveDPS)) }}
                                             </div>
                                             <div class="text-caption text-disabled">
-                                                {{ fmtDuration(player.individualEffectiveTime) }}
-                                                <span class="ml-1">({{ fmtPct(summary.session.effectiveDuration > 0 ? player.individualEffectiveTime / summary.session.effectiveDuration : 0) }})</span>
+                                                {{ $ui(fmtDuration(player.individualEffectiveTime)) }}
+                                                <span class="ml-1">({{ $ui(fmtPct(summary.session.effectiveDuration > 0 ? player.individualEffectiveTime / summary.session.effectiveDuration : 0)) }})</span>
                                             </div>
                                         </v-col>
                                     </v-row>
@@ -520,24 +505,24 @@
                                             v-for="w in player.weapons"
                                             :key="w.pocketType"
                                         >
-                                            <span class="text-body-2">{{ itemNameMap[w.itemId] ?? `#${w.itemId}` }}</span>
-                                            <span class="text-caption text-disabled ml-1">Pocket {{ w.pocketType }}</span>
+                                            <span class="text-body-2">{{ $ui(itemNameMap[w.itemId] ?? `#${w.itemId}`) }}</span>
+                                            <span class="text-caption text-disabled ml-1">Pocket {{ $ui(w.pocketType) }}</span>
                                         </div>
                                     </div>
 
                                     <!-- 技能明細 -->
                                     <v-data-table
-                                        :headers="skillStatHeaders"
+                                        :headers="$uiItems(skillStatHeaders)"
                                         :items="player.skillStats"
                                         density="compact"
                                         :items-per-page="-1"
                                         hide-default-footer
-                                        no-data-text="無技能資料"
+                                        :no-data-text="$ui('無技能資料')"
                                         :sort-by="[{ key: 'totalDamage', order: 'desc' }]"
                                     >
                                         <template #item.skillId="{ item }">
                                             <div>
-                                                {{ skillNameMap[item.skillId] ?? `#${item.skillId}` }}
+                                                {{ $ui(skillNameMap[item.skillId] ?? `#${item.skillId}`) }}
                                             </div>
                                             <!-- 觸發來源（僅被動技能顯示） -->
                                             <div
@@ -551,49 +536,49 @@
                                                     size="x-small"
                                                     variant="tonal"
                                                     color="secondary"
-                                                    :title="`${skillNameMap[src.skillId] ?? `#${src.skillId}`}：${src.count} 次觸發，${Math.round(src.damage).toLocaleString()} 傷害`"
+                                                    :title="$ui(`${skillNameMap[src.skillId] ?? `#${src.skillId}`}：${src.count} 次觸發，${Math.round(src.damage).toLocaleString()} 傷害`)"
                                                 >
-                                                    {{ skillNameMap[src.skillId] ?? `#${src.skillId}` }}
+                                                    {{ $ui(skillNameMap[src.skillId] ?? `#${src.skillId}`) }}
                                                     <span class="text-disabled ml-1">
-                                                        {{ fmtPct(item.totalDamage > 0 ? src.damage / item.totalDamage : 0) }}
+                                                        {{ $ui(fmtPct(item.totalDamage > 0 ? src.damage / item.totalDamage : 0)) }}
                                                     </span>
                                                 </v-chip>
                                             </div>
                                         </template>
                                         <template #item.useCount="{ item }">
-                                            {{ item.totalHits.toLocaleString() }}
+                                            {{ $ui(item.totalHits.toLocaleString()) }}
                                         </template>
                                         <template #item.usesPerMinute="{ item }">
-                                            {{ item.usesPerMinute.toFixed(1) }}
+                                            {{ $ui(item.usesPerMinute.toFixed(1)) }}
                                         </template>
                                         <template #item.totalDamage="{ item }">
-                                            {{ Math.round(item.totalDamage).toLocaleString() }}
+                                            {{ $ui(Math.round(item.totalDamage).toLocaleString()) }}
                                         </template>
                                         <template #item.damagePerUse="{ item }">
-                                            {{ Math.round(item.damagePerUse).toLocaleString() }}
+                                            {{ $ui(Math.round(item.damagePerUse).toLocaleString()) }}
                                         </template>
                                         <template #item.critRate="{ item }">
                                             <span v-if="item.noCritRate" class="text-disabled">—</span>
-                                            <span v-else>{{ fmtPct(item.critRate) }}</span>
+                                            <span v-else>{{ $ui(fmtPct(item.critRate)) }}</span>
                                         </template>
                                         <template #item.critDmg="{ item }">
                                             <span v-if="item.maxCritDamage == null" class="text-disabled">—</span>
                                             <span v-else>
-                                                {{ Math.round(item.minCritDamage!).toLocaleString() }}
+                                                {{ $ui(Math.round(item.minCritDamage!).toLocaleString()) }}
                                                 <span class="text-disabled"> ~ </span>
-                                                {{ Math.round(item.maxCritDamage).toLocaleString() }}
+                                                {{ $ui(Math.round(item.maxCritDamage).toLocaleString()) }}
                                             </span>
                                         </template>
                                         <template #item.nonCritDmg="{ item }">
                                             <span v-if="item.maxNonCritDamage == null" class="text-disabled">—</span>
                                             <span v-else>
-                                                {{ Math.round(item.minNonCritDamage!).toLocaleString() }}
+                                                {{ $ui(Math.round(item.minNonCritDamage!).toLocaleString()) }}
                                                 <span class="text-disabled"> ~ </span>
-                                                {{ Math.round(item.maxNonCritDamage).toLocaleString() }}
+                                                {{ $ui(Math.round(item.maxNonCritDamage).toLocaleString()) }}
                                             </span>
                                         </template>
                                         <template #header.categoryRatio>
-                                            <span>佔比</span>
+                                            <span>{{ $ui("佔比") }}</span>
                                             <v-tooltip location="top" max-width="260">
                                                 <template v-slot:activator="{ props }">
                                                     <v-icon
@@ -603,17 +588,17 @@
                                                     >mdi-information-outline</v-icon>
                                                 </template>
                                                 <div>
-                                                    <div><b>分類佔比</b>：此技能佔同類別（主動 / 被動）總傷害的比例</div>
-                                                    <div class="mt-1"><b>總體佔比</b>：此技能佔玩家總傷害的比例</div>
-                                                    <div class="mt-1 text-disabled">格式：分類% / 總體%</div>
+                                                    <div><b>{{ $ui("分類佔比") }}</b>{{ $ui("：此技能佔同類別（主動 / 被動）總傷害的比例") }}</div>
+                                                    <div class="mt-1"><b>{{ $ui("總體佔比") }}</b>{{ $ui("：此技能佔玩家總傷害的比例") }}</div>
+                                                    <div class="mt-1 text-disabled">{{ $ui("格式：分類% / 總體%") }}</div>
                                                 </div>
                                             </v-tooltip>
                                         </template>
                                         <template #item.categoryRatio="{ item }">
                                             <template v-for="r in [computeSkillRatios(player, item)]" :key="0">
-                                                <span>{{ fmtPct(r.categoryRatio) }}</span>
+                                                <span>{{ $ui(fmtPct(r.categoryRatio)) }}</span>
                                                 <span class="text-disabled mx-1">/</span>
-                                                <span>{{ fmtPct(r.overallRatio) }}</span>
+                                                <span>{{ $ui(fmtPct(r.overallRatio)) }}</span>
                                             </template>
                                         </template>
                                     </v-data-table>
@@ -624,9 +609,7 @@
                         <div
                             v-if="summary.players.length === 0"
                             class="text-center text-caption text-disabled py-4"
-                        >
-                            此 Boss 無玩家傷害紀錄
-                        </div>
+                        >{{ $ui(" 此 Boss 無玩家傷害紀錄 ") }}</div>
                         </div>
                         </v-expand-transition>
                     </v-card>
@@ -657,17 +640,13 @@
             <v-row dense>
                 <v-col cols="12">
                     <v-card variant="outlined">
-                        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">
-                            自訂條件分析
-                            <v-spacer />
+                        <v-card-title class="text-subtitle-1 py-2 px-3 d-flex align-center">{{ $ui(" 自訂條件分析 ") }}<v-spacer />
                             <v-btn
                                 size="x-small"
                                 variant="text"
                                 prepend-icon="mdi-cog"
                                 @click="conditionConfigOpen = true"
-                            >
-                                管理條件
-                            </v-btn>
+                            >{{ $ui(" 管理條件 ") }}</v-btn>
                             <v-btn
                                 icon
                                 size="x-small"
@@ -675,7 +654,7 @@
                                 class="ml-1"
                                 @click="secCollapsed.customConditions = !secCollapsed.customConditions"
                             >
-                                <v-icon size="small" class="text-disabled">{{ secCollapsed.customConditions ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                                <v-icon size="small" class="text-disabled">{{ $ui(secCollapsed.customConditions ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                             </v-btn>
                         </v-card-title>
                         <v-expand-transition>
@@ -687,9 +666,7 @@
                             v-if="customConditionConfigs.length === 0"
                             class="text-center text-caption text-disabled py-6"
                         >
-                            <v-icon size="32" class="mb-2 d-block">mdi-filter-plus-outline</v-icon>
-                            尚無自訂條件，點擊右上角「管理條件」新增
-                        </div>
+                            <v-icon size="32" class="mb-2 d-block">mdi-filter-plus-outline</v-icon>{{ $ui(" 尚無自訂條件，點擊右上角「管理條件」新增 ") }}</div>
 
                         <!-- 各自訂條件結果 -->
                         <template v-else>
@@ -702,18 +679,15 @@
                                 <v-row dense align="center" class="mb-1">
                                     <v-col>
                                         <span class="text-subtitle-2 font-weight-bold">
-                                            {{ result.displayName }}
+                                            {{ $ui(result.displayName) }}
                                         </span>
                                     </v-col>
                                     <v-col cols="auto" class="text-right">
                                         <span class="text-caption text-disabled mr-3">
-                                            {{ result.groups.length }} 段
+                                            {{ $ui(result.groups.length) }}{{ $ui(" 段 ") }}</span>
+                                        <span class="text-caption text-disabled mr-3">{{ $ui(" 總計 ") }}{{ $ui(Math.round(result.totalDamage).toLocaleString()) }}
                                         </span>
-                                        <span class="text-caption text-disabled mr-3">
-                                            總計 {{ Math.round(result.totalDamage).toLocaleString() }}
-                                        </span>
-                                        <span class="text-caption text-disabled">
-                                            平均 {{ Math.round(result.averageDamage).toLocaleString() }}
+                                        <span class="text-caption text-disabled">{{ $ui(" 平均 ") }}{{ $ui(Math.round(result.averageDamage).toLocaleString()) }}
                                         </span>
                                     </v-col>
                                 </v-row>
@@ -723,15 +697,15 @@
                                     class="d-flex align-center px-4 py-1 text-caption text-disabled"
                                     style="border-bottom: 1px solid rgba(128,128,128,0.2); padding-right: 52px !important"
                                 >
-                                    <div style="width: 28px">段</div>
-                                    <div style="width: 152px">時間</div>
-                                    <div style="width: 68px; text-align: right; padding-right: 8px">持續</div>
+                                    <div style="width: 28px">{{ $ui("段") }}</div>
+                                    <div style="width: 152px">{{ $ui("時間") }}</div>
+                                    <div style="width: 68px; text-align: right; padding-right: 8px">{{ $ui("持續") }}</div>
                                     <div
                                         v-for="name in conditionMatrices[result.configId].playerNames"
                                         :key="name"
                                         style="flex: 1; text-align: right; padding-right: 8px"
-                                    >{{ name }}</div>
-                                    <div style="width: 96px; text-align: right">合計</div>
+                                    >{{ $ui(name) }}</div>
+                                    <div style="width: 96px; text-align: right">{{ $ui("合計") }}</div>
                                 </div>
 
                                 <!-- 整合 expansion panels：title 顯示矩陣資料，展開顯示玩家詳細 -->
@@ -743,13 +717,13 @@
                                         <v-expansion-panel-title class="py-1 px-3">
                                             <div class="d-flex align-center" style="width: 100%">
                                                 <div style="width: 28px" class="text-body-2 font-weight-medium">
-                                                    {{ group.index }}
+                                                    {{ $ui(group.index) }}
                                                 </div>
                                                 <div style="width: 152px" class="text-caption text-disabled">
-                                                    {{ fmtTime(group.startAt) }} ～ {{ fmtTime(group.endAt) }}
+                                                    {{ $ui(fmtTime(group.startAt)) }} ～ {{ $ui(fmtTime(group.endAt)) }}
                                                 </div>
                                                 <div style="width: 68px; text-align: right; padding-right: 8px" class="text-body-2">
-                                                    {{ fmtDuration(group.duration) }}
+                                                    {{ $ui(fmtDuration(group.duration)) }}
                                                 </div>
                                                 <div
                                                     v-for="(dmg, j) in conditionMatrices[result.configId].rows[gi].damages"
@@ -757,13 +731,13 @@
                                                     style="flex: 1; text-align: right; padding-right: 8px"
                                                     class="text-body-2"
                                                 >
-                                                    <span v-if="dmg !== null">{{ Math.round(dmg).toLocaleString() }}</span>
+                                                    <span v-if="dmg !== null">{{ $ui(Math.round(dmg).toLocaleString()) }}</span>
                                                     <span v-else class="text-disabled">—</span>
                                                 </div>
                                                 <div style="width: 96px; text-align: right" class="text-body-2 font-weight-medium">
-                                                    {{ Math.round(group.totalDamage).toLocaleString() }}
+                                                    {{ $ui(Math.round(group.totalDamage).toLocaleString()) }}
                                                     <div class="text-caption text-disabled">
-                                                        {{ fmtPct(result.totalDamage > 0 ? group.totalDamage / result.totalDamage : 0) }}
+                                                        {{ $ui(fmtPct(result.totalDamage > 0 ? group.totalDamage / result.totalDamage : 0)) }}
                                                     </div>
                                                 </div>
                                             </div>
@@ -776,10 +750,10 @@
                                                 class="px-4 py-1 text-caption text-disabled"
                                                 style="border-bottom: 1px solid rgba(128,128,128,0.2); padding-right: 52px !important"
                                             >
-                                                <v-col sm="3">名稱</v-col>
-                                                <v-col sm="3" class="text-right pr-2">總傷害 / 佔比</v-col>
-                                                <v-col sm="3" class="text-right pr-2">主動 / 被動</v-col>
-                                                <v-col sm="3" class="text-right pr-2">暴擊</v-col>
+                                                <v-col sm="3">{{ $ui("名稱") }}</v-col>
+                                                <v-col sm="3" class="text-right pr-2">{{ $ui("總傷害 / 佔比") }}</v-col>
+                                                <v-col sm="3" class="text-right pr-2">{{ $ui("主動 / 被動") }}</v-col>
+                                                <v-col sm="3" class="text-right pr-2">{{ $ui("暴擊") }}</v-col>
                                             </v-row>
 
                                             <!-- 各玩家 expansion panel -->
@@ -797,22 +771,22 @@
                                                             </v-col>
                                                             <v-col sm="3" class="text-right pr-2">
                                                                 <div class="text-body-2">
-                                                                    {{ Math.round(p.totalDamage).toLocaleString() }}
+                                                                    {{ $ui(Math.round(p.totalDamage).toLocaleString()) }}
                                                                 </div>
                                                                 <div class="text-caption text-disabled">
-                                                                    {{ fmtPct(group.totalDamage > 0 ? p.totalDamage / group.totalDamage : 0) }}
+                                                                    {{ $ui(fmtPct(group.totalDamage > 0 ? p.totalDamage / group.totalDamage : 0)) }}
                                                                 </div>
                                                             </v-col>
                                                             <v-col sm="3" class="text-right pr-2">
                                                                 <div class="text-body-2">
-                                                                    {{ fmtPct(p.totalDamage > 0 ? (p.totalDamage - p.passiveDamage) / p.totalDamage : 0) }}
+                                                                    {{ $ui(fmtPct(p.totalDamage > 0 ? (p.totalDamage - p.passiveDamage) / p.totalDamage : 0)) }}
                                                                     <span class="text-disabled">/</span>
-                                                                    {{ fmtPct(p.totalDamage > 0 ? p.passiveDamage / p.totalDamage : 0) }}
+                                                                    {{ $ui(fmtPct(p.totalDamage > 0 ? p.passiveDamage / p.totalDamage : 0)) }}
                                                                 </div>
                                                             </v-col>
                                                             <v-col sm="3" class="text-right pr-2">
                                                                 <div class="text-body-2">
-                                                                    {{ p.critEligible > 0 ? fmtPct(p.critHits / p.critEligible) : '—' }}
+                                                                    {{ $ui(p.critEligible > 0 ? fmtPct(p.critHits / p.critEligible) : '—') }}
                                                                 </div>
                                                             </v-col>
                                                         </v-row>
@@ -830,22 +804,22 @@
                                                         </div>
                                                         <!-- 技能序列 -->
                                                         <v-data-table
-                                                            :headers="skillSeqHeaders"
+                                                            :headers="$uiItems(skillSeqHeaders)"
                                                             :items="p.skillSequence"
                                                             density="compact"
                                                             :items-per-page="-1"
                                                             hide-default-footer
-                                                            no-data-text="無技能紀錄"
+                                                            :no-data-text="$ui('無技能紀錄')"
                                                         >
                                                             <template #item.at="{ item }">
-                                                                {{ fmtTime(item.at) }}
+                                                                {{ $ui(fmtTime(item.at)) }}
                                                             </template>
                                                             <template #item.skillId="{ item }">
-                                                                <span>{{ skillNameMap[item.skillId] ?? `#${item.skillId}` }}</span>
-                                                                <span v-if="item.triggerSkillId" class="text-caption text-disabled ml-1">from:{{ skillNameMap[item.triggerSkillId] ?? `#${item.triggerSkillId}` }}</span>
+                                                                <span>{{ $ui(skillNameMap[item.skillId] ?? `#${item.skillId}`) }}</span>
+                                                                <span v-if="item.triggerSkillId" class="text-caption text-disabled ml-1">from:{{ $ui(skillNameMap[item.triggerSkillId] ?? `#${item.triggerSkillId}`) }}</span>
                                                             </template>
                                                             <template #item.totalDamage="{ item }">
-                                                                {{ Math.round(item.totalDamage).toLocaleString() }}
+                                                                {{ $ui(Math.round(item.totalDamage).toLocaleString()) }}
                                                             </template>
                                                             <template #item.isCrit="{ item }">
                                                                 <v-icon v-if="item.isCrit" size="x-small" color="warning">
@@ -865,7 +839,7 @@
                                     class="d-flex align-center px-4 py-1"
                                     style="border-top: 2px solid rgba(128,128,128,0.25)"
                                 >
-                                    <div style="width: 28px" class="text-caption font-weight-medium">合計</div>
+                                    <div style="width: 28px" class="text-caption font-weight-medium">{{ $ui("合計") }}</div>
                                     <div style="width: 152px"></div>
                                     <div style="width: 68px"></div>
                                     <div
@@ -874,10 +848,10 @@
                                         style="flex: 1; text-align: right; padding-right: 8px"
                                         class="text-body-2 font-weight-medium"
                                     >
-                                        {{ total !== null ? Math.round(total).toLocaleString() : '—' }}
+                                        {{ $ui(total !== null ? Math.round(total).toLocaleString() : '—') }}
                                     </div>
                                     <div style="width: 96px; text-align: right" class="text-body-2 font-weight-bold">
-                                        {{ Math.round(result.totalDamage).toLocaleString() }}
+                                        {{ $ui(Math.round(result.totalDamage).toLocaleString()) }}
                                     </div>
                                 </div>
 
@@ -895,9 +869,7 @@
         <v-dialog v-model="conditionConfigOpen" max-width="700px" scrollable>
             <v-card>
                 <v-card-title class="d-flex align-center">
-                    <v-icon class="mr-2">mdi-filter-cog</v-icon>
-                    自訂條件管理
-                    <v-spacer />
+                    <v-icon class="mr-2">mdi-filter-cog</v-icon>{{ $ui(" 自訂條件管理 ") }}<v-spacer />
                     <v-btn icon variant="text" @click="conditionConfigOpen = false">
                         <v-icon>mdi-close</v-icon>
                     </v-btn>
@@ -909,9 +881,7 @@
                     <div
                         v-if="customConditionConfigs.length === 0"
                         class="text-center text-caption text-disabled py-4"
-                    >
-                        尚無自訂條件
-                    </div>
+                    >{{ $ui(" 尚無自訂條件 ") }}</div>
 
                     <v-list density="compact" class="pa-0">
                         <v-list-item
@@ -945,12 +915,12 @@
                             <v-row dense align="center" no-gutters>
                                 <v-col>
                                     <div class="text-body-2 font-weight-medium">
-                                        {{ config.displayName || '（未命名）' }}
+                                        {{ $ui(config.displayName || '（未命名）') }}
                                     </div>
                                     <div class="text-caption text-disabled">
-                                        {{ describeFilter(config.filter, condNameMap) }}
+                                        {{ $ui(describeFilter(config.filter, condNameMap)) }}
                                         ／
-                                        {{ config.groupBy === 'eachEntry' ? '每段分組' : '合計' }}
+                                        {{ $ui(config.groupBy === 'eachEntry' ? '每段分組' : '合計') }}
                                     </div>
                                 </v-col>
                                 <v-col cols="auto">
@@ -985,20 +955,20 @@
                         variant="text"
                         prepend-icon="mdi-export"
                         @click="handleExport"
-                    >匯出</v-btn>
+                    >{{ $ui("匯出") }}</v-btn>
                     <v-btn
                         size="small"
                         variant="text"
                         prepend-icon="mdi-import"
                         @click="handleImport"
-                    >匯入</v-btn>
+                    >{{ $ui("匯入") }}</v-btn>
                     <v-spacer />
                     <v-btn
                         color="primary"
                         variant="flat"
                         prepend-icon="mdi-plus"
                         @click="startAddCondition"
-                    >新增條件</v-btn>
+                    >{{ $ui("新增條件") }}</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -1008,7 +978,7 @@
             <v-card v-if="editingConfig">
                 <v-card-title class="d-flex align-center">
                     <v-icon class="mr-2">mdi-filter-edit</v-icon>
-                    {{ isNewCondition ? '新增自訂條件' : '編輯自訂條件' }}
+                    {{ $ui(isNewCondition ? '新增自訂條件' : '編輯自訂條件') }}
                     <v-spacer />
                     <v-btn icon variant="text" @click="editDialogOpen = false">
                         <v-icon>mdi-close</v-icon>
@@ -1020,11 +990,11 @@
                     <!-- 顯示名稱 -->
                     <v-text-field
                         v-model="editingConfig.displayName"
-                        label="顯示名稱"
+                        :label="$ui('顯示名稱')"
                         density="compact"
                         variant="outlined"
                         class="mb-3"
-                        placeholder="例：崩壞期間爆發"
+                        :placeholder="$ui('例：崩壞期間爆發')"
                         hide-details
                     />
 
@@ -1037,23 +1007,23 @@
                         hide-details
                     >
                         <template #label>
-                            <span class="text-body-2 mr-2">分組方式</span>
+                            <span class="text-body-2 mr-2">{{ $ui("分組方式") }}</span>
                         </template>
-                        <v-radio value="eachEntry" label="每段分組（每次進出條件各算一段）" />
-                        <v-radio value="none" label="全部合計" />
+                        <v-radio value="eachEntry" :label="$ui('每段分組（每次進出條件各算一段）')" />
+                        <v-radio value="none" :label="$ui('全部合計')" />
                     </v-radio-group>
 
                     <!-- 條件規則（目前僅支援單一 leaf，巢狀未來擴展） -->
                     <v-divider class="mb-3" />
-                    <div class="text-body-2 font-weight-medium mb-2">條件規則</div>
+                    <div class="text-body-2 font-weight-medium mb-2">{{ $ui("條件規則") }}</div>
 
                     <template v-if="editingConfig.filter.type === 'leaf'">
                         <v-select
                             v-model="editingConfig.filter.mode"
-                            :items="filterModeOptions"
+                            :items="$uiItems(filterModeOptions)"
                             item-title="label"
                             item-value="value"
-                            label="觸發模式"
+                            :label="$ui('觸發模式')"
                             density="compact"
                             variant="outlined"
                             class="mb-3"
@@ -1062,7 +1032,7 @@
 
                         <v-autocomplete
                             v-model="editingConfig.filter.conditionId"
-                            :items="conditionOptions"
+                            :items="$uiItems(conditionOptions)"
                             item-title="label"
                             item-value="id"
                             :custom-filter="conditionFilter"
@@ -1073,33 +1043,30 @@
                             class="mb-2"
                         />
 
-                        <div class="text-caption text-disabled">
-                            目前選擇：
-                            <strong>
-                                {{ condNameMap[editingConfig.filter.conditionId] ?? '（未知）' }}
-                                （#{{ editingConfig.filter.conditionId }}）
+                        <div class="text-caption text-disabled">{{ $ui(" 目前選擇： ") }}<strong>
+                                {{ $ui(condNameMap[editingConfig.filter.conditionId] ?? '（未知）') }}
+                                （#{{ $ui(editingConfig.filter.conditionId) }}）
                             </strong>
                         </div>
                     </template>
 
                     <!-- 預覽 -->
                     <v-divider class="mt-3 mb-2" />
-                    <div class="text-caption text-disabled">
-                        預覽：{{ describeFilter(editingConfig.filter, condNameMap) }}
+                    <div class="text-caption text-disabled">{{ $ui(" 預覽：") }}{{ $ui(describeFilter(editingConfig.filter, condNameMap)) }}
                     </div>
                 </v-card-text>
 
                 <v-divider />
                 <v-card-actions>
                     <v-spacer />
-                    <v-btn variant="text" @click="editDialogOpen = false">取消</v-btn>
+                    <v-btn variant="text" @click="editDialogOpen = false">{{ $ui("取消") }}</v-btn>
                     <v-btn
                         color="primary"
                         variant="flat"
                         :disabled="!editingConfig.displayName"
                         @click="saveEditingCondition"
                     >
-                        {{ isNewCondition ? '新增' : '儲存' }}
+                        {{ $ui(isNewCondition ? '新增' : '儲存') }}
                     </v-btn>
                 </v-card-actions>
             </v-card>

@@ -1,28 +1,37 @@
 import { ref, Ref } from 'vue';
 import brotliPromise from 'brotli-dec-wasm';
 
-import { ResourceData, ResourceVersion } from '@/protos/resourcedata';
+import { ResourceVersion } from '@/protos/resourcedata';
+import { ResourceData } from '@/protos/resourceNames';
 
 function getDefaultResourceUrl() {
     if (__IS_STANDALONE__) return 'https://mabires.pril.cc/';
 
-    const isBrowser = typeof window !== 'undefined';
-    const isViteDevPage = isBrowser && window.location.port !== '' && window.location.port !== '8030';
     // The desktop build carries a CN snapshot so opening the application and
-    // resolving skill/boss names never depends on the network.
-    return isViteDevPage ? 'https://mabires.pril.cc/' : '/local-res/';
+    // resolving skill/boss names never depends on the network. The dev server
+    // serves this same public directory, including on non-default ports.
+    return '/local-res/';
 }
 
 export const resUrl = ref(getDefaultResourceUrl());
 
+export function resourceUrl(path: string): string {
+    // TW uses the same official resource service as Prilus. Desktop requests
+    // use the existing proxy; CN retains the bundled/external-pack route.
+    if (/^(resourcedata|resourceversion)\/tw\/tw_/.test(path)) {
+        return `${__IS_STANDALONE__ ? 'https://mabires.pril.cc/' : '/res/'}${path}`;
+    }
+    return `${resUrl.value}${path}`;
+}
+
 let loadingCount: Ref<number>;
 
 export function resVerCall(path: string, opt?: HttpCallOpt): Promise<ResourceVersion> {
-    return httpCall<ResourceVersion>(`${resUrl.value}${path}`, opt);
+    return httpCall<ResourceVersion>(resourceUrl(path), opt);
 }
 
 export async function resDataCall(path: string, opt?: HttpCallOpt): Promise<ResourceData> {
-    const buf = await httpCallRaw(`${resUrl.value}${path}`, opt);
+    const buf = await httpCallRaw(resourceUrl(path), opt);
 
     try {
         loadingCount.value++;
@@ -43,18 +52,9 @@ export type HttpCallOpt = {
 };
 
 async function httpCall<T>(url: string, opt?: HttpCallOpt): Promise<T> {
-    await setLoadingCount();
-
-    try {
-        const buf = await httpCallRaw(url, opt);
-        const text = new TextDecoder('utf-8').decode(buf);
-        return JSON.parse(text);
-    }
-    finally {
-        if (!opt?.disableLoading) {
-            loadingCount.value--;
-        }
-    }
+    const buf = await httpCallRaw(url, opt);
+    const text = new TextDecoder('utf-8').decode(buf);
+    return JSON.parse(text);
 }
 
 async function httpCallRaw(url: string, opt?: HttpCallOpt): Promise<ArrayBuffer> {
@@ -67,6 +67,7 @@ async function httpCallRaw(url: string, opt?: HttpCallOpt): Promise<ArrayBuffer>
 
         const r = await fetch(url, {
             cache: opt?.reload ? 'reload' : undefined,
+            signal: AbortSignal.timeout(30000),
         });
         const buf = await r.arrayBuffer();
         if (r.status != 200) {

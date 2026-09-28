@@ -100,7 +100,7 @@ func main2(ctx context.Context) {
 	// behind the fullscreen game. Native audio requests otherwise arrive late.
 	ensureBackgroundWebViewTimers()
 
-	windowTitle := fmt.Sprintf("%s v%s", AppName, AppVersion)
+	windowTitle := fmt.Sprintf("%s v%s", AppName, AppDisplayVersion)
 	if !strings.EqualFold(BuildVariant, "release") {
 		windowTitle += " · " + BuildVariant
 	}

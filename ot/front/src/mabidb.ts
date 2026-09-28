@@ -1,5 +1,6 @@
 import { resVerCall, resDataCall, init as initApi } from '@/lib/apicall';
-import { ResourceData, ResourceVersion } from '@/protos/resourcedata';
+import { ResourceVersion } from '@/protos/resourcedata';
+import { ResourceData } from '@/protos/resourceNames';
 
 type OnlyArray<T> = T extends Array<infer V> ? V[] : never;
 
@@ -14,6 +15,12 @@ export class MabiDB {
     private static updateCheckInterval = 300;
 
     private dbHandle?: IDBDatabase;
+    public updateError: unknown | null = null;
+
+    public close(): void {
+        this.dbHandle?.close();
+        this.dbHandle = undefined;
+    }
 
     private cachedRegionString: Record<string, string> = {};
     private cachedLangString: Record<string, string> = {};
@@ -34,8 +41,8 @@ export class MabiDB {
                 console.log("MabiDB.open: onupgradeneeded");
 
                 const dbHandle = dbReq.result;
-                dbHandle.createObjectStore(MabiDB.dataTableName);
-                dbHandle.createObjectStore(MabiDB.versionTableName);
+                if (!dbHandle.objectStoreNames.contains(MabiDB.dataTableName)) dbHandle.createObjectStore(MabiDB.dataTableName);
+                if (!dbHandle.objectStoreNames.contains(MabiDB.versionTableName)) dbHandle.createObjectStore(MabiDB.versionTableName);
             };
 
             dbReq.onsuccess = () => {
@@ -55,12 +62,14 @@ export class MabiDB {
 
         // Resource updates are helpful but must never prevent the desktop app
         // from opening with an already cached CN database while offline.
+        this.updateError = null;
         try {
             await this.checkUpdate(this.region);
             if (this.region !== this.lang) {
                 await this.checkUpdate(this.lang);
             }
         } catch (error) {
+            this.updateError = error;
             console.warn("MabiDB.open: resource update failed; using cached data", error);
         }
 
@@ -143,12 +152,14 @@ export class MabiDB {
     }
 
     public async checkUpdate(region: string): Promise<void> {
+        const hasData = (await this.getData("SkillList", region))?.length > 0
+            && (region !== 'tw' || (await this.getData('MultiClassList', region))?.length > 0);
         const latestVersionCheckAt = await this.getVersion("LatestVersionCheckAt", region) || 0;
         const isTooOldVersionCheck = (Date.now() / 1000) - MabiDB.updateCheckInterval > latestVersionCheckAt;
 
         console.log("MabiDB.checkUpdate: isTooOldVersionCheck", latestVersionCheckAt, region)
 
-        if (!isTooOldVersionCheck) {
+        if (hasData && !isTooOldVersionCheck) {
             console.log("MabiDB.checkUpdate: not need update", region);
             return;
         }
@@ -158,8 +169,8 @@ export class MabiDB {
 
         console.log("MabiDB.checkUpdate: latestVersion", latestVersion, "currentVersion", currentVersion, region)
 
-        if (latestVersion <= currentVersion) {
-            this.saveVersion("LatestVersionCheckAt", region, Date.now() / 1000);
+        if (hasData && latestVersion <= currentVersion) {
+            await this.saveVersion("LatestVersionCheckAt", region, Date.now() / 1000);
 
             console.log("MabiDB.checkUpdate: not need update", region);
             return;
@@ -173,6 +184,7 @@ export class MabiDB {
         if (this.region !== this.lang) {
             await this.update(this.lang);
         }
+        this.updateError = null;
     }
 
     private async update(region: string): Promise<void> {
@@ -181,14 +193,13 @@ export class MabiDB {
             loadingCount.value++;
 
             const data = await loadServerResourceData(region);
+            if (!data.Version?.CreatedAt || !data.StringTable.length || !data.SkillList.length || !data.RaceList.length || !data.CharCondList.length || (region === 'tw' && !data.MultiClassList.length)) {
+                throw new Error(`Invalid ${region.toUpperCase()} resource data`);
+            }
             await this.saveDataAll(data, region);
 
-            const version = await loadServerResourceVersion(region);
-            await this.saveVersion("CreatedAt", region, data.Version?.CreatedAt || 0);
-            await this.saveVersion("LatestVersionCheckAt", region, Date.now() / 1000);
-
             await this.reloadStringTable();
-            console.log("MabiDB.update: updated", version.CreatedAt, region);
+            console.log("MabiDB.update: updated", data.Version.CreatedAt, region);
         }
         finally {
             loadingCount.value--;
@@ -224,43 +235,20 @@ export class MabiDB {
             throw new Error("MabiDB.saveDataAll: dbHandle is not ready");
         }
 
-        const tx = dbHandle.transaction(MabiDB.dataTableName, "readwrite");
+        // Commit data and its version together. A quota/write failure must
+        // leave the last complete server snapshot available for offline use.
+        const tx = dbHandle.transaction([MabiDB.dataTableName, MabiDB.versionTableName], "readwrite");
+        const done = new Promise<void>((resolve, reject) => {
+            tx.oncomplete = () => resolve();
+            tx.onabort = () => reject(tx.error || new Error("Resource cache transaction aborted"));
+            tx.onerror = () => reject(tx.error);
+        });
         const store = tx.objectStore(MabiDB.dataTableName);
-
-        const promises: Promise<void>[] = [];
-        const insertPromise = async (req: IDBRequest<IDBValidKey>) => {
-            promises.push(new Promise<void>((resolve, reject) => {
-                req.onsuccess = () => {
-                    resolve();
-                }
-
-                req.onerror = () => {
-                    console.error("MabiDB.saveDataAll: putReq.onerror", req.error);
-                    reject(req.error);
-                }
-            }));
-        }
-
-        for (const _key in data) {
-            const key = _key as keyof ResourceData;
-            const putReq = store.put(data[key], `${key}_${region}`);
-            await insertPromise(putReq);
-
-            /*
-            const list = data[key];
-            if (key != 'StringTable' && list instanceof Array) {
-                for (const v of list) {
-                    const elemKey = `${key}_${region}.${keyGetter(key as any, v)}`;
-                    const elemPutReq = store.put(v, elemKey);
-                    await insertPromise(elemPutReq);
-                }
-            }
-            */
-        }
-
-        await Promise.all(promises);
-
-        tx.commit();
+        for (const key of Object.keys(data) as Array<keyof ResourceData>) store.put(data[key], `${key}_${region}`);
+        const versions = tx.objectStore(MabiDB.versionTableName);
+        versions.put(data.Version?.CreatedAt || 0, `CreatedAt_${region}`);
+        versions.put(Date.now() / 1000, `LatestVersionCheckAt_${region}`);
+        await done;
     }
 
     private async saveVersion(type: string, region: string, version: number): Promise<void> {
@@ -271,19 +259,12 @@ export class MabiDB {
 
         const tx = dbHandle.transaction(MabiDB.versionTableName, "readwrite");
         const store = tx.objectStore(MabiDB.versionTableName);
-        const putReq = store.put(version, `${type}_${region}`);
+        store.put(version, `${type}_${region}`);
         await new Promise<void>((resolve, reject) => {
-            putReq.onsuccess = () => {
-                resolve();
-            }
-
-            putReq.onerror = () => {
-                console.error("MabiDB.saveVersion: putReq.onerror", putReq.error);
-                reject(putReq.error);
-            }
+            tx.oncomplete = () => resolve();
+            tx.onabort = () => reject(tx.error || new Error("Resource version transaction aborted"));
+            tx.onerror = () => reject(tx.error);
         });
-
-        tx.commit();
     }
 
     public getDataVersion(): Promise<number> {
@@ -291,6 +272,8 @@ export class MabiDB {
     }
 
     private async reloadStringTable(): Promise<void> {
+        this.cachedRegionString = {};
+        this.cachedLangString = {};
         const region = await this.getData("StringTable") || [];
         const lang = await this.getData("StringTable", this.lang) || [];
 
@@ -327,18 +310,19 @@ export class MabiDB {
 }
 
 async function loadServerResourceData(region: string): Promise<ResourceData> {
-    const d = await resDataCall(`resourcedata/${region}/${region}_resourcedata.bin.br`);
+    const d = await resDataCall(`resourcedata/${region}/${region}_resourcedata.bin.br`, { reload: true });
 
     return d;
 }
 
 async function loadServerResourceVersion(region: string): Promise<ResourceVersion> {
-    const d = await resVerCall(`resourceversion/${region}/${region}_resourceversion.json`);
+    const d = await resVerCall(`resourceversion/${region}/${region}_resourceversion.json`, { reload: true });
 
     return d;
 }
 
 function keyGetter<T extends ListTypeKeyof<ResourceData>>(typeName: T, d: ResourceData[T][0]): number {
+    if (typeName === 'MultiClassList') return (d as ResourceData['MultiClassList'][0]).Id;
     if (typeName == 'AchievementList') {
         const achievement = d as ResourceData['AchievementList'][0];
         return achievement.Id;

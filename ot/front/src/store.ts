@@ -2,16 +2,17 @@ import { ref, shallowRef, computed } from "vue";
 import { MabiDB } from "@/mabidb";
 import { ActorManager } from "@/eventActor";
 import { DamageCollectorManager } from "@/actionCollector";
+import { resourceRegion } from "@/uiLocale";
 
 export const loadingCount = ref(0);
 export const isLoading = computed(() => loadingCount.value > 0);
 
 // support: ["kr",  "cn", "jp", "tw", "us"]
-const defaultRegion = "cn";
+const defaultRegion = resourceRegion.value;
 
 export const region = ref(defaultRegion);
 export const lang = ref(defaultRegion);
-export const regionList = ref([defaultRegion]);
+export const regionList = ref(["cn", "tw"]);
 
 export const db = computed(() => {
     const instance = new MabiDB(region.value, lang.value);
@@ -60,6 +61,7 @@ export const getDisplayName = (name: string): string => idMappings.value[name] |
 export const raceNameMap = ref<Record<number, string>>({});
 export const skillNameMap = ref<Record<number, string>>({});
 export const condNameMap = ref<Record<number, string>>({});
+export const multiClassNameMap = ref<Record<number, string>>({});
 export const itemNameMap = ref<Record<number, string>>({});
 export const resourceNameVersion = ref(0);
 export const appEvent = ref(new EventTarget());

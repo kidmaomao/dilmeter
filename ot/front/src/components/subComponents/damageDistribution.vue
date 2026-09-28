@@ -1,12 +1,12 @@
 <template>
     <v-sheet class="d-flex flex-column" style="height: 100%;">
         <v-sheet class="d-flex align-center pa-2 flex-shrink-0 flex-wrap" style="gap: 8px;">
-            <span>Count: {{ stats.count }}</span>
-            <span>Critical: {{ stats.criticalCount }} ({{ stats.criticalRate }}%)</span>
-            <span>Avg: {{ humanReadableNumber(stats.avg) }}</span>
-            <span>Min: {{ humanReadableNumber(stats.min) }}</span>
-            <span>Max: {{ humanReadableNumber(stats.max) }}</span>
-            <span>DPS: {{ humanReadableNumber(stats.dps) }}</span>
+            <span>Count: {{ $ui(stats.count) }}</span>
+            <span>Critical: {{ $ui(stats.criticalCount) }} ({{ $ui(stats.criticalRate) }}%)</span>
+            <span>Avg: {{ $ui(humanReadableNumber(stats.avg)) }}</span>
+            <span>Min: {{ $ui(humanReadableNumber(stats.min)) }}</span>
+            <span>Max: {{ $ui(humanReadableNumber(stats.max)) }}</span>
+            <span>DPS: {{ $ui(humanReadableNumber(stats.dps)) }}</span>
             <v-btn v-if="isZoomed" size="x-small" variant="text" color="primary" prepend-icon="mdi-magnify-minus" @click="resetZoom">Reset Zoom</v-btn>
         </v-sheet>
         <div ref="chartDom" style="flex: 1; min-height: 0;"></div>

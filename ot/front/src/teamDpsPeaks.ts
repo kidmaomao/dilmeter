@@ -106,7 +106,7 @@ export function explainDpsPeak(point: TeamDpsPoint, players: readonly PeakPlayer
                     const effectKey = `${c.CCId}:${sourceId}:${target}`;
                     const old = effects.get(effectKey);
                     effects.set(effectKey, { key: effectKey,
-                        name: definition.skillId ? definition.name : context.conditionName?.(c.CCId) || definition.name,
+                        name: context.conditionName?.(c.CCId) || definition.name,
                         source: sourceLabel(sourceId, context.actors), sourceId, target, evidence: 'condition',
                         at: Math.max(old?.at ?? 0, c.At ?? hit.At), newlyApplied: Boolean(old?.newlyApplied || newlyApplied) });
                 }

@@ -7,25 +7,25 @@
             '--overlay-opacity': String(overlayAppearance.opacity / 100),
         }"
     >
-        <section v-if="visibleTargetHealth" class="target-health-overlay-list" aria-label="安乐碎片机制血量">
+        <section v-if="visibleTargetHealth" class="target-health-overlay-list" :aria-label="$ui('安乐碎片机制血量')">
             <div
                 class="target-health-overlay-item"
                 :style="targetHealthPositionStyle(visibleTargetHealth)"
                 role="meter"
-                aria-label="选中目标血量"
+                :aria-label="$ui('选中目标血量')"
                 :aria-valuenow="targetHealthPercent"
                 aria-valuemin="0"
                 aria-valuemax="100"
-                :title="targetHealthTitle"
+                :title="$ui(targetHealthTitle)"
             >
                 <div class="target-health-bar">
                     <span class="target-health-fill" :style="{ width: `${targetHealthPercent}%` }"></span>
-                    <strong class="target-health-name">{{ visibleTargetHealth.name }} · {{ visibleTargetHealth.phaseLabel }}</strong>
-                    <span class="target-health-percent">{{ targetHealthPercent.toFixed(2) }} %</span>
+                    <strong class="target-health-name">{{ $ui(visibleTargetHealth.name) }} · {{ $ui(visibleTargetHealth.phaseLabel) }}</strong>
+                    <span class="target-health-percent">{{ $ui(targetHealthPercent.toFixed(2)) }} %</span>
                 </div>
             </div>
         </section>
-        <section v-if="visibleAimReminder" class="aim-reminder-overlay-list" aria-label="穿心箭瞄准提醒">
+        <section v-if="visibleAimReminder" class="aim-reminder-overlay-list" :aria-label="$ui('穿心箭瞄准提醒')">
             <article
                 class="aim-reminder-overlay-item"
                 :class="{
@@ -38,12 +38,12 @@
             >
                 <div class="aim-reminder-card">
                     <div class="aim-reminder-icon" aria-hidden="true">
-                        <span>弓</span>
+                        <span>{{ $ui("弓") }}</span>
                         <img :src="visibleAimReminder.iconUrl" alt="" @error="hideImage" />
                     </div>
                     <div class="aim-reminder-body">
                         <div class="aim-reminder-title">
-                            <strong>穿心</strong>
+                            <strong>{{ $ui("穿心") }}</strong>
                             <span>85%</span>
                         </div>
                         <div class="aim-reminder-track" aria-hidden="true">
@@ -51,30 +51,30 @@
                             <i class="aim-reminder-best-marker" />
                         </div>
                         <div class="aim-reminder-footer">
-                            <span class="aim-reminder-buffs">{{ aimReminderBuffText(visibleAimReminder) }}</span>
-                            <strong class="aim-reminder-percent">{{ aimReminderProgressText(visibleAimReminder) }}</strong>
+                            <span class="aim-reminder-buffs">{{ $ui(aimReminderBuffText(visibleAimReminder)) }}</span>
+                            <strong class="aim-reminder-percent">{{ $ui(aimReminderProgressText(visibleAimReminder)) }}</strong>
                         </div>
                     </div>
                 </div>
             </article>
         </section>
-        <section v-if="visibleEffectTimers.length" class="effect-timer-overlay-list" aria-label="伤害增益效果计时">
+        <section v-if="visibleEffectTimers.length" class="effect-timer-overlay-list" :aria-label="$ui('伤害增益效果计时')">
             <article
                 v-for="item in visibleEffectTimers"
                 :key="`${item.key}-${item.generation}`"
                 class="effect-timer-overlay-item"
                 :class="`effect-${item.orientation}`"
                 :style="effectTimerPositionStyle(item)"
-                :title="`${item.name} · ${item.sourceType === 'skill' ? '技能' : '状态'} ${item.sourceId}`"
+                :title="$ui(`${item.name} · ${item.sourceType === 'skill' ? '技能' : '状态'} ${item.sourceId}`)"
             >
                 <div class="effect-timer-card">
                     <div class="effect-timer-icon" aria-hidden="true">
-                        <span>{{ item.sourceType === "skill" ? "技" : "态" }}</span>
+                        <span>{{ $ui(item.sourceType === "skill" ? "技" : "态") }}</span>
                         <img :src="item.iconUrl" alt="" @error="hideImage" />
                     </div>
                     <div class="effect-timer-body">
-                        <strong>{{ item.name }}</strong>
-                        <span>{{ effectTimerRemainingText(item) }}</span>
+                        <strong>{{ $ui(item.name) }}</strong>
+                        <span>{{ $ui(effectTimerRemainingText(item)) }}</span>
                         <div class="effect-timer-track" aria-hidden="true">
                             <i :style="effectTimerProgressStyle(item)" />
                         </div>
@@ -82,7 +82,7 @@
                 </div>
             </article>
         </section>
-        <section v-if="visibleItems.length" class="skill-overlay-list" aria-label="技能冷却完成提醒">
+        <section v-if="visibleItems.length" class="skill-overlay-list" :aria-label="$ui('技能冷却完成提醒')">
             <article
                 v-for="item in visibleItems"
                 :key="`${item.skillId}-${item.generation}`"
@@ -97,15 +97,15 @@
                     'progress-full': item.energyGate ? item.energyReady : Number(item.progressPercent) >= 100,
                 }"
                 :style="itemPositionStyle(item)"
-                :title="`${item.name}（技能 ${item.skillId}）`"
+                :title="$ui(`${item.name}（技能 ${item.skillId}）`)"
             >
                 <div class="skill-particle-field" aria-hidden="true">
                     <v-icon v-for="index in 8" :key="index" icon="mdi-star-four-points" class="skill-particle" />
                 </div>
                 <div class="skill-icon-shell">
-                    <span class="skill-icon-fallback">{{ item.skillId }}</span>
-                    <img :src="item.iconUrl" :alt="`${item.name}图标`" @error="hideImage" />
-                    <span v-if="item.petSkill" class="skill-pet-badge">宠</span>
+                    <span class="skill-icon-fallback">{{ $ui(item.skillId) }}</span>
+                    <img :src="item.iconUrl" :alt="$ui(`${item.name}图标`)" @error="hideImage" />
+                    <span v-if="item.petSkill" class="skill-pet-badge">{{ $ui("宠") }}</span>
                     <span
                         v-if="isCooling(item)"
                         class="skill-cooldown-sweep"
@@ -119,28 +119,28 @@
                         aria-hidden="true"
                     />
                 </div>
-                <span v-if="isProgressItem(item)" class="skill-cooldown-countdown toah-progress-label">{{ toahProgressText(item) }}</span>
-                <span v-else-if="isCumulativeAccumulating(item)" class="skill-cooldown-countdown cumulative-cooldown-label">{{ cumulativeCooldownText(item) }}</span>
-                <span v-else-if="isCooling(item)" class="skill-cooldown-countdown">{{ remainingText(item) }}</span>
+                <span v-if="isProgressItem(item)" class="skill-cooldown-countdown toah-progress-label">{{ $ui(toahProgressText(item)) }}</span>
+                <span v-else-if="isCumulativeAccumulating(item)" class="skill-cooldown-countdown cumulative-cooldown-label">{{ $ui(cumulativeCooldownText(item)) }}</span>
+                <span v-else-if="isCooling(item)" class="skill-cooldown-countdown">{{ $ui(remainingText(item)) }}</span>
             </article>
         </section>
-        <section v-if="visibleMechanics.length" class="boss-mechanic-overlay-list" aria-label="Boss 特殊机制倒计时">
+        <section v-if="visibleMechanics.length" class="boss-mechanic-overlay-list" :aria-label="$ui('Boss 特殊机制倒计时')">
             <article
                 v-for="mechanic in visibleMechanics"
                 :key="`${mechanic.key}-${mechanic.generation}`"
                 class="boss-mechanic-overlay-item"
                 :class="mechanicAlertClass(mechanic)"
                 :style="mechanicPositionStyle(mechanic)"
-                :title="mechanic.name"
+                :title="$ui(mechanic.name)"
             >
                 <div class="boss-mechanic-card">
                     <v-icon :icon="mechanic.icon" class="boss-mechanic-icon" aria-hidden="true" />
-                    <strong>{{ mechanicRemainingText(mechanic) }}</strong>
+                    <strong>{{ $ui(mechanicRemainingText(mechanic)) }}</strong>
                     <span class="boss-mechanic-progress" :style="mechanicProgressStyle(mechanic)" aria-hidden="true" />
                 </div>
             </article>
         </section>
-        <section v-if="visibleStackAlerts.length" class="buff-stack-overlay-list" aria-label="Buff 层数提醒">
+        <section v-if="visibleStackAlerts.length" class="buff-stack-overlay-list" :aria-label="$ui('Buff 层数提醒')">
             <article
                 v-for="alert in visibleStackAlerts"
                 :key="`${alert.skillId ? 'skill-' + alert.skillId : alert.ccId}-${alert.generation}`"
@@ -149,9 +149,9 @@
                 :style="stackAlertPositionStyle(alert)"
             >
                 <div class="buff-stack-card">
-                    <span>{{ alert.name }}</span>
-                    <strong>{{ alert.quantityText ?? alert.stack }}</strong>
-                    <small>{{ alert.quantityUnit ?? "层" }}</small>
+                    <span>{{ $ui(alert.name) }}</span>
+                    <strong>{{ $ui(alert.quantityText ?? alert.stack) }}</strong>
+                    <small>{{ $ui(alert.quantityUnit ?? "层") }}</small>
                 </div>
             </article>
         </section>

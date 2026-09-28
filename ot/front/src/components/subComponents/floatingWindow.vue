@@ -2,7 +2,7 @@
     <v-card ref="el" class="floating-window elevation-8" :style="windowStyle" @pointerdown="bringToFront">
         <v-toolbar density="compact" color="primary" @pointerdown.stop="onDragStart"
             style="cursor: move; user-select: none;">
-            <v-toolbar-title class="text-body-2">{{ title }}</v-toolbar-title>
+            <v-toolbar-title class="text-body-2">{{ $ui(title) }}</v-toolbar-title>
             <v-btn :icon="minimized ? 'mdi-window-maximize' : 'mdi-window-minimize'" size="small" variant="text"
                 @click="minimized = !minimized" @pointerdown.stop />
             <v-btn icon="mdi-close" size="small" variant="text" @click="$emit('close')" @pointerdown.stop />

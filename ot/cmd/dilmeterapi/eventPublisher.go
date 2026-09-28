@@ -1243,7 +1243,7 @@ func (t *eventPublisher) publishBossLaserPacket(p *packet.GamePacket) bool {
 		return false
 	}
 	switch p.Op {
-	case packet.OpCode(0xafe7), packet.OpCode(0xafe8), packet.OpCode(0xafef), packet.OpCode(0xaff0):
+	case packet.OpCode(0xafe7), packet.OpCode(0xafe8), packet.OpCode(0xafef), packet.OpCode(0xaff0), packet.OpCode(0xaffa):
 		t.publishBossLaserSignal(p)
 		return true
 	default:
@@ -1256,7 +1256,10 @@ func (t *eventPublisher) publishBossLaserSignal(p *packet.GamePacket) {
 	// client identifies the rotating beam only for the exact Divine Sword
 	// payload: Short(52401), Byte(0). CN captures from 2026-09-12 use
 	// 0xaff0 (45040) with the same payload. Both it and 0xafef also carry
-	// unrelated shard skills, so string/value-only matching is unsafe here.
+	// unrelated actions. The TW capture from 2026-09-28 uses 0xaffa (45050)
+	// for the same Short(52401), Byte(0) deployment, followed by damage 5s later.
+	// TW Divine Spear (52402, 1) and cancellation (0, 1) share this opcode too.
+	// String/value-only matching is unsafe; retain the exact typed signature.
 	if p == nil || len(p.Msg) < 2 || p.Msg[0] == nil || p.Msg[1] == nil ||
 		p.Msg[0].Type() != packet.MessageElemTypeShort ||
 		p.Msg[1].Type() != packet.MessageElemTypeByte ||

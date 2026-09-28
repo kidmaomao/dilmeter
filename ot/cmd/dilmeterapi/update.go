@@ -26,11 +26,12 @@ const mirrorUpdateBaseURL = "https://gear.noginogi.sbs/downloads"
 var UpdateBaseURL = ""
 
 type updateManifest struct {
-	Version string `json:"version"`
-	URL     string `json:"url"`
-	SHA256  string `json:"sha256"`
-	Size    int64  `json:"size,omitempty"`
-	Notes   string `json:"notes,omitempty"`
+	Version        string `json:"version"`
+	DisplayVersion string `json:"displayVersion,omitempty"`
+	URL            string `json:"url"`
+	SHA256         string `json:"sha256"`
+	Size           int64  `json:"size,omitempty"`
+	Notes          string `json:"notes,omitempty"`
 }
 
 type updateStatus struct {
@@ -188,7 +189,11 @@ func validateUpdateManifest(manifest updateManifest) error {
 }
 
 func toUpdateStatus(manifest updateManifest) updateStatus {
-	return updateStatus{CurrentVersion: AppVersion, LatestVersion: manifest.Version, Available: compareVersions(manifest.Version, AppVersion) > 0, Notes: manifest.Notes}
+	displayVersion := strings.TrimSpace(manifest.DisplayVersion)
+	if displayVersion == "" {
+		displayVersion = manifest.Version
+	}
+	return updateStatus{CurrentVersion: AppDisplayVersion, LatestVersion: displayVersion, Available: compareVersions(manifest.Version, AppVersion) > 0, Notes: manifest.Notes}
 }
 
 func compareVersions(left, right string) int {

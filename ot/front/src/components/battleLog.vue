@@ -27,7 +27,7 @@
                     :variant="quickRaceFilter === null ? 'flat' : 'tonal'"
                     :color="quickRaceFilter === null ? 'primary' : undefined"
                     @click="quickSelectRace(null)"
-                >全部</v-btn>
+                >{{ $ui("全部") }}</v-btn>
                 <!-- 各 race 快速按鈕 -->
                 <v-btn
                     v-for="q in quickRaceOptions"
@@ -38,7 +38,7 @@
                     :disabled="!q.entityKey"
                     @click="quickSelectRace(q.raceId)"
                 >
-                    {{ q.name }}
+                    {{ $ui(q.name) }}
                 </v-btn>
             </v-col>
         </v-row>
@@ -46,9 +46,7 @@
         <!-- 未選擇怪物時的提示 -->
         <v-row v-if="!selectedEntityId" dense class="mb-2">
             <v-col cols="12">
-                <v-alert type="info" variant="tonal" density="compact" icon="mdi-cursor-pointer">
-                    請從上方選擇怪物 / Boss 以顯示分析資料
-                </v-alert>
+                <v-alert type="info" variant="tonal" density="compact" icon="mdi-cursor-pointer">{{ $ui(" 請從上方選擇怪物 / Boss 以顯示分析資料 ") }}</v-alert>
             </v-col>
         </v-row>
 
@@ -60,19 +58,17 @@
                         class="text-subtitle-1 py-2 px-3 d-flex align-center"
                         style="cursor: pointer"
                         @click="collapsed.skill = !collapsed.skill"
-                    >
-                        技能使用紀錄
-                        <v-spacer />
+                    >{{ $ui(" 技能使用紀錄 ") }}<v-spacer />
                         <v-icon>{{
-                            collapsed.skill
+                            $ui(collapsed.skill
                                 ? "mdi-chevron-down"
-                                : "mdi-chevron-up"
+                                : "mdi-chevron-up")
                         }}</v-icon>
                     </v-card-title>
                     <template v-if="!collapsed.skill">
                         <v-divider />
                         <v-data-table
-                            :headers="skillHeaders"
+                            :headers="$uiItems(skillHeaders)"
                             :items="skillRows"
                             density="compact"
                             :items-per-page="20"
@@ -84,14 +80,14 @@
                                         color: getMabiNameColor(item.skillName),
                                     }"
                                 >
-                                    {{ item.skillName }}
+                                    {{ $ui(item.skillName) }}
                                 </span>
                             </template>
                             <template #item.firstAt="{ item }">
-                                {{ fmtTime(item.firstAt) }}
+                                {{ $ui(fmtTime(item.firstAt)) }}
                             </template>
                             <template #item.lastAt="{ item }">
-                                {{ fmtTime(item.lastAt) }}
+                                {{ $ui(fmtTime(item.lastAt)) }}
                             </template>
                         </v-data-table>
                     </template>
@@ -105,9 +101,7 @@
                         class="text-subtitle-1 py-2 px-3 d-flex align-center"
                         style="cursor: pointer"
                         @click="collapsed.hp = !collapsed.hp"
-                    >
-                        HP 變動紀錄
-                        <v-tooltip location="bottom" @click.stop>
+                    >{{ $ui(" HP 變動紀錄 ") }}<v-tooltip location="bottom" @click.stop>
                             <template #activator="{ props }">
                                 <v-icon
                                     v-bind="props"
@@ -115,11 +109,7 @@
                                     icon="mdi-information-outline"
                                     class="ml-1"
                                 />
-                            </template>
-                            以傷害事件推算，連續傷害間隔 &lt;{{ gapThreshold }}s
-                            視為同一區段；活躍段命中 &lt;{{ minActiveHits }}
-                            次視為無變動
-                        </v-tooltip>
+                            </template>{{ $ui(" 以傷害事件推算，連續傷害間隔 <") }}{{ $ui(gapThreshold) }}{{ $ui("s 視為同一區段；活躍段命中 <") }}{{ $ui(minActiveHits) }}{{ $ui(" 次視為無變動 ") }}</v-tooltip>
                         <v-spacer />
                         <!-- Export button -->
                         <v-btn
@@ -129,7 +119,7 @@
                             prepend-icon="mdi-export"
                             class="mr-1"
                             @click.stop="copyTable"
-                            >複製</v-btn
+                            >{{ $ui("複製") }}</v-btn
                         >
                         <v-btn
                             v-if="hpSegments.length"
@@ -140,7 +130,7 @@
                             >CSV</v-btn
                         >
                         <v-icon class="ml-1">{{
-                            collapsed.hp ? "mdi-chevron-down" : "mdi-chevron-up"
+                            $ui(collapsed.hp ? "mdi-chevron-down" : "mdi-chevron-up")
                         }}</v-icon>
                     </v-card-title>
                     <template v-if="!collapsed.hp">
@@ -160,13 +150,13 @@
                                 color="primary"
                             >
                                 <v-btn value="damage" size="small"
-                                    >傷害間隔</v-btn
+                                    >{{ $ui("傷害間隔") }}</v-btn
                                 >
                                 <v-btn value="damage+invinc" size="small"
-                                    >傷害+無敵過濾</v-btn
+                                    >{{ $ui("傷害+無敵過濾") }}</v-btn
                                 >
                                 <v-btn value="invinc" size="small"
-                                    >只用無敵狀態</v-btn
+                                    >{{ $ui("只用無敵狀態") }}</v-btn
                                 >
                             </v-btn-toggle>
 
@@ -175,7 +165,7 @@
                                 <v-text-field
                                     v-model.number="gapThreshold"
                                     type="number"
-                                    label="間隔閾值(秒)"
+                                    :label="$ui('間隔閾值(秒)')"
                                     density="compact"
                                     hide-details
                                     min="1"
@@ -185,7 +175,7 @@
                                 <v-text-field
                                     v-model.number="minActiveHits"
                                     type="number"
-                                    label="最小命中次數"
+                                    :label="$ui('最小命中次數')"
                                     density="compact"
                                     hide-details
                                     min="1"
@@ -196,7 +186,7 @@
                             <v-text-field
                                 v-model.number="minDamage"
                                 type="number"
-                                label="最小傷害門檻"
+                                :label="$ui('最小傷害門檻')"
                                 density="compact"
                                 hide-details
                                 min="0"
@@ -206,7 +196,7 @@
                                 v-if="segmentMode !== 'damage'"
                                 v-model.number="invincBridgeGap"
                                 type="number"
-                                label="無敵橋接(秒)"
+                                :label="$ui('無敵橋接(秒)')"
                                 density="compact"
                                 hide-details
                                 min="0"
@@ -216,7 +206,7 @@
                             <v-text-field
                                 v-model.number="minSegmentDuration"
                                 type="number"
-                                label="最小段時長(秒)"
+                                :label="$ui('最小段時長(秒)')"
                                 density="compact"
                                 hide-details
                                 min="0"
@@ -224,10 +214,10 @@
                             />
                             <v-autocomplete
                                 v-model="excludedSkillIds"
-                                :items="bossReceivedSkillOptions"
+                                :items="$uiItems(bossReceivedSkillOptions)"
                                 item-title="name"
                                 item-value="id"
-                                label="排除技能（不計入活躍）"
+                                :label="$ui('排除技能（不計入活躍）')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -247,24 +237,19 @@
                             <span>
                                 <v-icon size="small" color="error"
                                     >mdi-heart-pulse</v-icon
-                                >
-                                活躍：<strong>{{
-                                    fmtDuration(hpSummary.activeTotal)
+                                >{{ $ui(" 活躍：") }}<strong>{{
+                                    $ui(fmtDuration(hpSummary.activeTotal))
                                 }}</strong>
-                                （{{ hpSummary.sessions }} 段）
-                            </span>
+                                （{{ $ui(hpSummary.sessions) }}{{ $ui(" 段） ") }}</span>
                             <span>
                                 <v-icon size="small" color="grey"
                                     >mdi-heart-outline</v-icon
-                                >
-                                無變動：<strong>{{
-                                    fmtDuration(hpSummary.idleTotal)
+                                >{{ $ui(" 無變動：") }}<strong>{{
+                                    $ui(fmtDuration(hpSummary.idleTotal))
                                 }}</strong>
-                                （{{ hpSummary.idleCount }} 段）
-                            </span>
-                            <span>
-                                總計：<strong>{{
-                                    fmtDuration(hpSummary.total)
+                                （{{ $ui(hpSummary.idleCount) }}{{ $ui(" 段） ") }}</span>
+                            <span>{{ $ui(" 總計：") }}<strong>{{
+                                    $ui(fmtDuration(hpSummary.total))
                                 }}</strong>
                             </span>
                         </v-sheet>
@@ -294,8 +279,8 @@
                                 class="d-flex justify-space-between"
                                 style="font-size: 0.75em; color: grey"
                             >
-                                <span>{{ fmtTime(hpSummary.startAt) }}</span>
-                                <span>{{ fmtTime(hpSummary.endAt) }}</span>
+                                <span>{{ $ui(fmtTime(hpSummary.startAt)) }}</span>
+                                <span>{{ $ui(fmtTime(hpSummary.endAt)) }}</span>
                             </div>
                             <!-- HP% markers：僅選中單一怪物時顯示 -->
                             <div
@@ -318,7 +303,7 @@
                                             m.hpPct === 0 ? '#ef5350' : '#aaa',
                                         whiteSpace: 'nowrap',
                                     }"
-                                    >{{ m.hpPct }}%</span
+                                    >{{ $ui(m.hpPct) }}%</span
                                 >
                             </div>
                             <!-- 活躍/無變動比例 -->
@@ -332,33 +317,28 @@
                                 "
                             >
                                 <span>
-                                    <span style="color: #ef5350">■</span>
-                                    活躍
-                                    {{
-                                        hpSummary.total > 0
+                                    <span style="color: #ef5350">■</span>{{ $ui(" 活躍 ") }}{{
+                                        $ui(hpSummary.total > 0
                                             ? (
                                                   (hpSummary.activeTotal /
                                                       hpSummary.total) *
                                                   100
                                               ).toFixed(1)
-                                            : 0
+                                            : 0)
                                     }}%
                                 </span>
                                 <span>
-                                    <span style="color: #e0e0e0">■</span>
-                                    無變動
-                                    {{
-                                        hpSummary.total > 0
+                                    <span style="color: #e0e0e0">■</span>{{ $ui(" 無變動 ") }}{{
+                                        $ui(hpSummary.total > 0
                                             ? (
                                                   (hpSummary.idleTotal /
                                                       hpSummary.total) *
                                                   100
                                               ).toFixed(1)
-                                            : 0
+                                            : 0)
                                     }}%
                                 </span>
-                                <span>
-                                    總時長 {{ fmtDuration(hpSummary.total) }}
+                                <span>{{ $ui(" 總時長 ") }}{{ $ui(fmtDuration(hpSummary.total)) }}
                                 </span>
                             </div>
                         </v-sheet>
@@ -366,7 +346,7 @@
 
                         <!-- Segment table -->
                         <v-data-table
-                            :headers="hpHeaders"
+                            :headers="$uiItems(hpHeaders)"
                             :items="hpSegments"
                             density="compact"
                             :items-per-page="20"
@@ -378,17 +358,17 @@
                                     size="x-small"
                                     variant="flat"
                                 >
-                                    {{ item.active ? "活躍" : "無變動" }}
+                                    {{ $ui(item.active ? "活躍" : "無變動") }}
                                 </v-chip>
                             </template>
                             <template #item.startAt="{ item }">
-                                {{ fmtTime(item.startAt) }}
+                                {{ $ui(fmtTime(item.startAt)) }}
                             </template>
                             <template #item.endAt="{ item }">
-                                {{ fmtTime(item.endAt) }}
+                                {{ $ui(fmtTime(item.endAt)) }}
                             </template>
                             <template #item.duration="{ item }">
-                                {{ fmtDuration(item.duration) }}
+                                {{ $ui(fmtDuration(item.duration)) }}
                             </template>
                             <template #item.hits="{ item }">
                                 <template v-if="item.active">
@@ -397,7 +377,7 @@
                                         variant="tonal"
                                         density="compact"
                                         @click="openDetail(item)"
-                                        >{{ item.hits }}</v-btn
+                                        >{{ $ui(item.hits) }}</v-btn
                                     >
                                 </template>
                                 <template v-else>
@@ -414,12 +394,11 @@
                                         color="warning"
                                         @click="openIdleDetail(item)"
                                         >{{
-                                            getBossSkillsDuring(
+                                            $ui(getBossSkillsDuring(
                                                 item.startAt,
                                                 item.endAt,
-                                            ).length
-                                        }}
-                                        技能</v-btn
+                                            ).length)
+                                        }}{{ $ui(" 技能") }}</v-btn
                                     >
                                     <span v-else class="text-grey">—</span>
                                 </template>
@@ -438,14 +417,12 @@
                         class="text-subtitle-1 py-2 px-3 d-flex align-center"
                         style="cursor: pointer"
                         @click="collapsed.bossSkill = !collapsed.bossSkill"
-                    >
-                        BOSS 技能時間軸
-                        <span class="text-caption text-grey ml-2">
+                    >{{ $ui(" BOSS 技能時間軸 ") }}<span class="text-caption text-grey ml-2">
                             {{
-                                bossSkillFiltered.length ===
+                                $ui(bossSkillFiltered.length ===
                                 bossSkillSequence.length
                                     ? `（共 ${bossSkillSequence.length} 筆）`
-                                    : `（顯示 ${bossSkillFiltered.length} / ${bossSkillSequence.length} 筆）`
+                                    : `（顯示 ${bossSkillFiltered.length} / ${bossSkillSequence.length} 筆）`)
                             }}
                         </span>
                         <v-spacer />
@@ -456,7 +433,7 @@
                             prepend-icon="mdi-export"
                             class="mr-1"
                             @click.stop="copySkillSequence"
-                            >複製</v-btn
+                            >{{ $ui("複製") }}</v-btn
                         >
                         <v-btn
                             v-if="bossSkillSequence.length"
@@ -467,9 +444,9 @@
                             >CSV</v-btn
                         >
                         <v-icon class="ml-1">{{
-                            collapsed.bossSkill
+                            $ui(collapsed.bossSkill
                                 ? "mdi-chevron-down"
-                                : "mdi-chevron-up"
+                                : "mdi-chevron-up")
                         }}</v-icon>
                     </v-card-title>
                     <template v-if="!collapsed.bossSkill">
@@ -484,7 +461,7 @@
                                 <v-text-field
                                     v-model="bossSkillTimeFrom"
                                     type="text"
-                                    label="從"
+                                    :label="$ui('從')"
                                     placeholder="HH:MM:SS"
                                     density="compact"
                                     hide-details
@@ -495,7 +472,7 @@
                                 <v-text-field
                                     v-model="bossSkillTimeTo"
                                     type="text"
-                                    label="至"
+                                    :label="$ui('至')"
                                     placeholder="HH:MM:SS"
                                     density="compact"
                                     hide-details
@@ -506,7 +483,7 @@
                             <v-text-field
                                 v-model.number="consecGap"
                                 type="number"
-                                label="連擊間隔(秒)"
+                                :label="$ui('連擊間隔(秒)')"
                                 density="compact"
                                 hide-details
                                 min="0"
@@ -515,10 +492,10 @@
                             />
                             <v-autocomplete
                                 v-model="bossSkillFilterIds"
-                                :items="bossSkillSequenceOptions"
+                                :items="$uiItems(bossSkillSequenceOptions)"
                                 item-title="name"
                                 item-value="id"
-                                label="技能篩選"
+                                :label="$ui('技能篩選')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -545,7 +522,7 @@
                         </v-sheet>
                         <v-divider />
                         <v-data-table
-                            :headers="bossSkillHeaders"
+                            :headers="$uiItems(bossSkillHeaders)"
                             :items="bossSkillFiltered"
                             density="compact"
                             :items-per-page="50"
@@ -553,12 +530,12 @@
                         >
                             <template #item.at="{ item }">
                                 <span v-if="item.hits > 1" class="text-caption">
-                                    {{ fmtTime(item.at) }}<br />
+                                    {{ $ui(fmtTime(item.at)) }}<br />
                                     <span class="text-grey"
-                                        >～ {{ fmtTime(item.endAt) }}</span
+                                        >～ {{ $ui(fmtTime(item.endAt)) }}</span
                                     >
                                 </span>
-                                <span v-else>{{ fmtTime(item.at) }}</span>
+                                <span v-else>{{ $ui(fmtTime(item.at)) }}</span>
                             </template>
                             <template #item.skillName="{ item }">
                                 <span
@@ -566,7 +543,7 @@
                                         color: getMabiNameColor(item.skillName),
                                     }"
                                 >
-                                    {{ item.skillName }}
+                                    {{ $ui(item.skillName) }}
                                 </span>
                             </template>
                             <template #item.hits="{ item }">
@@ -575,13 +552,13 @@
                                     size="x-small"
                                     color="primary"
                                     variant="flat"
-                                    >{{ item.hits }} hit</v-chip
+                                    >{{ $ui(item.hits) }} hit</v-chip
                                 >
                                 <span v-else class="text-grey">1</span>
                             </template>
                             <template #item.targetNames="{ item }">
                                 <span v-if="item.targetNames.length === 1">
-                                    {{ item.targetNames[0] }}
+                                    {{ $ui(item.targetNames[0]) }}
                                 </span>
                                 <span
                                     v-else
@@ -594,12 +571,12 @@
                                         size="x-small"
                                         variant="tonal"
                                         color="info"
-                                        >{{ name }}</v-chip
+                                        >{{ $ui(name) }}</v-chip
                                     >
                                 </span>
                             </template>
                             <template #item.damage="{ item }">
-                                {{ Math.round(item.damage).toLocaleString() }}
+                                {{ $ui(Math.round(item.damage).toLocaleString()) }}
                             </template>
                             <template #item.isCrit="{ item }">
                                 <v-icon
@@ -619,7 +596,7 @@
                                                 : '#aaa',
                                     }"
                                 >
-                                    {{ item.hpPhase }}
+                                    {{ $ui(item.hpPhase) }}
                                 </span>
                             </template>
                         </v-data-table>
@@ -636,14 +613,12 @@
                         class="text-subtitle-1 py-2 px-3 d-flex align-center"
                         style="cursor: pointer"
                         @click="collapsed.playerDmg = !collapsed.playerDmg"
-                    >
-                        玩家對 BOSS 傷害紀錄
-                        <span class="text-caption text-grey ml-2">
+                    >{{ $ui(" 玩家對 BOSS 傷害紀錄 ") }}<span class="text-caption text-grey ml-2">
                             {{
-                                playerDmgWithTriggers.length ===
+                                $ui(playerDmgWithTriggers.length ===
                                 playerDamageLog.length
                                     ? `（共 ${playerDamageLog.length} 筆）`
-                                    : `（顯示 ${playerDmgWithTriggers.length} / ${playerDamageLog.length} 筆）`
+                                    : `（顯示 ${playerDmgWithTriggers.length} / ${playerDamageLog.length} 筆）`)
                             }}
                         </span>
                         <v-spacer />
@@ -654,7 +629,7 @@
                             prepend-icon="mdi-export"
                             class="mr-1"
                             @click.stop="copyPlayerDmg"
-                            >複製</v-btn
+                            >{{ $ui("複製") }}</v-btn
                         >
                         <v-btn
                             v-if="playerDamageLog.length"
@@ -665,9 +640,9 @@
                             >CSV</v-btn
                         >
                         <v-icon class="ml-1">{{
-                            collapsed.playerDmg
+                            $ui(collapsed.playerDmg
                                 ? "mdi-chevron-down"
-                                : "mdi-chevron-up"
+                                : "mdi-chevron-up")
                         }}</v-icon>
                     </v-card-title>
                     <template v-if="!collapsed.playerDmg">
@@ -680,7 +655,7 @@
                                 :color="showCritMark ? 'warning' : undefined"
                                 prepend-icon="mdi-star"
                                 @click="showCritMark = !showCritMark"
-                            >標示爆擊</v-btn>
+                            >{{ $ui("標示爆擊") }}</v-btn>
                         </v-sheet>
                         <v-divider />
                         <!-- Filter bar -->
@@ -693,7 +668,7 @@
                                 <v-text-field
                                     v-model="playerDmgTimeFrom"
                                     type="text"
-                                    label="從"
+                                    :label="$ui('從')"
                                     placeholder="HH:MM:SS"
                                     density="compact"
                                     hide-details
@@ -704,7 +679,7 @@
                                 <v-text-field
                                     v-model="playerDmgTimeTo"
                                     type="text"
-                                    label="至"
+                                    :label="$ui('至')"
                                     placeholder="HH:MM:SS"
                                     density="compact"
                                     hide-details
@@ -714,7 +689,7 @@
                             </div>
                             <v-checkbox
                                 v-model="filterOutPets"
-                                label="排除寵物"
+                                :label="$ui('排除寵物')"
                                 density="compact"
                                 hide-details
                                 class="flex-grow-0"
@@ -724,7 +699,7 @@
                                 :items="playerNameOptions"
                                 item-title="name"
                                 item-value="id"
-                                label="玩家篩選"
+                                :label="$ui('玩家篩選')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -738,7 +713,7 @@
                                 :items="playerSkillOptions"
                                 item-title="name"
                                 item-value="id"
-                                label="技能篩選"
+                                :label="$ui('技能篩選')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -752,7 +727,7 @@
                                 :items="playerCCOptions"
                                 item-value="value"
                                 item-title="title"
-                                label="玩家狀態篩選"
+                                :label="$ui('玩家狀態篩選')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -773,13 +748,13 @@
                                             "
                                         />
                                         {{
-                                            condNameMap[item.raw.value] ??
-                                            item.raw.value
+                                            $ui(condNameMap[item.raw.value] ??
+                                            item.raw.value)
                                         }}
                                     </v-chip>
                                 </template>
                                 <template #item="{ item, props: ip }">
-                                    <v-list-item v-bind="ip" :title="undefined">
+                                    <v-list-item v-bind="ip" :title="$ui(undefined)">
                                         <div
                                             class="d-flex align-center"
                                             style="gap: 6px"
@@ -791,7 +766,7 @@
                                                 style="border-radius: 2px"
                                             />
                                             <span class="text-caption">{{
-                                                item.raw.title
+                                                $ui(item.raw.title)
                                             }}</span>
                                         </div>
                                     </v-list-item>
@@ -799,10 +774,10 @@
                             </v-autocomplete>
                             <v-autocomplete
                                 v-model="bossCCFilter"
-                                :items="bossCCOptions"
+                                :items="$uiItems(bossCCOptions)"
                                 item-value="value"
                                 item-title="title"
-                                label="BOSS狀態篩選"
+                                :label="$ui('BOSS狀態篩選')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -823,13 +798,13 @@
                                             "
                                         />
                                         {{
-                                            condNameMap[item.raw.value] ??
-                                            item.raw.value
+                                            $ui(condNameMap[item.raw.value] ??
+                                            item.raw.value)
                                         }}
                                     </v-chip>
                                 </template>
                                 <template #item="{ item, props: ip }">
-                                    <v-list-item v-bind="ip" :title="undefined">
+                                    <v-list-item v-bind="ip" :title="$ui(undefined)">
                                         <div
                                             class="d-flex align-center"
                                             style="gap: 6px"
@@ -841,7 +816,7 @@
                                                 style="border-radius: 2px"
                                             />
                                             <span class="text-caption">{{
-                                                item.raw.title
+                                                $ui(item.raw.title)
                                             }}</span>
                                         </div>
                                     </v-list-item>
@@ -852,7 +827,7 @@
                                 variant="tonal"
                                 prepend-icon="mdi-tune"
                                 @click="ccConfigOpen = true"
-                                >欄位設定</v-btn
+                                >{{ $ui("欄位設定") }}</v-btn
                             >
                             <v-btn
                                 v-if="
@@ -886,19 +861,19 @@
                                 @click="passiveConfigOpen = !passiveConfigOpen"
                             >
                                 <v-icon size="small">{{
-                                    passiveConfigOpen
+                                    $ui(passiveConfigOpen
                                         ? "mdi-chevron-up"
-                                        : "mdi-chevron-down"
+                                        : "mdi-chevron-down")
                                 }}</v-icon>
                                 <span class="text-caption"
-                                    >被動技能觸發設定</span
+                                    >{{ $ui("被動技能觸發設定") }}</span
                                 >
                                 <v-chip
                                     v-if="passiveRules.length"
                                     size="x-small"
                                     color="primary"
                                     variant="tonal"
-                                    >{{ passiveRules.length }} 條規則</v-chip
+                                    >{{ $ui(passiveRules.length) }}{{ $ui(" 條規則") }}</v-chip
                                 >
                             </div>
                             <v-expand-transition>
@@ -914,7 +889,7 @@
                                             :items="playerSkillOptions"
                                             item-title="name"
                                             item-value="id"
-                                            label="被動技能"
+                                            :label="$ui('被動技能')"
                                             density="compact"
                                             hide-details
                                             :error="rule.skillId === 0"
@@ -942,7 +917,7 @@
                                         <v-text-field
                                             v-model.number="rule.ratioMin"
                                             type="number"
-                                            label="傷害比例下限%"
+                                            :label="$ui('傷害比例下限%')"
                                             density="compact"
                                             hide-details
                                             min="0"
@@ -951,7 +926,7 @@
                                         <v-text-field
                                             v-model.number="rule.ratioMax"
                                             type="number"
-                                            label="傷害比例上限%"
+                                            :label="$ui('傷害比例上限%')"
                                             density="compact"
                                             hide-details
                                             min="0"
@@ -960,7 +935,7 @@
                                         <v-text-field
                                             v-model.number="rule.lookback"
                                             type="number"
-                                            label="往前幾秒"
+                                            :label="$ui('往前幾秒')"
                                             density="compact"
                                             hide-details
                                             min="1"
@@ -984,28 +959,28 @@
                                             variant="tonal"
                                             prepend-icon="mdi-plus"
                                             @click="addPassiveRule()"
-                                            >新增規則</v-btn
+                                            >{{ $ui("新增規則") }}</v-btn
                                         >
                                         <v-btn
                                             size="x-small"
                                             variant="tonal"
                                             color="warning"
                                             @click="addPassivePreset('flash')"
-                                            >+ 閃焰 (40~49%)</v-btn
+                                            >{{ $ui("+ 閃焰 (40~49%)") }}</v-btn
                                         >
                                         <v-btn
                                             size="x-small"
                                             variant="tonal"
                                             color="error"
                                             @click="addPassivePreset('burst')"
-                                            >+ 爆破 (44~56%)</v-btn
+                                            >{{ $ui("+ 爆破 (44~56%)") }}</v-btn
                                         >
                                         <v-btn
                                             size="x-small"
                                             variant="tonal"
                                             color="info"
                                             @click="addPassivePreset('chain')"
-                                            >+ 連續攻擊 (190~240%)</v-btn
+                                            >{{ $ui("+ 連續攻擊 (190~240%)") }}</v-btn
                                         >
                                     </div>
                                 </div>
@@ -1014,14 +989,14 @@
                         <v-divider />
 
                         <v-data-table
-                            :headers="playerDmgHeaders"
+                            :headers="$uiItems(playerDmgHeaders)"
                             :items="playerDmgWithTriggers"
                             density="compact"
                             :items-per-page="50"
                             no-data-text="No data"
                         >
                             <template #item.at="{ item }">
-                                {{ fmtTime24(item.at) }}
+                                {{ $ui(fmtTime24(item.at)) }}
                             </template>
                             <template #item.playerName="{ item }">
                                 <span
@@ -1031,13 +1006,12 @@
                                         ),
                                     }"
                                 >
-                                    {{ item.playerName }}
+                                    {{ $ui(item.playerName) }}
                                 </span>
                                 <span
                                     v-if="item.petName"
                                     class="text-caption text-grey ml-1"
-                                >
-                                    (寵: {{ item.petName }})
+                                >{{ $ui(" (寵: ") }}{{ $ui(item.petName) }})
                                 </span>
                             </template>
                             <template #item.skillName="{ item }">
@@ -1051,7 +1025,7 @@
                                                 item.skillName,
                                             ),
                                         }"
-                                        >{{ item.skillName }}</span
+                                        >{{ $ui(item.skillName) }}</span
                                     >
                                     <template v-if="item.trigger">
                                         <span class="text-grey text-caption"
@@ -1063,21 +1037,21 @@
                                                     item.trigger.skillName,
                                                 ),
                                             }"
-                                            >{{ item.trigger.skillName }}</span
+                                            >{{ $ui(item.trigger.skillName) }}</span
                                         >
                                         <v-chip
                                             size="x-small"
                                             variant="tonal"
                                             color="secondary"
                                             >{{
-                                                item.trigger.ratio.toFixed(1)
+                                                $ui(item.trigger.ratio.toFixed(1))
                                             }}%</v-chip
                                         >
                                     </template>
                                     <span
                                         v-else-if="item.isPassive"
                                         class="text-grey text-caption"
-                                        >（未匹配觸發）</span
+                                        >{{ $ui("（未匹配觸發）") }}</span
                                     >
                                 </span>
                             </template>
@@ -1089,7 +1063,7 @@
                                         color="warning"
                                     >mdi-star</v-icon>
                                     <span :style="item.isCrit && showCritMark ? { color: 'rgb(var(--v-theme-warning))' } : {}">
-                                        {{ Math.round(item.damage).toLocaleString() }}
+                                        {{ $ui(Math.round(item.damage).toLocaleString()) }}
                                     </span>
                                 </span>
                             </template>
@@ -1107,7 +1081,7 @@
                                         width="20"
                                         height="20"
                                         :src="`/res/characterconditionimage/${region}/${ccId}/${ccId}.png`"
-                                        :title="`${ccId} ${condNameMap[ccId] ?? ''}`"
+                                        :title="$ui(`${ccId} ${condNameMap[ccId] ?? ''}`)"
                                         style="border-radius: 2px"
                                     />
                                     <span
@@ -1138,7 +1112,7 @@
                                         width="20"
                                         height="20"
                                         :src="`/res/characterconditionimage/${region}/${ccId}/${ccId}.png`"
-                                        :title="`${ccId} ${condNameMap[ccId] ?? ''}`"
+                                        :title="$ui(`${ccId} ${condNameMap[ccId] ?? ''}`)"
                                         style="border-radius: 2px"
                                     />
                                     <span
@@ -1169,10 +1143,8 @@
                         class="text-subtitle-1 py-2 px-3 d-flex align-center"
                         style="cursor: pointer"
                         @click="collapsed.scatter = !collapsed.scatter"
-                    >
-                        傷害散點圖
-                        <v-spacer />
-                        <v-icon>{{ collapsed.scatter ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+                    >{{ $ui(" 傷害散點圖 ") }}<v-spacer />
+                        <v-icon>{{ $ui(collapsed.scatter ? 'mdi-chevron-down' : 'mdi-chevron-up') }}</v-icon>
                     </v-card-title>
                     <template v-if="!collapsed.scatter">
                         <v-divider />
@@ -1182,7 +1154,7 @@
                                 :items="playerNameOptions"
                                 item-title="name"
                                 item-value="id"
-                                label="角色"
+                                :label="$ui('角色')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -1193,10 +1165,10 @@
                             />
                             <v-autocomplete
                                 v-model="scatterFilterSkillIds"
-                                :items="scatterSkillOptions"
+                                :items="$uiItems(scatterSkillOptions)"
                                 item-title="name"
                                 item-value="id"
-                                label="技能"
+                                :label="$ui('技能')"
                                 density="compact"
                                 hide-details
                                 multiple
@@ -1212,16 +1184,16 @@
                                 color="primary"
                                 rounded="lg"
                             >
-                                <v-btn value="all" size="small">全部</v-btn>
-                                <v-btn value="non-crit" size="small">非暴</v-btn>
-                                <v-btn value="crit" size="small">暴擊</v-btn>
+                                <v-btn value="all" size="small">{{ $ui("全部") }}</v-btn>
+                                <v-btn value="non-crit" size="small">{{ $ui("非暴") }}</v-btn>
+                                <v-btn value="crit" size="small">{{ $ui("暴擊") }}</v-btn>
                             </v-btn-toggle>
                             <v-select
                                 v-model="scatterMaWindow"
-                                :items="scatterMaOptions"
+                                :items="$uiItems(scatterMaOptions)"
                                 item-title="label"
                                 item-value="value"
-                                label="移動平均"
+                                :label="$ui('移動平均')"
                                 density="compact"
                                 hide-details
                                 style="max-width: 110px"
@@ -1238,12 +1210,12 @@
         <v-dialog v-model="ccConfigOpen" max-width="680">
             <v-card>
                 <v-card-title class="text-subtitle-1 py-2 px-4"
-                    >狀態欄位設定</v-card-title
+                    >{{ $ui("狀態欄位設定") }}</v-card-title
                 >
                 <v-divider />
                 <v-tabs v-model="ccConfigTab" density="compact">
-                    <v-tab value="player">玩家</v-tab>
-                    <v-tab value="boss">怪物</v-tab>
+                    <v-tab value="player">{{ $ui("玩家") }}</v-tab>
+                    <v-tab value="boss">{{ $ui("怪物") }}</v-tab>
                 </v-tabs>
                 <v-divider />
                 <v-card-text class="pt-3">
@@ -1263,7 +1235,7 @@
                                     density="compact"
                                     hide-details
                                     clearable
-                                    placeholder="搜尋"
+                                    :placeholder="$ui('搜尋')"
                                     prepend-inner-icon="mdi-magnify"
                                     style="flex: 1"
                                 />
@@ -1273,7 +1245,7 @@
                                 style="gap: 4px; min-height: 28px"
                             >
                                 <span class="text-caption text-grey"
-                                    >不顯示</span
+                                    >{{ $ui("不顯示") }}</span
                                 >
                                 <div class="d-flex" style="gap: 4px">
                                     <v-btn
@@ -1281,14 +1253,14 @@
                                         variant="text"
                                         @click="ccSelectAllLeft"
                                         :disabled="!ccLeftFiltered.length"
-                                        >全選</v-btn
+                                        >{{ $ui("全選") }}</v-btn
                                     >
                                     <v-btn
                                         v-if="ccDualLeftSel.length"
                                         size="x-small"
                                         variant="text"
                                         @click="ccDualLeftSel = []"
-                                        >清除選取</v-btn
+                                        >{{ $ui("清除選取") }}</v-btn
                                     >
                                 </div>
                             </div>
@@ -1332,10 +1304,10 @@
                                         "
                                     />
                                     <span class="text-caption">{{
-                                        condNameMap[ccId] ?? `CC ${ccId}`
+                                        $ui(condNameMap[ccId] ?? `CC ${ccId}`)
                                     }}</span>
                                     <span class="text-caption text-grey"
-                                        >({{ ccId }})</span
+                                        >({{ $ui(ccId) }})</span
                                     >
                                 </div>
                                 <div
@@ -1343,9 +1315,9 @@
                                     class="text-caption text-grey text-center pa-3"
                                 >
                                     {{
-                                        ccLeftSearch
+                                        $ui(ccLeftSearch
                                             ? "無符合結果"
-                                            : "（全部顯示中）"
+                                            : "（全部顯示中）")
                                     }}
                                 </div>
                             </div>
@@ -1387,7 +1359,7 @@
                                     density="compact"
                                     hide-details
                                     clearable
-                                    placeholder="搜尋"
+                                    :placeholder="$ui('搜尋')"
                                     prepend-inner-icon="mdi-magnify"
                                     style="flex: 1"
                                 />
@@ -1396,21 +1368,21 @@
                                 class="px-2 pb-1 d-flex align-center justify-space-between"
                                 style="gap: 4px; min-height: 28px"
                             >
-                                <span class="text-caption text-grey">顯示</span>
+                                <span class="text-caption text-grey">{{ $ui("顯示") }}</span>
                                 <div class="d-flex" style="gap: 4px">
                                     <v-btn
                                         size="x-small"
                                         variant="text"
                                         @click="ccSelectAllRight"
                                         :disabled="!ccRightFiltered.length"
-                                        >全選</v-btn
+                                        >{{ $ui("全選") }}</v-btn
                                     >
                                     <v-btn
                                         v-if="ccDualRightSel.length"
                                         size="x-small"
                                         variant="text"
                                         @click="ccDualRightSel = []"
-                                        >清除選取</v-btn
+                                        >{{ $ui("清除選取") }}</v-btn
                                     >
                                     <v-btn
                                         v-if="
@@ -1423,7 +1395,7 @@
                                         variant="text"
                                         color="primary"
                                         @click="ccResetVisible"
-                                        >重設全顯示</v-btn
+                                        >{{ $ui("重設全顯示") }}</v-btn
                                     >
                                 </div>
                             </div>
@@ -1467,10 +1439,10 @@
                                         "
                                     />
                                     <span class="text-caption">{{
-                                        condNameMap[ccId] ?? `CC ${ccId}`
+                                        $ui(condNameMap[ccId] ?? `CC ${ccId}`)
                                     }}</span>
                                     <span class="text-caption text-grey"
-                                        >({{ ccId }})</span
+                                        >({{ $ui(ccId) }})</span
                                     >
                                 </div>
                                 <div
@@ -1478,9 +1450,9 @@
                                     class="text-caption text-grey text-center pa-3"
                                 >
                                     {{
-                                        ccRightSearch
+                                        $ui(ccRightSearch
                                             ? "無符合結果"
-                                            : "（全部隱藏）"
+                                            : "（全部隱藏）")
                                     }}
                                 </div>
                             </div>
@@ -1493,7 +1465,7 @@
                         size="small"
                         variant="text"
                         @click="ccConfigOpen = false"
-                        >關閉</v-btn
+                        >{{ $ui("關閉") }}</v-btn
                     >
                 </v-card-actions>
             </v-card>
@@ -1502,21 +1474,19 @@
         <!-- Detail dialog：技能命中詳情 -->
         <v-dialog v-model="detailOpen" max-width="520">
             <v-card>
-                <v-card-title class="text-subtitle-1">
-                    技能命中詳情
-                    <span
+                <v-card-title class="text-subtitle-1">{{ $ui(" 技能命中詳情 ") }}<span
                         v-if="detailSegment"
                         class="text-caption text-grey ml-2"
                     >
-                        {{ fmtTime(detailSegment.startAt) }} ～
-                        {{ fmtTime(detailSegment.endAt) }} （{{
-                            fmtDuration(detailSegment.duration)
+                        {{ $ui(fmtTime(detailSegment.startAt)) }} ～
+                        {{ $ui(fmtTime(detailSegment.endAt)) }} （{{
+                            $ui(fmtDuration(detailSegment.duration))
                         }}）
                     </span>
                 </v-card-title>
                 <v-divider />
                 <v-data-table
-                    :headers="detailHeaders"
+                    :headers="$uiItems(detailHeaders)"
                     :items="detailRows"
                     density="compact"
                     :items-per-page="-1"
@@ -1527,20 +1497,20 @@
                         <span
                             :style="{ color: getMabiNameColor(item.skillName) }"
                         >
-                            {{ item.skillName }}
+                            {{ $ui(item.skillName) }}
                         </span>
                     </template>
                     <template #item.avgDamage="{ item }">
-                        {{ item.avgDamage.toFixed(0) }}
+                        {{ $ui(item.avgDamage.toFixed(0)) }}
                     </template>
                     <template #item.totalDamage="{ item }">
-                        {{ Math.round(item.totalDamage).toLocaleString() }}
+                        {{ $ui(Math.round(item.totalDamage).toLocaleString()) }}
                     </template>
                 </v-data-table>
                 <v-card-actions>
                     <v-spacer />
                     <v-btn variant="text" @click="detailOpen = false"
-                        >關閉</v-btn
+                        >{{ $ui("關閉") }}</v-btn
                     >
                 </v-card-actions>
             </v-card>
@@ -1549,21 +1519,19 @@
         <!-- Idle detail dialog：無變動期間 BOSS 技能 -->
         <v-dialog v-model="idleDetailOpen" max-width="560">
             <v-card>
-                <v-card-title class="text-subtitle-1">
-                    無變動期間 BOSS 技能
-                    <span
+                <v-card-title class="text-subtitle-1">{{ $ui(" 無變動期間 BOSS 技能 ") }}<span
                         v-if="idleDetailSegment"
                         class="text-caption text-grey ml-2"
                     >
-                        {{ fmtTime(idleDetailSegment.startAt) }} ～
-                        {{ fmtTime(idleDetailSegment.endAt) }}（{{
-                            fmtDuration(idleDetailSegment.duration)
+                        {{ $ui(fmtTime(idleDetailSegment.startAt)) }} ～
+                        {{ $ui(fmtTime(idleDetailSegment.endAt)) }}（{{
+                            $ui(fmtDuration(idleDetailSegment.duration))
                         }}）
                     </span>
                 </v-card-title>
                 <v-divider />
                 <v-data-table
-                    :headers="idleDetailHeaders"
+                    :headers="$uiItems(idleDetailHeaders)"
                     :items="idleDetailRows"
                     density="compact"
                     :items-per-page="-1"
@@ -1574,29 +1542,27 @@
                         <span
                             :style="{ color: getMabiNameColor(item.skillName) }"
                         >
-                            {{ item.skillName }}
+                            {{ $ui(item.skillName) }}
                         </span>
                     </template>
                     <template #item.avgDamage="{ item }">
-                        {{ item.avgDamage.toFixed(0) }}
+                        {{ $ui(item.avgDamage.toFixed(0)) }}
                     </template>
                     <template #item.totalDamage="{ item }">
-                        {{ Math.round(item.totalDamage).toLocaleString() }}
+                        {{ $ui(Math.round(item.totalDamage).toLocaleString()) }}
                     </template>
                 </v-data-table>
                 <v-card-actions>
                     <v-spacer />
                     <v-btn variant="text" @click="idleDetailOpen = false"
-                        >關閉</v-btn
+                        >{{ $ui("關閉") }}</v-btn
                     >
                 </v-card-actions>
             </v-card>
         </v-dialog>
 
         <!-- Copy snackbar -->
-        <v-snackbar v-model="snackbar" :timeout="2000" location="bottom right">
-            已複製到剪貼簿
-        </v-snackbar>
+        <v-snackbar v-model="snackbar" :timeout="2000" location="bottom right">{{ $ui(" 已複製到剪貼簿 ") }}</v-snackbar>
     </v-container>
 </template>
 
