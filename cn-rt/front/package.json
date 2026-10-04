@@ -7,6 +7,8 @@
     "serve": "vite serve",
     "build": "vite build",
     "verify:live-battles": "node scripts/verify-live-battles.mjs",
+    "verify:arcana-kpi": "node scripts/verify-arcana-kpi.mjs",
+    "verify:aim-kpi-sampling": "node scripts/verify-aim-kpi-sampling.mjs",
     "verify:dorcha": "node scripts/verify-dorcha.mjs",
     "verify:team-dps": "node scripts/verify-team-dps.mjs",
     "verify:team-dps-peaks": "node scripts/verify-team-dps-peaks.mjs",
@@ -32,7 +34,8 @@
     "verify:native-ready": "node scripts/verify-native-ready.mjs",
     "verify:background-reactivity": "node scripts/verify-background-reactivity.mjs",
     "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
-    "verify:healer-templates": "node scripts/verify-healer-templates.mjs"
+    "verify:healer-templates": "node scripts/verify-healer-templates.mjs",
+    "verify:burst-reminders": "node scripts/verify-burst-reminders.mjs"
   },
   "author": "",
   "license": "ISC",

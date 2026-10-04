@@ -1,5 +1,6 @@
 import { condNameMap, multiClassNameMap } from './store';
 import { normalizeNameSearch, resourceRegion, uiText } from './uiLocale';
+import { TW_GAME_TERMS } from './data/twGameTerms';
 
 // Detection/configuration keys remain stable. Only presentation follows the
 // selected server, so existing reports, privacy labels and saved rules still work.
@@ -14,7 +15,7 @@ export function jobDisplayName(name: string | null | undefined): string {
     if (!name) return '';
     if (resourceRegion.value !== 'tw') return uiText(name);
     const id = multiClassAliases[normalizeNameSearch(name)];
-    return (id && multiClassNameMap.value[id]) || name;
+    return (id && (multiClassNameMap.value[id] || TW_GAME_TERMS.find(term => term.kind === 'class' && term.id === id)?.tw)) || name;
 }
 
 export function jobDetailText(text: string | undefined): string | undefined {

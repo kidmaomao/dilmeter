@@ -41,10 +41,11 @@ type CombatActionPacketAttackerInfo struct {
 }
 
 type CombatActionPacketHitInfo struct {
-	Options    CombatActionHitOptions
-	Damage     float32
-	Wound      float32
-	ManaDamage uint32
+	Options       CombatActionHitOptions
+	Damage        float32
+	Wound         float32
+	ManaDamage    uint32
+	MultiHitCount uint32
 }
 
 type CombatActionType uint8
@@ -345,6 +346,9 @@ func parseCombatActionPacket(id uint64, msg Message) (*CombatActionPacket, error
 
 		if (options&CombatActionHitOptionsMultiHit) != 0 && len(msg) >= 4 {
 			// hit count, unk2, unk3, unk4
+			if msg[0].Type() == MessageElemTypeInt {
+				v.Hit.MultiHitCount = msg[0].Data().(uint32)
+			}
 			msg = msg[4:]
 		}
 

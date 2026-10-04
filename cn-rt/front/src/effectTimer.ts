@@ -65,7 +65,7 @@ export function normalizeEffectTimerSettings(value: unknown): EffectTimerSetting
             key,
             enabled: rule.enabled !== false,
             sourceType: rule.sourceType === "skill" ? "skill" : "condition",
-            sourceId: clampInteger(rule.sourceId, 1, 4_294_967_295, 1),
+            sourceId: clampInteger(rule.sourceId, rule.sourceType === "skill" ? 1 : 0, 4_294_967_295, 1),
             name: sanitizeText(rule.name, 80) || "未命名效果",
             durationSeconds: clampNumber(rule.durationSeconds, 0.1, 86_400, 10),
             alwaysVisible: rule.alwaysVisible === true,

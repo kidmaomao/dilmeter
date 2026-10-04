@@ -80,6 +80,7 @@
                         </div>
                     </div>
                 </div>
+                <span v-if="item.orientation === 'vertical' && item.key.startsWith('burst')" class="burst-bar-caption"><span>{{ item.name.split(" · ")[0] }}</span><span>{{ item.name.split(" · ").slice(1).join(" · ") }}</span></span>
             </article>
         </section>
         <section v-if="visibleItems.length" class="skill-overlay-list" aria-label="技能冷却完成提醒">
@@ -127,15 +128,17 @@
         <section v-if="visibleMechanics.length" class="boss-mechanic-overlay-list" aria-label="Boss 特殊机制倒计时">
             <article
                 v-for="mechanic in visibleMechanics"
-                :key="`${mechanic.key}-${mechanic.generation}`"
+                :key="mechanic.label ? mechanic.key : `${mechanic.key}-${mechanic.generation}`"
                 class="boss-mechanic-overlay-item"
+                :data-burst="Boolean(mechanic.label)"
                 :class="mechanicAlertClass(mechanic)"
                 :style="mechanicPositionStyle(mechanic)"
                 :title="mechanic.name"
             >
-                <div class="boss-mechanic-card">
+                <BurstReminderPopup v-if="mechanic.label" :item="mechanic" :now-ms="nowMs" />
+                <div v-else class="boss-mechanic-card">
                     <v-icon :icon="mechanic.icon" class="boss-mechanic-icon" aria-hidden="true" />
-                    <strong>{{ mechanicRemainingText(mechanic) }}</strong>
+                    <strong v-if="!mechanic.hideCountdown">{{ mechanicRemainingText(mechanic) }}</strong>
                     <span class="boss-mechanic-progress" :style="mechanicProgressStyle(mechanic)" aria-hidden="true" />
                 </div>
             </article>
@@ -159,6 +162,7 @@
 </template>
 
 <script setup lang="ts">
+import BurstReminderPopup from "./BurstReminderPopup.vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { loadBuffOverlaySettings, resolveOverlayDpiPercent } from "@/buffAlert";
 import { loadUiColorTheme, uiColorThemeStyle } from "@/uiColorTheme";
@@ -274,8 +278,8 @@ const layoutBounds = computed(() => {
     const skillMaxY = visibleItems.value.map((item) => item.y + scaledIconSize);
     const mechanicMinX = visibleMechanics.value.map((item) => item.x);
     const mechanicMinY = visibleMechanics.value.map((item) => item.y);
-    const mechanicMaxX = visibleMechanics.value.map((item) => item.x + 118 * mechanicScale(item) * scale);
-    const mechanicMaxY = visibleMechanics.value.map((item) => item.y + 118 * mechanicScale(item) * scale);
+    const mechanicMaxX = visibleMechanics.value.map((item) => item.x + (item.label ? 112 : 118) * mechanicScale(item) * scale);
+    const mechanicMaxY = visibleMechanics.value.map((item) => item.y + (item.label ? 112 : 118) * mechanicScale(item) * scale);
     const stackMinX = visibleStackAlerts.value.map((item) => item.x);
     const stackMinY = visibleStackAlerts.value.map((item) => item.y);
     const stackMaxX = visibleStackAlerts.value.map((item) => item.x + 220 * mechanicScale(item) * scale);
@@ -320,11 +324,11 @@ function targetHealthPositionStyle(item: TargetHealthBarOverlayItem) {
 }
 
 function effectTimerWidth(item: EffectTimerOverlayItem) {
-    return item.orientation === "vertical" ? EFFECT_TIMER_VERTICAL_WIDTH : EFFECT_TIMER_HORIZONTAL_WIDTH;
+    return item.orientation === "vertical" ? (item.key.startsWith("burst") ? 72 : EFFECT_TIMER_VERTICAL_WIDTH) : EFFECT_TIMER_HORIZONTAL_WIDTH;
 }
 
 function effectTimerHeight(item: EffectTimerOverlayItem) {
-    return item.orientation === "vertical" ? EFFECT_TIMER_VERTICAL_HEIGHT : EFFECT_TIMER_HORIZONTAL_HEIGHT;
+    return item.orientation === "vertical" ? (item.key.startsWith("burst") ? EFFECT_TIMER_VERTICAL_HEIGHT + 30 : EFFECT_TIMER_VERTICAL_HEIGHT) : EFFECT_TIMER_HORIZONTAL_HEIGHT;
 }
 
 function effectTimerScale(item: EffectTimerOverlayItem) {
@@ -404,8 +408,8 @@ function mechanicPositionStyle(item: BossMechanicOverlayItem) {
     return {
         left: `${(item.x - layoutBounds.value.x) / scale}px`,
         top: `${(item.y - layoutBounds.value.y) / scale}px`,
-        width: `${118 * sizeScale}px`,
-        height: `${118 * sizeScale}px`,
+        width: `${(item.label ? 112 : 118) * sizeScale}px`,
+        height: `${(item.label ? 112 : 118) * sizeScale}px`,
         "--boss-mechanic-scale": String(sizeScale),
         "--boss-mechanic-warning-scale": String(sizeScale * 1.045),
     };
@@ -509,9 +513,9 @@ function aimReminderBuffText(item: AimReminderOverlayItem) {
 function toahProgressText(item: SkillCooldownOverlayItem) {
     if (item.energyGate) {
         if (!item.energyActive) return "未开启 / 待数据";
-        const progress = `${toahSpiritDisplayPercent(item.progressPercent)}%`;
+        const progress = item.skillId === 59047 && item.showEnergyPercent === false ? "" : `${toahSpiritDisplayPercent(item.progressPercent)}%`;
         if (item.skillId !== 59047) return progress;
-        return `${progress}\n${!item.cooldownObserved ? 'CD 待观测' : isCooling(item) ? remainingText(item) : 'CD 已好'}`;
+        return [progress, !item.cooldownObserved ? 'CD 待观测' : isCooling(item) ? remainingText(item) : 'CD 已好'].filter(Boolean).join('\n');
     }
     if (!item.progressObserved) return "--";
     return `${toahSpiritDisplayPercent(item.progressPercent)}%`;
@@ -827,6 +831,8 @@ html.skill-overlay-page .v-application,
     object-fit: cover;
 }
 
+.burst-bar-caption { position: absolute; top: calc(176px * var(--effect-timer-scale)); width: 72px; max-height: 28px; overflow: hidden; font-size: 10px; color: #f4fbff; line-height: 13px; text-shadow: 1px 1px 2px #000; transform: scale(var(--effect-timer-scale)); transform-origin: top left; }
+.burst-bar-caption > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .effect-timer-body {
     position: relative;
     display: flex;
@@ -1419,6 +1425,7 @@ html.skill-overlay-page .v-application,
     transform-origin: left top;
 }
 
+.boss-mechanic-overlay-item[data-burst="true"] { animation: none; }
 .boss-mechanic-icon {
     color: #fff3ae;
     font-size: 27px;

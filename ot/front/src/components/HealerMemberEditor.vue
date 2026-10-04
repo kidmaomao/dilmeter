@@ -1,11 +1,21 @@
 <template>
- <article class="healer-member" :aria-label="`${member.name}的监控设置`">
+ <article class="healer-member" :class="{ 'healer-member-compact': !templateMode }" :aria-label="`${member.name}的监控设置`">
   <header class="healer-member-heading">
    <span class="healer-presence" :class="{ active: live?.active }" />
-   <div class="healer-member-name"><strong>{{ member.name }}</strong><small>{{ $ui(status) }}</small></div>
+   <div class="healer-member-name" :title="`${member.name} · ${status}`"><strong>{{ member.name }}</strong><small v-if="templateMode">{{ $ui(status) }}</small></div>
+   <div v-if="!templateMode" class="healer-quick-toggles">
+    <label :title="healthLabel"><input v-model="member.health" type="checkbox" :disabled="disabled" :aria-label="`监测 ${member.name} 血量`" @change="changed" />{{ $ui("血量提醒") }}</label>
+    <label><input v-model="member.buffSettings.enabled" type="checkbox" :disabled="disabled" :aria-label="`监测 ${member.name} Buff`" @change="changed" />{{ $ui("Buff 提醒") }}</label>
+    <label><input v-model="member.skillSettings.enabled" type="checkbox" :disabled="disabled" :aria-label="`监测 ${member.name} 技能`" @change="changed" />{{ $ui("技能提醒") }}</label>
+   </div>
+   <button v-if="!templateMode" type="button" class="healer-expand-member" :aria-expanded="detailsOpen" :aria-controls="`healer-member-details-${index}`" :aria-label="`${detailsOpen ? '收起' : '展开'} ${member.name} 具体设定`" @click="detailsOpen = !detailsOpen">{{ $ui(detailsOpen ? '收起设定' : '展开设定') }}<v-icon :icon="detailsOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="17" /></button>
+
+  </header>
+  <div v-show="templateMode || detailsOpen" :id="`healer-member-details-${index}`" class="healer-member-details">
+  <div v-if="!templateMode" class="healer-member-management"><span>{{ $ui(status) }}</span>
    <label v-if="!templateMode" class="healer-favorite" :title="$ui('勾选或取消后立即保存当前设定')"><input v-model="member.favorite" type="checkbox" :disabled="disabled" :aria-label="`${member.name}保存为常用`" @change="emit('favoriteChange')" />{{ $ui("保存为常用") }}</label>
    <button v-if="!templateMode" type="button" class="healer-remove-member" :aria-label="`移除队友 ${member.name}`" @click="emit('remove')">{{ $ui("移除") }}</button>
-  </header>
+  </div>
   <div v-if="!templateMode" class="healer-template-actions">
    <label>{{ $ui("套用模板 ") }}<select v-model="selectedTemplate" :disabled="disabled || !templates?.length" :aria-label="`${member.name}的通用模板`"><option value="">{{ $ui("选择模板") }}</option><option v-for="template in templates || []" :key="template.id" :value="template.id">{{ template.name }}</option></select></label>
    <button type="button" :disabled="disabled || !templates?.some(template => template.id === selectedTemplate)" :aria-label="`为 ${member.name} 套用模板`" @click="emit('applyTemplate', selectedTemplate)">{{ $ui("套用") }}</button>
@@ -13,7 +23,8 @@
   </div>
   <section class="healer-member-section">
    <div class="healer-section-heading">
-    <label><input v-model="member.health" type="checkbox" :aria-label="`监测 ${member.name} 血量`" @change="changed" /><strong>{{ $ui("血量提示") }}</strong></label>
+    <label v-if="templateMode"><input v-model="member.health" type="checkbox" :aria-label="`监测 ${member.name} 血量`" @change="changed" /><strong>{{ $ui("血量提示") }}</strong></label>
+    <strong v-if="!templateMode">{{ $ui("血量提示") }}</strong>
     <span class="healer-inline-status" :class="{ warning: live?.healthState === 'low' }">{{ $ui(healthLabel) }}</span>
     <button type="button" :aria-expanded="healthOpen" :aria-label="`${healthOpen ? '收起' : '展开'} ${member.name} 血量设置`" @click="healthOpen = !healthOpen">{{ $ui(healthOpen ? '收起' : '展开设定') }} <span>{{ $ui(healthOpen ? '⌃' : '⌄') }}</span></button>
    </div>
@@ -27,8 +38,9 @@
   </section>
   <section class="healer-member-section">
    <div class="healer-section-heading">
-    <label><input v-model="member.buffSettings.enabled" type="checkbox" :aria-label="`监测 ${member.name} Buff`" @change="changed" /><strong>{{ $ui("Buff 提示") }}</strong></label>
-    <div class="healer-collapsed-icons"><img v-for="rule in member.buffSettings.rules" :key="rule.ccId" :src="`/condition-icons/${rule.ccId}.png`" :alt="$ui(rule.name)" :title="$ui(`${rule.name} · ${buffLabel(rule.ccId)}`)" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" /><span v-if="!member.buffSettings.rules.length">{{ $ui("展开添加 Buff") }}</span></div>
+    <label v-if="templateMode"><input v-model="member.buffSettings.enabled" type="checkbox" :aria-label="`监测 ${member.name} Buff`" @change="changed" /><strong>{{ $ui("Buff 提示") }}</strong></label>
+    <strong v-if="!templateMode">{{ $ui("Buff 提示") }}</strong>
+    <div class="healer-collapsed-icons"><img v-for="rule in member.buffSettings.rules" :key="rule.ccId" :src="`/condition-icons/${rule.ccId}.png`" :alt="rule.name" :title="`${rule.name} · ${buffLabel(rule.ccId)}`" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" /><span v-if="!member.buffSettings.rules.length">{{ $ui("展开添加 Buff") }}</span></div>
     <button type="button" :aria-expanded="buffOpen" :aria-label="`${buffOpen ? '收起' : '展开'} ${member.name} Buff 设置`" @click="buffOpen = !buffOpen">{{ $ui(buffOpen ? '收起' : '展开设定') }} <span>{{ $ui(buffOpen ? '⌃' : '⌄') }}</span></button>
    </div>
    <div v-if="buffOpen" class="healer-detail">
@@ -39,18 +51,22 @@
     <div v-if="buffPreview.cards.length" class="healer-visual-preview"><HealerOverlayVisual :group="buffPreview" :font-size="fontSize" :icon-size="iconSize" :opacity-percent="opacityPercent" /></div>
    </div>
   </section>
+ <HealerSkillEditor :translate="$ui" :hide-enable="!templateMode" :member="member" :live="live" :volume="volume" :font-size="fontSize" :icon-size="iconSize" :opacity-percent="opacityPercent" :disabled="disabled" :template-mode="templateMode" @change="changed" @preview="emit('preview', $event)" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" />
+  </div>
  </article>
 </template>
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { healerLabelWidth } from '@/healerMonitorTypes';
+import { healerCombinedPreview } from '@/healerMonitorTypes';
 import type { HealerMemberChoice, HealerMemberTemplate, HealerMemberState, HealerBuffRule, HealerCard, HealerOverlayGroup } from '@/healerMonitorTypes';
+import HealerSkillEditor from './HealerSkillEditor.vue';
 import HealerSoundPicker from './HealerSoundPicker.vue';
 import HealerRuleEditor from './HealerRuleEditor.vue';
 import HealerBuffPicker from './HealerBuffPicker.vue';
 import HealerOverlayVisual from './HealerOverlayVisual.vue';
 const props = defineProps<{ member: HealerMemberChoice; live?: HealerMemberState; volume: number; fontSize: number; iconSize: number; opacityPercent: number; index: number; disabled?: boolean; templateMode?: boolean; templates?: HealerMemberTemplate[] }>();
-const emit = defineEmits<{ change: []; favoriteChange: []; remove: []; saveTemplate: []; applyTemplate: [id: string]; preview: [kind: 'health' | 'buff']; busy: [value: boolean]; notice: [message: string]; error: [message: string] }>();
+const emit = defineEmits<{ change: []; favoriteChange: []; remove: []; saveTemplate: []; applyTemplate: [id: string]; preview: [kind: 'health' | 'buff' | 'skill']; busy: [value: boolean]; notice: [message: string]; error: [message: string] }>();
+const detailsOpen = ref(false);
 const healthOpen = ref(!!props.templateMode), buffOpen = ref(!!props.templateMode), selectedTemplate = ref('');
 const changed = () => emit('change');
 const status = computed(() => props.templateMode ? '通用设置 · 可套用于任何队友' : props.live?.active ? '已识别 · 当前可见' : props.live?.waitingReason || '等待识别 · 请让队友切换一次地图');
@@ -60,12 +76,7 @@ function addRule(rule: HealerBuffRule) { if (!props.member.buffSettings.rules.so
 function removeRule(id: number) { props.member.buffSettings.rules = props.member.buffSettings.rules.filter(rule => rule.ccId !== id); changed(); }
 const card = (key: string, title: string, value: string, ccId = 0): HealerCard => ({ key, title, value, ccId, memberKey: props.member.key, name: props.member.name, category: key === 'health' ? 'health' : 'buff', state: 'active', flash: false, x: 0, y: 0 });
 const healthPreview = computed<HealerOverlayGroup>(() => ({ key: 'health', name: props.member.name, kind: 'health', x: 0, y: 0, width: Math.max(220, props.fontSize * 13), height: props.fontSize * 4 + 24, nameWidth: 0, cellWidth: props.iconSize, cards: [card('health', `血量≤${props.member.healthSettings.threshold}%`, '20%')] }));
-const buffPreview = computed<HealerOverlayGroup>(() => {
- const cards = props.member.buffSettings.rules.filter(rule => rule.overlayEnabled).map((rule, index) => card(String(rule.ccId), rule.name, ['1380', '24', '生效'][index % 3], rule.ccId));
- const nameWidth = Math.min(Math.max(220, props.fontSize * 12), Math.max(72, healerLabelWidth(props.member.name, props.fontSize)));
- const cellWidth = Math.max(props.iconSize, ...cards.map(card => healerLabelWidth(card.value, props.fontSize)));
- return { key: 'buff', name: props.member.name, kind: 'buff', x: 0, y: 0, nameWidth, cellWidth, width: nameWidth + 32 + cards.length * (cellWidth + 6), height: props.iconSize + props.fontSize + 20, cards };
-});
+const buffPreview = computed<HealerOverlayGroup>(() => healerCombinedPreview(props.member, props.fontSize, props.iconSize));
 </script>
 <style scoped>
 .healer-member { margin: 10px 0; border: 1px solid var(--ui-theme-border); background: var(--ui-theme-surface); }

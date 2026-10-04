@@ -75,11 +75,15 @@ export class PureActorManager {
     public groupMap: Record<string, PureGroupActor> = {};
     public damages: protocols.eventDamage[] = [];
     public skillActions: protocols.eventSkillAction[] = [];
+    public skillCooldowns: protocols.eventSkillCooldown[] = [];
+    public statUpdates: protocols.eventStatUpdate[] = [];
+    public arcanaSignals: protocols.eventArcanaSignal[] = [];
     public effectiveDamages: protocols.eventDamage[] = [];
     public healthLosses: EntityHealthLoss[] = [];
     private pendingHealthDamages: Record<string, protocols.eventDamage[]> = {};
     private lastHealthMap: Record<string, number> = {};
     private pendingStatMap: Record<string, Record<number, number>> = {};
+    private pendingConditionEvents: Record<string, (protocols.eventCharacterConditionEnable | protocols.eventCharacterConditionDisable)[]> = {};
     public selectedTargetId = "";
     public skillEnergy: Record<string, Record<number, protocols.eventSkillEnergy>> = {};
     public localEntityId = "";
@@ -88,14 +92,32 @@ export class PureActorManager {
 
     public snapshotResumeState() {
         return { pendingHealthDamages: this.pendingHealthDamages,
-            lastHealthMap: this.lastHealthMap, pendingStatMap: this.pendingStatMap };
+            lastHealthMap: this.lastHealthMap, pendingStatMap: this.pendingStatMap,
+            pendingConditionEvents: this.pendingConditionEvents };
     }
 
     public static readonly pcRaceSet = new Set<number>([
         8001, 8002, 9001, 9002, 10001, 10002,
     ]);
 
+    private resetKpiActor(id: string, at: number): void {
+        if (id !== this.localEntityId && !this.entityMap[id]?.isPC) return;
+        this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id,
+            SkillId: 59041, Signal: "lightning-chain-reset", Count: 0, Complete: false });
+        this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id,
+            SkillId: 0, Signal: "fighter-energy-reset", Count: 0, Complete: false });
+        this.statUpdates.push({ EventId: 17, At: at, Id: id, Private: true, Stats: [{ StatId: 196, Value: -1 }] });
+    }
+
     public onEvent(event: protocols.eventBase): void {
+        if (event.EventId === protocols.eventIdSkillCooldown) {
+            this.skillCooldowns.push(event as protocols.eventSkillCooldown);
+            return;
+        }
+        if (event.EventId === protocols.eventIdArcanaSignal) {
+            this.arcanaSignals.push(event as protocols.eventArcanaSignal);
+            return;
+        }
         if (event.EventId === protocols.eventIdSkillAction) {
             this.skillActions.push(event as protocols.eventSkillAction);
             return;
@@ -107,6 +129,11 @@ export class PureActorManager {
         }
         if (event.EventId === protocols.eventIdLocalEntity) {
             const local = event as protocols.eventLocalEntity;
+            if (local.Reset || local.Id !== this.localEntityId) {
+                for (const id of new Set([...Object.keys(this.entityMap), this.localEntityId])) {
+                    if (id && id !== "0") this.resetKpiActor(id, local.At);
+                }
+            }
             if (local.Reset || local.Id !== this.localEntityId) this.skillEnergy = {};
             this.localEntityId = local.Id;
             this.localEntityReliable = local.Reliable;
@@ -117,6 +144,7 @@ export class PureActorManager {
                     entity.resetLiveStats();
                 }
                 this.pendingStatMap = {};
+                this.pendingConditionEvents = {};
                 this.pendingHealthDamages = {};
                 this.lastHealthMap = {};
                 this.selectedTargetId = "";
@@ -137,7 +165,9 @@ export class PureActorManager {
 
         switch (event.EventId) {
             case protocols.eventIdEntityDisappear:
+                this.resetKpiActor(event.Id, event.At);
                 this.activeEntityMap[event.Id] = false;
+                if (event.Id !== this.localEntityId) delete this.pendingConditionEvents[event.Id];
                 if (event.Id === this.selectedTargetId) this.selectedTargetId = "";
                 delete this.pendingHealthDamages[event.Id];
                 delete this.lastHealthMap[event.Id];
@@ -176,14 +206,20 @@ export class PureActorManager {
             }
 
             case protocols.eventIdCharacterConditionEnable:
-                if (!entity) return;
+                if (!entity) {
+                    (this.pendingConditionEvents[event.Id] ??= []).push({ ...event } as protocols.eventCharacterConditionEnable);
+                    return;
+                }
                 entity.onCharacterConditionEnable(
                     event as protocols.eventCharacterConditionEnable,
                 );
                 break;
 
             case protocols.eventIdCharacterConditionDisable:
-                if (!entity) return;
+                if (!entity) {
+                    (this.pendingConditionEvents[event.Id] ??= []).push({ ...event } as protocols.eventCharacterConditionDisable);
+                    return;
+                }
                 entity.onCharacterConditionDisable(
                     event as protocols.eventCharacterConditionDisable,
                 );
@@ -211,6 +247,9 @@ export class PureActorManager {
                 break;
             case protocols.eventIdStatUpdate: {
                 const update = event as protocols.eventStatUpdate;
+                if (update.Stats.some((stat) => stat.StatId === 196)) {
+                    this.statUpdates.push({ ...update, Stats: update.Stats.filter((stat) => stat.StatId === 196).map((stat) => ({ ...stat })) });
+                }
                 this.reconcileEffectiveDamage(update);
                 if (!entity) {
                     const pending = (this.pendingStatMap[event.Id] ??= {});
@@ -252,6 +291,14 @@ export class PureActorManager {
         if (pendingStats) {
             entity.onStatUpdate({ EventId: 17, At: event.At, Id, Private: false, Stats: Object.entries(pendingStats).map(([statId, value]) => ({ StatId: Number(statId), Value: value })) });
             delete this.pendingStatMap[Id];
+        }
+        const pendingConditions = this.pendingConditionEvents[Id];
+        if (pendingConditions) {
+            for (const pending of pendingConditions) {
+                if (pending.EventId === protocols.eventIdCharacterConditionEnable) entity.onCharacterConditionEnable(pending);
+                else entity.onCharacterConditionDisable(pending);
+            }
+            delete this.pendingConditionEvents[Id];
         }
 
         if (isNewEntity || dummyEntity) {
@@ -558,6 +605,7 @@ export class PureEntityActor extends PureBaseActor {
                 v.At === current[i].At &&
                 v.DisableAt === current[i].DisableAt &&
                 v.DisableAtMs === current[i].DisableAtMs &&
+                v.Metadata === current[i].Metadata &&
                 v.DurationMs === current[i].DurationMs,
             );
         if (needUpdate) {

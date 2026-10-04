@@ -2,8 +2,8 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot ".."))
-$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.5.3" }
-$displayVersion = if ($env:DILMETER_DISPLAY_VERSION) { $env:DILMETER_DISPLAY_VERSION.Trim() } elseif ($env:DILMETER_APP_VERSION) { $version } else { "1.5.2 R2" }
+$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.6.0" }
+$displayVersion = if ($env:DILMETER_DISPLAY_VERSION) { $env:DILMETER_DISPLAY_VERSION.Trim() } elseif ($env:DILMETER_APP_VERSION) { $version } else { "1.6.0" }
 if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid DILMETER_APP_VERSION: $version"
 }

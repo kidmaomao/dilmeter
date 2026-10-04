@@ -70,6 +70,8 @@ func normalizeHealerMember(member healerMemberSelection, settings healerSettings
 		}
 	}
 	member.BuffSettings = &buffs
+	member.SkillSettings = normalizeHealerSkills(member.SkillSettings, index)
+	member.SkillSettings.Overlay.X, member.SkillSettings.Overlay.Y = buffs.Overlay.X, buffs.Overlay.Y
 	return member
 }
 
@@ -89,8 +91,8 @@ func normalizeHealerTemplates(templates []healerMemberTemplate, settings healerS
 			template.Name = fmt.Sprintf("队友%d", index+1)
 		}
 		template.Name = string([]rune(template.Name)[:min(len([]rune(template.Name)), 48)])
-		member := normalizeHealerMember(healerMemberSelection{Name: template.Name, Health: template.Health, HealthSettings: template.HealthSettings, BuffSettings: template.BuffSettings}, settings, index)
-		template.HealthSettings, template.BuffSettings = member.HealthSettings, member.BuffSettings
+		member := normalizeHealerMember(healerMemberSelection{Name: template.Name, Health: template.Health, HealthSettings: template.HealthSettings, BuffSettings: template.BuffSettings, SkillSettings: template.SkillSettings}, settings, index)
+		template.HealthSettings, template.BuffSettings, template.SkillSettings = member.HealthSettings, member.BuffSettings, member.SkillSettings
 		seen[template.ID] = true
 		result = append(result, template)
 		if len(result) == 32 {

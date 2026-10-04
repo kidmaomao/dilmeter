@@ -125,6 +125,7 @@ export function createBattleRecord(
     const selectedPlayerId = playerIds.includes(playerEntityId) ? playerEntityId : playerIds[0];
 
     const snapshot: WorkerSnapshot = {
+        localEntityId: actorManager.localEntityId,
         entities,
         groups,
         damages: actorManager.damages
@@ -133,6 +134,14 @@ export function createBattleRecord(
         skillActions: (actorManager.skillActions ?? [])
             .filter((action) => action.At >= session.startAt && action.At <= session.endAt)
             .map((action) => ({ ...action })),
+        statUpdates: clipKpiStatUpdates(actorManager.statUpdates ?? [], playerIds, session.startAt, session.endAt),
+        skillCooldowns: (actorManager.skillCooldowns ?? [])
+            .filter((event) => playerIds.includes(event.Id) && inSession(event))
+            .map((event) => ({ ...event })),
+        arcanaSignals: clipArcanaSignals(actorManager.arcanaSignals ?? [], playerIds, bossEntityId, session.startAt, session.endAt),
+        kpiAimSamples: (actorManager.kpiAimSamples ?? [])
+            .filter((sample) => playerIds.includes(sample.entityId) && sample.atMs >= session.startAt * 1000 && sample.atMs < (session.endAt + 1) * 1000)
+            .map((sample) => ({ ...sample })),
         effectiveDamages: selectedEffectiveDamages
             .map((damage) => ({ ...damage })),
         healthLosses: (actorManager.healthLosses ?? [])
@@ -190,6 +199,42 @@ export function parseBattleRecord(text: string): DilmeterBattleRecord | null {
     }
 
     return value as DilmeterBattleRecord;
+}
+
+function clipArcanaSignals(signals: readonly import("./protocols").eventArcanaSignal[], playerIds: readonly string[], bossId: string, start: number, end: number) {
+    const selected = signals.filter((signal) => playerIds.includes(signal.Id)
+        && (signal.Signal.startsWith("lightning-chain-") || !signal.TargetId || signal.TargetId === bossId));
+    const casts = new Set(selected.filter((signal) => signal.Signal === "sniper-counter" && signal.At >= start && signal.At <= end)
+        .map((signal) => `${signal.Id}:${signal.CastAtMs}`));
+    const energyFrom = new Map<string, number>();
+    const chainBaseline = new Map<string, number>();
+    selected.forEach((signal, index) => {
+        if (signal.At < start && (signal.Signal === "fighter-energy-baseline" || signal.Signal === "fighter-energy-bounds" || signal.Signal === "fighter-energy-reset")) energyFrom.set(signal.Id, index);
+        if (signal.At < start && signal.Signal.startsWith("lightning-chain-")) chainBaseline.set(signal.Id, index);
+    });
+    const spendEnds = new Map(selected.filter((signal) => signal.Signal === "fighter-spend-end")
+        .map((signal) => [`${signal.Id}:${signal.CastAtMs}`, signal.At]));
+    const spendCasts = new Set(selected.filter((signal) => signal.Signal === "fighter-spend-start" && signal.At <= end
+        && (spendEnds.get(`${signal.Id}:${signal.CastAtMs}`) ?? end) >= start).map((signal) => `${signal.Id}:${signal.CastAtMs}`));
+    return selected.filter((signal, index) => signal.At <= end && (signal.Signal.startsWith("fighter-energy-")
+        ? index >= (energyFrom.get(signal.Id) ?? 0) || signal.At >= start
+        : signal.Signal.startsWith("lightning-chain-") ? index === chainBaseline.get(signal.Id) || signal.At >= start
+        : signal.Signal.startsWith("fighter-spend-") ? spendCasts.has(`${signal.Id}:${signal.CastAtMs}`)
+        : signal.Signal === "sniper-counter"
+        ? casts.has(`${signal.Id}:${signal.CastAtMs}`)
+        : signal.Signal === "domain-created" ? signal.At + (signal.DurationMs ?? 0) / 1000 >= start
+        : signal.At >= start)).map((signal) => ({ ...signal, ...(signal.ObjectIds ? { ObjectIds: [...signal.ObjectIds] } : {}) }));
+}
+
+function clipKpiStatUpdates(events: readonly import("./protocols").eventStatUpdate[], playerIds: string[], start: number, end: number) {
+    const baselines = new Map<string, import("./protocols").eventStatUpdate>();
+    const selected: import("./protocols").eventStatUpdate[] = [];
+    for (const event of events) {
+        if (!playerIds.includes(event.Id) || event.At > end) continue;
+        if (event.At < start) baselines.set(event.Id, event);
+        else selected.push(event);
+    }
+    return [...baselines.values(), ...selected].map((event) => ({ ...event, Stats: event.Stats.map((stat) => ({ ...stat })) }));
 }
 
 export function battleRecordFilename(record: DilmeterBattleRecord): string {
@@ -255,8 +300,10 @@ function clipConditionHistory(
     endAt: number,
 ): SnapshotConditionState[] {
     const result: SnapshotConditionState[] = [];
-    const stateAtStart = [...history].reverse().find((state) => state.At <= startAt);
-    if (stateAtStart) {
+    const stateAtStart = [...history].reverse().find((state) => state.At < startAt);
+    // An actual snapshot at the opening second already includes the carried
+    // conditions. Adding the earlier snapshot would resurrect a replaced peak.
+    if (stateAtStart && !history.some((state) => state.At === startAt)) {
         result.push({
             At: startAt,
             List: stateAtStart.List.map(cloneCondition),
@@ -264,7 +311,7 @@ function clipConditionHistory(
     }
 
     for (const state of history) {
-        if (state.At <= startAt || state.At > endAt) continue;
+        if (state.At < startAt || state.At > endAt) continue;
         result.push({
             At: state.At,
             List: state.List.map(cloneCondition),

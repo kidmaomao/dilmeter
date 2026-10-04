@@ -30,6 +30,10 @@ export function hydrateFromSnapshot(
         for (const k in actorMgr.groupMap) delete actorMgr.groupMap[k];
         actorMgr.damages.length = 0;
         actorMgr.skillActions.length = 0;
+        actorMgr.skillCooldowns.length = 0;
+        actorMgr.statUpdates.length = 0;
+        actorMgr.arcanaSignals.length = 0;
+        actorMgr.kpiAimSamples.length = 0;
         actorMgr.effectiveDamages.length = 0;
         actorMgr.healthLosses.length = 0;
 
@@ -72,6 +76,10 @@ export function hydrateFromSnapshot(
         // 5. 還原 raw damage log
         appendSnapshotRows(actorMgr.damages, snapshot.damages);
         appendSnapshotRows(actorMgr.skillActions, snapshot.skillActions ?? []);
+        appendSnapshotRows(actorMgr.skillCooldowns, snapshot.skillCooldowns ?? []);
+        appendSnapshotRows(actorMgr.statUpdates, snapshot.statUpdates ?? []);
+        appendSnapshotRows(actorMgr.arcanaSignals, snapshot.arcanaSignals ?? []);
+        appendSnapshotRows(actorMgr.kpiAimSamples, snapshot.kpiAimSamples ?? []);
         appendSnapshotRows(actorMgr.effectiveDamages, snapshot.effectiveDamages ?? []);
         appendSnapshotRows(actorMgr.healthLosses, snapshot.healthLosses ?? []);
 

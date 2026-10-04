@@ -2,23 +2,35 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
 
 type healerOverlayGroup struct {
-	Key       string       `json:"key"`
-	Name      string       `json:"name"`
-	Kind      string       `json:"kind"`
-	X         int          `json:"x"`
-	Y         int          `json:"y"`
-	Width     int          `json:"width"`
-	Height    int          `json:"height"`
-	CellWidth int          `json:"cellWidth"`
-	NameWidth int          `json:"nameWidth"`
-	Cards     []healerCard `json:"cards"`
+	Key           string                 `json:"key"`
+	Name          string                 `json:"name"`
+	Kind          string                 `json:"kind"`
+	X             int                    `json:"x"`
+	Y             int                    `json:"y"`
+	Width         int                    `json:"width"`
+	Height        int                    `json:"height"`
+	CellWidth     int                    `json:"cellWidth"`
+	NameWidth     int                    `json:"nameWidth"`
+	Cards         []healerCard           `json:"cards"`
+	Columns       int                    `json:"columns"`
+	CellHeight    int                    `json:"cellHeight"`
+	LabelWidth    int                    `json:"labelWidth"`
+	LabelFontSize int                    `json:"labelFontSize"`
+	Sections      []healerOverlaySection `json:"sections"`
+}
+
+type healerOverlaySection struct {
+	Kind  string       `json:"kind"`
+	Cards []healerCard `json:"cards"`
 }
 
 type healerOverlayFrame struct {
@@ -117,8 +129,11 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 				}
 				h.previewCards = append(h.previewCards, healerCard{Key: "preview-" + rule.Name, MemberKey: member.Key, Name: member.Name, Title: rule.Name, Value: []string{"1380s", "24s", "生效"}[index%3], Category: "buff", State: "active", CCID: rule.CCID, X: member.BuffSettings.Overlay.X, Y: member.BuffSettings.Overlay.Y})
 			}
+			for index, rule := range member.SkillSettings.Rules {
+				h.previewCards = append(h.previewCards, healerCard{Key: fmt.Sprintf("preview-skill-%d", rule.SkillID), MemberKey: member.Key, Name: member.Name, Title: rule.Name, Value: []string{"就绪", "24s", "未观测"}[index%3], Category: "skill", State: "ready", SkillID: rule.SkillID, X: member.BuffSettings.Overlay.X, Y: member.BuffSettings.Overlay.Y})
+			}
 			if len(h.previewCards) == 0 {
-				http.Error(w, "请先添加并勾选需要显示的 Buff 图标", http.StatusBadRequest)
+				http.Error(w, "请先添加需要显示的 Buff 或技能", http.StatusBadRequest)
 				h.previewUntilMs = 0
 				return
 			}
@@ -188,14 +203,30 @@ func buildHealerOverlayFrame(fontSize, iconSize int, cards []healerCard, preview
 			group.Width = max(220, frame.FontSize*13)
 			group.Height = frame.FontSize*4 + 24
 		} else {
-			group.NameWidth = min(max(220, frame.FontSize*12), max(72, healerLabelWidth(group.Name, frame.FontSize)))
-			group.CellWidth = frame.IconSize
-			for _, card := range group.Cards {
-				group.CellWidth = max(group.CellWidth, healerLabelWidth(card.Value, frame.FontSize))
-			}
-			group.Width = group.NameWidth + 20 + len(group.Cards)*(group.CellWidth+6) + 12
-			group.Height = frame.IconSize + frame.FontSize + 20
+			layoutHealerStatusGroup(group, frame.FontSize, frame.IconSize)
 		}
+	}
+	// Saved coordinates are anchors. If wrapped status panels overlap, move the
+	// lower panel down for this frame only; never rewrite the user's settings.
+	statusIndices := []int{}
+	for i, group := range frame.Groups {
+		if group.Kind != "health" {
+			statusIndices = append(statusIndices, i)
+		}
+	}
+	sort.SliceStable(statusIndices, func(i, j int) bool {
+		return frame.Groups[statusIndices[i]].Y < frame.Groups[statusIndices[j]].Y
+	})
+	for position, index := range statusIndices {
+		group := &frame.Groups[index]
+		for _, previous := range statusIndices[:position] {
+			above := frame.Groups[previous]
+			if group.X < above.X+above.Width && group.X+group.Width > above.X && group.Y < above.Y+above.Height+6 {
+				group.Y = above.Y + above.Height + 6
+			}
+		}
+	}
+	for i, group := range frame.Groups {
 		if i == 0 {
 			frame.X, frame.Y = group.X-12, group.Y-12
 		} else {
@@ -208,6 +239,48 @@ func buildHealerOverlayFrame(fontSize, iconSize int, cards []healerCard, preview
 		frame.Height = max(frame.Height, group.Y+group.Height+12-frame.Y)
 	}
 	return frame
+}
+
+// Keep this geometry in sync with healerStatusLayout in healerMonitorTypes.ts:
+// the native window must contain every wrapped row drawn by the WebView.
+func layoutHealerStatusGroup(group *healerOverlayGroup, fontSize, iconSize int) {
+	group.NameWidth = min(max(120, fontSize*8), max(healerLabelWidth("队友", min(12, fontSize)), healerLabelWidth(group.Name, fontSize)))
+	group.LabelFontSize = max(10, min(16, fontSize*3/4))
+	group.LabelWidth = healerLabelWidth("Buff", group.LabelFontSize)
+	group.CellWidth = iconSize
+	group.CellHeight = iconSize + 2 + (fontSize*6+4)/5
+	group.Columns = 1
+	group.Sections = []healerOverlaySection{}
+	for _, kind := range []string{"skill", "buff"} {
+		section := healerOverlaySection{Kind: kind, Cards: []healerCard{}}
+		for _, card := range group.Cards {
+			if (card.Category == "skill") == (kind == "skill") {
+				section.Cards = append(section.Cards, card)
+				group.CellWidth = max(group.CellWidth, healerLabelWidth(card.Value, fontSize))
+			}
+		}
+		if len(section.Cards) == 0 {
+			continue
+		}
+		// Reserve normal status/digit widths so ticking does not move the icons.
+		baseline := "00000" // Buff durations may contain five digits.
+		if kind == "skill" {
+			baseline = "未观测"
+		}
+		group.CellWidth = max(group.CellWidth, healerLabelWidth(baseline, fontSize))
+		group.Columns = max(group.Columns, min(4, len(section.Cards)))
+		group.Sections = append(group.Sections, section)
+	}
+	contentHeight := 0
+	for index, section := range group.Sections {
+		rows := (len(section.Cards) + group.Columns - 1) / group.Columns
+		contentHeight += rows*group.CellHeight + (rows-1)*6
+		if index > 0 {
+			contentHeight += 7 // 3px space on each side of the divider.
+		}
+	}
+	group.Width = 18 + group.NameWidth + 6 + group.LabelWidth + 4 + group.Columns*group.CellWidth + (group.Columns-1)*4
+	group.Height = 14 + max(group.CellHeight, contentHeight)
 }
 
 func healerLabelWidth(text string, fontSize int) int {

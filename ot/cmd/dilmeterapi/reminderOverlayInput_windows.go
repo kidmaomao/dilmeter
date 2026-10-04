@@ -8,6 +8,7 @@ import (
 	"math"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -568,6 +569,9 @@ func refreshWebViewReminderHitRegions() {
 			Rect: nativeRect{Left: int32(target.X), Top: int32(target.Y), Right: int32(target.X + width), Bottom: int32(target.Y + height)}})
 	}
 	for _, item := range message.EffectTimers {
+		if strings.HasPrefix(item.Key, "burst:") || strings.HasPrefix(item.Key, "burst-preview-") {
+			continue
+		}
 		if !item.Enabled || (!item.AlwaysVisible && item.EndsAtMs <= nowMs) {
 			continue
 		}
@@ -581,6 +585,9 @@ func refreshWebViewReminderHitRegions() {
 			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + width), Bottom: int32(item.Y + height)}})
 	}
 	for _, item := range message.Mechanics {
+		if item.Label != "" {
+			continue
+		}
 		if item.EndsAtMs <= nowMs {
 			continue
 		}

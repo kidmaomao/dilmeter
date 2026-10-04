@@ -40,6 +40,8 @@ export class ActorManager {
     // (most often when Dilmeter starts after the player has entered a map).
     // Keep them instead of dropping them so Buff reminders work immediately.
     public pendingConditionMap: Record<string, Record<number, EntityCondition>> = shallowReactive({});
+    // Retain every early update for battle peaks, not only the latest live Buff.
+    private pendingConditionEvents: Record<string, (protocols.eventCharacterConditionEnable | protocols.eventCharacterConditionDisable)[]> = {};
     public pendingStatMap: Record<string, Record<number, number>> = shallowReactive({});
     // A refresh can be followed by the previous generation's remove packet.
     // Arm this guard only when the same CC was already active, and consume it
@@ -49,6 +51,11 @@ export class ActorManager {
     public damages: protocols.eventDamage[] = [];
     /** Server-confirmed skill executions used by battle skill timelines. */
     public skillActions: protocols.eventSkillAction[] = [];
+    public skillCooldowns: protocols.eventSkillCooldown[] = [];
+    /** Historical resource observations; a final statMap cannot describe a fight. */
+    public statUpdates: protocols.eventStatUpdate[] = [];
+    public arcanaSignals: protocols.eventArcanaSignal[] = [];
+    public kpiAimSamples: import("./arcanaKpi").KpiAimSample[] = [];
     /** Health-bar reconciled damage; raw packets remain in damages. */
     public effectiveDamages: protocols.eventDamage[] = [];
     /** Authoritative health-bar decreases, including pet/system damage. */
@@ -61,12 +68,29 @@ export class ActorManager {
     /** Entity explicitly selected by the local player; empty means no target. */
     public selectedTargetId = "";
 
+    private resetKpiActor(id: string, at: number): void {
+        if (id !== this.localEntityId && !this.entityMap[id]?.isPC) return;
+        this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id,
+            SkillId: 59041, Signal: "lightning-chain-reset", Count: 0, Complete: false });
+        this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id,
+            SkillId: 0, Signal: "fighter-energy-reset", Count: 0, Complete: false });
+        this.statUpdates.push({ EventId: 17, At: at, Id: id, Private: true, Stats: [{ StatId: 196, Value: -1 }] });
+    }
+
     public static pcRaceSet = new Set<number>([
         8001, 8002, 9001, 9002, 10001, 10002,
     ]);
 
     public onEvent(event: protocols.eventBase) {
         this.eventVersion += 1;
+        if (event.EventId === protocols.eventIdSkillCooldown) {
+            this.skillCooldowns.push(event as protocols.eventSkillCooldown);
+            return;
+        }
+        if (event.EventId === protocols.eventIdArcanaSignal) {
+            this.arcanaSignals.push(event as protocols.eventArcanaSignal);
+            return;
+        }
         if (event.EventId === protocols.eventIdSkillAction) {
             this.skillActions.push(event as protocols.eventSkillAction);
             return;
@@ -78,6 +102,11 @@ export class ActorManager {
         }
         if (event.EventId === protocols.eventIdLocalEntity) {
             const local = event as protocols.eventLocalEntity;
+            if (local.Reset || local.Id !== this.localEntityId) {
+                for (const id of new Set([...Object.keys(this.entityMap), this.localEntityId])) {
+                    if (id && id !== "0") this.resetKpiActor(id, local.At);
+                }
+            }
             if (local.Reset || local.Id !== this.localEntityId) this.skillEnergy = {};
             if (local.Reset) {
                 this.resetLiveSession(local.At);
@@ -100,6 +129,7 @@ export class ActorManager {
 
         switch (event.EventId) {
             case protocols.eventIdEntityDisappear:
+                this.resetKpiActor(event.Id, event.At);
                 this.activeEntityMap[event.Id] = false;
                 if (event.Id === this.selectedTargetId) this.selectedTargetId = "";
                 // The local player temporarily disappears while changing maps.
@@ -113,6 +143,7 @@ export class ActorManager {
                     entity?.resetLiveConditions(event.At);
                     delete this.pendingConditionMap[event.Id];
                     delete this.pendingConditionRefreshGuardAt[event.Id];
+                    delete this.pendingConditionEvents[event.Id];
                 }
                 delete this.pendingStatMap[event.Id];
                 delete this.pendingHealthDamages[event.Id];
@@ -219,6 +250,9 @@ export class ActorManager {
 
             case protocols.eventIdStatUpdate: {
                 const update = event as protocols.eventStatUpdate;
+                if (update.Stats.some((stat) => stat.StatId === 196)) {
+                    this.statUpdates.push({ ...update, Stats: update.Stats.filter((stat) => stat.StatId === 196).map((stat) => ({ ...stat })) });
+                }
                 this.reconcileEffectiveDamage(update);
                 if (!entity) {
                     const pending = (this.pendingStatMap[event.Id] ??= {});
@@ -277,8 +311,17 @@ export class ActorManager {
             delete this.pendingStatMap[Id];
         }
 
+        const pendingEvents = this.pendingConditionEvents[Id];
         const pendingConditions = this.pendingConditionMap[Id];
-        if (pendingConditions) {
+        if (pendingEvents?.length) {
+            for (const pending of pendingEvents) {
+                if (pending.EventId === protocols.eventIdCharacterConditionEnable) entity.onCharacterConditionEnable(pending);
+                else entity.onCharacterConditionDisable(pending);
+            }
+            delete this.pendingConditionEvents[Id];
+            delete this.pendingConditionMap[Id];
+            delete this.pendingConditionRefreshGuardAt[Id];
+        } else if (pendingConditions) {
             const refreshGuards = this.pendingConditionRefreshGuardAt[Id];
             for (const condition of Object.values(pendingConditions).sort((a, b) => a.At - b.At)) {
                 entity.onCharacterConditionEnable({
@@ -332,6 +375,7 @@ export class ActorManager {
     }
 
     private storePendingCondition(event: protocols.eventCharacterConditionEnable) {
+        (this.pendingConditionEvents[event.Id] ??= []).push({ ...event });
         const current = this.pendingConditionMap[event.Id] ?? {};
         if (current[event.CCId]) {
             const guards = (this.pendingConditionRefreshGuardAt[event.Id] ??= {});
@@ -355,6 +399,7 @@ export class ActorManager {
     }
 
     private removePendingCondition(event: protocols.eventCharacterConditionDisable) {
+        (this.pendingConditionEvents[event.Id] ??= []).push({ ...event });
         const current = this.pendingConditionMap[event.Id];
         const active = current?.[event.CCId];
         if (!active) return;
@@ -432,6 +477,7 @@ export class ActorManager {
         for (const id of Object.keys(this.pendingConditionMap)) delete this.pendingConditionMap[id];
         for (const id of Object.keys(this.pendingStatMap)) delete this.pendingStatMap[id];
         this.pendingConditionRefreshGuardAt = {};
+        this.pendingConditionEvents = {};
         this.pendingHealthDamages = {};
         this.lastHealthMap = {};
     }
@@ -440,10 +486,12 @@ export class ActorManager {
         pendingHealthDamages: Record<string, protocols.eventDamage[]>;
         lastHealthMap: Record<string, number>;
         pendingStatMap: Record<string, Record<number, number>>;
+        pendingConditionEvents?: Record<string, (protocols.eventCharacterConditionEnable | protocols.eventCharacterConditionDisable)[]>;
     }): void {
         this.pendingHealthDamages = state.pendingHealthDamages;
         this.lastHealthMap = state.lastHealthMap;
         Object.assign(this.pendingStatMap, state.pendingStatMap);
+        this.pendingConditionEvents = state.pendingConditionEvents ?? {};
     }
 
     public clear() {
@@ -452,8 +500,13 @@ export class ActorManager {
         // object instance를 새로 만들면 귀찮아짐
         this.damages.length = 0;
         this.skillActions.length = 0;
+        this.skillCooldowns.length = 0;
+        this.statUpdates.length = 0;
+        this.arcanaSignals.length = 0;
+        this.kpiAimSamples.length = 0;
         this.effectiveDamages.length = 0;
         this.healthLosses.length = 0;
+        this.pendingConditionEvents = {};
         this.pendingHealthDamages = {};
         this.lastHealthMap = {};
 
@@ -486,6 +539,7 @@ export class ActorManager {
         for (const id of Object.keys(this.pendingConditionRefreshGuardAt)) {
             delete this.pendingConditionRefreshGuardAt[id];
         }
+        this.pendingConditionEvents = {};
         for (const id of Object.keys(this.pendingStatMap)) delete this.pendingStatMap[id];
         for (const entity of Object.values(this.entityMap)) entity.resetLiveStats();
         this.pendingHealthDamages = {};
@@ -920,6 +974,7 @@ export class EntityActor extends BaseActor {
                 v.At === current[i].At &&
                 v.DisableAt === current[i].DisableAt &&
                 v.DisableAtMs === current[i].DisableAtMs &&
+                v.Metadata === current[i].Metadata &&
                 v.DurationMs === current[i].DurationMs,
             );
         if (needUpdate) {

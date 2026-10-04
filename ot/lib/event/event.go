@@ -19,6 +19,7 @@ const (
 	EventIdCombatTarget  EventId = 19
 	EventIdSkillCooldown EventId = 20
 	EventIdSkillEnergy   EventId = 21
+	EventIdArcanaSignal  EventId = 22
 )
 
 const (
@@ -72,6 +73,7 @@ type EventDamage struct {
 
 type EventCharacterConditionEnable struct {
 	EventBase
+	Snapshot    bool `json:",omitempty"`
 	CCId        uint32
 	DisableAt   int64
 	DisableAtMs int64
@@ -135,7 +137,8 @@ type EventSkillAction struct {
 	// IsFallback marks actions inferred from an owned entity or a damage-phase
 	// packet. Consumers must not restart a running cooldown from fallback hits.
 	IsFallback bool
-	// IsLocal distinguishes player/owned actions from monster mechanics. Older
+	// IsLocal distinguishes local player/owned actions from other actors. Remote
+	// players retain their actual SourceId and must be checked by race. Older
 	// logs omit this field and are treated as local by the frontend.
 	IsLocal bool
 }
@@ -209,4 +212,32 @@ type EventSkillEnergy struct {
 	SkillId uint16
 	Percent float64
 	Active  bool
+}
+
+// EventArcanaSignal retains packet counters and zone creation parameters for
+// KPI replay. Zone creation alone does not establish target coverage.
+type EventArcanaSignal struct {
+	EventBase
+	AtMs           int64
+	SkillId        uint16
+	Signal         string
+	CastAtMs       int64  `json:"CastAtMs,omitempty"`
+	FirstHitAtMs   int64  `json:"FirstHitAtMs,omitempty"`
+	ReverseAtMs    int64  `json:"ReverseAtMs,omitempty"`
+	ReverseEndAtMs int64  `json:"ReverseEndAtMs,omitempty"`
+	ReadyAtMs      int64  `json:"ReadyAtMs,omitempty"`
+	TargetId       string `json:"TargetId,omitempty"`
+	Count          uint32
+	Phase          uint32 `json:"Phase,omitempty"`
+	Complete       bool
+	Kind           uint32   `json:"Kind,omitempty"`
+	DurationMs     uint32   `json:"DurationMs,omitempty"`
+	Range          float32  `json:"Range,omitempty"`
+	X              float32  `json:"X,omitempty"`
+	Y              float32  `json:"Y,omitempty"`
+	Value          float32  `json:"Value,omitempty"`
+	UpperValue     float32  `json:"UpperValue,omitempty"`
+	Maximum        float32  `json:"Maximum,omitempty"`
+	Rate           float32  `json:"Rate,omitempty"`
+	ObjectIds      []string `json:"ObjectIds,omitempty"`
 }

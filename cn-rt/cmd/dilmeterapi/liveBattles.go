@@ -54,6 +54,10 @@ type liveBattleActorState struct {
 	conditions      map[uint32]*event.EventCharacterConditionEnable
 	refreshPrevious map[uint32]*event.EventCharacterConditionEnable
 	items           map[uint32]*event.EventEntityEquipItem
+	fighterEnergy   *liveFighterEnergy
+	fighterSpend    *event.EventArcanaSignal
+	chainState      *event.EventArcanaSignal
+	recentKpi       []event.IEvent
 }
 
 type liveBattleIndex struct {
@@ -91,6 +95,15 @@ func (s *liveBattleIndex) actor(id string) *liveBattleActorState {
 	return a
 }
 
+func (s *liveBattleIndex) retainKpi(id string, current event.IEvent) {
+	a := s.actor(id)
+	if len(a.recentKpi) >= 128 {
+		copy(a.recentKpi, a.recentKpi[1:])
+		a.recentKpi = a.recentKpi[:127]
+	}
+	a.recentKpi = append(a.recentKpi, current)
+}
+
 func (s *liveBattleIndex) checkpoint(at int64) ([]byte, error) {
 	var out bytes.Buffer
 	enc := json.NewEncoder(&out)
@@ -117,6 +130,33 @@ func (s *liveBattleIndex) checkpoint(at int64) ([]byte, error) {
 	}
 	for _, id := range ids {
 		a := s.actors[id]
+		if a.chainState != nil {
+			if err := write(a.chainState); err != nil {
+				return nil, err
+			}
+		}
+		// Public starts/counters can precede the first damage that opens a
+		// battle window. Carry the bounded recent evidence into that window;
+		// KPI session/target filters still decide whether each sample belongs.
+		for _, current := range a.recentKpi {
+			if base, ok := current.(interface{ GetEventBase() *event.EventBase }); ok && base.GetEventBase().At >= at-liveBattleIdleSeconds {
+				if err := write(current); err != nil {
+					return nil, err
+				}
+			}
+		}
+		// A new window may start at the first hit, after the gauge baseline
+		// and skill gain have already arrived in the previous window.
+		if a.fighterEnergy != nil {
+			if err := write(a.fighterEnergy.baseline(id)); err != nil {
+				return nil, err
+			}
+		}
+		if a.fighterSpend != nil {
+			if err := write(a.fighterSpend); err != nil {
+				return nil, err
+			}
+		}
 		if a.body != nil {
 			if err := write(a.body); err != nil {
 				return nil, err
@@ -296,11 +336,36 @@ func hasLiveHealth(stats map[uint32]float64) bool { _, ok := stats[28]; return o
 func (s *liveBattleIndex) observe(e event.IEvent) {
 	switch v := e.(type) {
 	case *event.EventLocalEntity:
+		if v.Reset || s.local != nil && v.Id != s.local.Id {
+			for _, actor := range s.actors {
+				actor.fighterEnergy, actor.fighterSpend = nil, nil
+				actor.chainState, actor.recentKpi = nil, nil
+			}
+		}
 		if v.Reset {
 			clear(s.actors)
 			s.target = nil
 		}
 		s.local = v
+	case *event.EventArcanaSignal:
+		s.observeFighterEnergy(v)
+		if v.Signal == "lightning-chain-reset" {
+			s.actor(v.Id).chainState = nil
+		} else if v.Signal == "lightning-chain-state" && v.Complete && v.Kind == 814 && v.Count <= 1 {
+			copy := *v
+			copy.Sequence = 0
+			s.actor(v.Id).chainState = &copy
+		} else if !strings.HasPrefix(v.Signal, "fighter-energy-") && !strings.HasPrefix(v.Signal, "fighter-spend-") {
+			copy := *v
+			copy.Sequence = 0
+			s.retainKpi(v.Id, &copy)
+		}
+	case *event.EventSkillAction:
+		if !v.IsFallback && v.MechanicSignal == "" && (v.SourceId == "" || v.SourceId == v.Id) {
+			copy := *v
+			copy.Sequence = 0
+			s.retainKpi(v.Id, &copy)
+		}
 	case *event.EventEntityAppear:
 		s.actor(v.Id).appear = v
 		s.actor(v.Id).finish = nil

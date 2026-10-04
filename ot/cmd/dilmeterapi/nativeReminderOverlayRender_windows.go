@@ -493,6 +493,9 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 		}
 	}
 	if item.EnergyGate {
+		if item.SkillID == darkEnergySkillID && item.ShowEnergyPercent != nil && !*item.ShowEnergyPercent {
+			label = ""
+		}
 		if !item.EnergyActive {
 			label = "未开启"
 		} else if item.SkillID == darkEnergySkillID {
@@ -505,6 +508,7 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 			}
 		}
 	}
+	label = strings.TrimSpace(label)
 	if item.PetSkill {
 		texts = append(texts, nativeReminderText{text: "宠", rect: imageRectToNative(image.Rect(renderRect.Min.X, renderRect.Min.Y, renderRect.Min.X+max(14, iconSize/3), renderRect.Min.Y+max(14, iconSize/3))), color: nativeColorRef(255, 242, 151), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(9, iconSize/5), fontWeight: nativeFontBold})
 	}

@@ -40,7 +40,8 @@ assert.deepEqual(settings.rules.boost, {
 const clamped = normalizeEffectTimerSettings({ rules: { x: {
     sourceId: 0, durationSeconds: 0, scalePercent: 900, opacityPercent: 0, x: 99_999, y: -99_999,
 } } });
-assert.equal(clamped.rules.x.sourceId, 1);
+assert.equal(clamped.rules.x.sourceId, 0, "condition ID 0 remains selectable after saving");
+assert.equal(normalizeEffectTimerSettings({ rules: { skill: { sourceType: "skill", sourceId: 0 } } }).rules.skill.sourceId, 1);
 assert.equal(clamped.rules.x.durationSeconds, 0.1);
 assert.equal(clamped.rules.x.scalePercent, 200);
 assert.equal(clamped.rules.x.opacityPercent, 20);
@@ -48,5 +49,4 @@ assert.equal(clamped.rules.x.x, 32_000);
 assert.equal(clamped.rules.x.y, -32_000);
 
 console.log("effect timer settings normalize skill/condition bars and visual bounds");
-
 

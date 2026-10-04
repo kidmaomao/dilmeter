@@ -95,12 +95,17 @@ export type WorkerSnapshot = {
         pendingHealthDamages: Record<string, any[]>;
         lastHealthMap: Record<string, number>;
         pendingStatMap: Record<string, Record<number, number>>;
+        pendingConditionEvents?: Record<string, (import("../protocols").eventCharacterConditionEnable | import("../protocols").eventCharacterConditionDisable)[]>;
     };
     entities: Record<string, SnapshotEntity>;
     groups: Record<string, SnapshotGroup>;
     damages: any[]; // protocols.eventDamage[]
     /** Server-confirmed skill actions; absent in legacy records. */
     skillActions?: any[]; // protocols.eventSkillAction[]
+    skillCooldowns?: import("../protocols").eventSkillCooldown[];
+    statUpdates?: import("../protocols").eventStatUpdate[];
+    arcanaSignals?: import("../protocols").eventArcanaSignal[];
+    kpiAimSamples?: import("../arcanaKpi").KpiAimSample[];
     /** Health-bar reconciled damage; absent in legacy records. */
     effectiveDamages?: any[]; // protocols.eventDamage[]
     /** Authoritative body-health decreases; absent in legacy records. */

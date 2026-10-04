@@ -164,3 +164,19 @@ export type eventMessageBox = eventBase & {
 
 export const eventIdSkillEnergy = 21;
 export type eventSkillEnergy = eventBase & { SkillId: number; Percent: number; Active: boolean };
+
+export const eventIdArcanaSignal = 22;
+export type eventArcanaSignal = eventBase & {
+    EventId: 22; AtMs: number; SkillId: number;
+    Signal: "sniper-counter" | "domain-created" | "gunner-hit-extra" | "domain-linked" | "domain-sample" | "domain-remove-signal"
+        | "chemical-effect-count" | "chemical-hit-count" | "chemical-sample" | "act7-sample" | "interlude-sample"
+        | "fighter-combo" | "fighter-energy-baseline" | "fighter-energy-bounds" | "fighter-energy-delta" | "fighter-energy-reset" | "fighter-spend-start" | "fighter-spend-end"
+        | "hydro-charge-sample" | "lightning-chain-state" | "lightning-chain-reset";
+    CastAtMs?: number; FirstHitAtMs?: number; TargetId?: string; Count: number; Phase?: number; Complete: boolean;
+    ReverseAtMs?: number; ReverseEndAtMs?: number; ReadyAtMs?: number;
+    Kind?: number; DurationMs?: number; Range?: number; X?: number; Y?: number;
+    Value?: number;
+    UpperValue?: number;
+    Maximum?: number; Rate?: number;
+    ObjectIds?: string[];
+};

@@ -99,10 +99,11 @@
                         :key="tab.id"
                         type="button"
                         class="combat-tab"
+                        :data-section="tab.id"
                         :class="{ active: activeTab === tab.id }"
                         :aria-current="activeTab === tab.id ? 'page' : undefined"
                         @click="activeTab = tab.id"
-                    >{{ tab.label }}</button>
+                    ><v-icon :icon="tab.icon" size="22" />{{ tab.label }}</button>
                 </nav>
                 <div v-if="activeTab === 'summary'" class="combat-summary-panel">
                     <h2>战斗汇总</h2>
@@ -112,6 +113,8 @@
                             <dd>{{ item.value }}</dd>
                         </div>
                     </dl>
+
+                    <ArcanaKpiPanel v-if="arcanaKpiReport" :report="arcanaKpiReport" :sample="isDesignPreview && !summary" />
 
                     <section class="condition-panel" aria-label="状态效果">
                         <header class="condition-panel-header">
@@ -296,13 +299,13 @@
                                     >
                                         <button
                                             type="button"
-                                            class="condition-favorite-button active"
+                                            class="condition-favorite-button active" aria-pressed="true"
                                             :aria-label="`取消收藏 ${condition.name}`"
                                             title="星星只固定在 Buff 汇总中；桌面图标请使用铃铛提醒"
                                             @click="toggleFavoriteCondition(condition.ccId)"
                                         ><v-icon icon="mdi-star" size="16" /></button>
-                                        <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-label="`设置 ${condition.name} 提醒`" title="添加到桌面 Buff 提醒" @click="openBuffAlertEditor(condition.ccId)">
-                                            <v-icon icon="mdi-bell-outline" size="15" />
+                                        <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-pressed="isBuffAlertEnabled(condition.ccId)" :aria-label="`${isBuffAlertEnabled(condition.ccId) ? '编辑桌面提醒' : '添加到桌面提醒'}：${condition.name}`" :title="isBuffAlertEnabled(condition.ccId) ? '已启用桌面 Buff 提醒，点击编辑' : '添加到桌面 Buff 提醒'" @click="openBuffAlertEditor(condition.ccId)">
+                                            <v-icon :icon="isBuffAlertEnabled(condition.ccId) ? 'mdi-bell' : 'mdi-bell-plus-outline'" size="15" />
                                         </button>
                                         <button type="button" class="condition-card-main" @click="selectCondition(condition.ccId)">
                                             <span class="condition-icon-wrap">
@@ -334,13 +337,13 @@
                                         >
                                             <button
                                                 type="button"
-                                                class="condition-favorite-button"
+                                                class="condition-favorite-button" aria-pressed="false"
                                                 :aria-label="`收藏 ${condition.name}`"
                                                 title="星星只固定在 Buff 汇总中；桌面图标请使用铃铛提醒"
                                                 @click="toggleFavoriteCondition(condition.ccId)"
                                             ><v-icon icon="mdi-star-outline" size="16" /></button>
-                                            <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-label="`设置 ${condition.name} 提醒`" title="添加到桌面 Buff 提醒" @click="openBuffAlertEditor(condition.ccId)">
-                                                <v-icon icon="mdi-bell-outline" size="15" />
+                                            <button type="button" class="condition-alert-button" :class="{ active: isBuffAlertEnabled(condition.ccId) }" :aria-pressed="isBuffAlertEnabled(condition.ccId)" :aria-label="`${isBuffAlertEnabled(condition.ccId) ? '编辑桌面提醒' : '添加到桌面提醒'}：${condition.name}`" :title="isBuffAlertEnabled(condition.ccId) ? '已启用桌面 Buff 提醒，点击编辑' : '添加到桌面 Buff 提醒'" @click="openBuffAlertEditor(condition.ccId)">
+                                                <v-icon :icon="isBuffAlertEnabled(condition.ccId) ? 'mdi-bell' : 'mdi-bell-plus-outline'" size="15" />
                                             </button>
                                             <button type="button" class="condition-card-main" @click="selectCondition(condition.ccId)">
                                                 <span class="condition-icon-wrap">
@@ -432,8 +435,18 @@
                     </div>
                 </template>
 
-                <div v-else class="reminder-settings-page">
-                    <section class="reminder-profile-toolbar" aria-label="提醒方案与时间微调">
+                <div v-else-if="activeTab === 'alerts'" class="reminder-layout">
+                    <aside class="reminder-sidebar" aria-label="提醒分类">
+                        <h2>提醒设置</h2>
+                        <nav>
+                            <button v-for="category in reminderCategories" :key="category.id" type="button" :class="{ active: reminderCategory === category.id }" :aria-current="reminderCategory === category.id ? 'page' : undefined" @click="reminderCategory = category.id">
+                                <v-icon :icon="category.icon" size="23" />{{ category.label }}
+                            </button>
+                        </nav>
+                    </aside>
+                    <div class="reminder-settings-page">
+                        <section class="reminder-profile-toolbar" aria-label="提醒方案与时间微调">
+                        <header class="reminder-profile-header">
                         <div class="reminder-profile-heading">
                             <v-icon icon="mdi-folder-cog-outline" size="17" />
                             <div>
@@ -441,6 +454,9 @@
                                 <span>保存多套 Buff、Debuff、瞄准提醒与技能 CD 配置，切换职业时可直接套用。</span>
                             </div>
                         </div>
+                        <slot name="reminder-save-actions" :dirty="reminderSettingsDirty" :save="persistBuffAlertSettings" :sync="finalizeReminderSettingsSave" />
+                        </header>
+                        <div class="reminder-profile-controls" :inert="reminderSavePending">
                         <label>
                             当前方案
                             <select v-model="selectedReminderProfileId" @change="switchReminderProfile">
@@ -484,14 +500,16 @@
                             <button type="button" aria-label="增加一秒" @click="adjustBuffTime(1)">+</button>
                             <small>秒</small>
                         </div>
+                        </div>
+                        <div class="reminder-profile-common" :inert="reminderSavePending"><slot name="reminder-common-settings" /></div>
                     </section>
-                    <section class="buff-alert-settings" aria-label="Buff 提醒设置">
+                        <div class="reminder-editors" :inert="reminderSavePending">
+<section v-show="reminderCategory === 'buff'" class="buff-alert-settings" aria-label="Buff 提醒设置">
                         <header>
                             <div>
                                 <strong>桌面 Buff 提醒（可同时监控多个）</strong>
                                 <span>图标位置使用固定屏幕坐标；右侧可直接调整图标大小、音量和坐标。</span>
                             </div>
-                            <span v-if="reminderSettingsDirty" class="buff-alert-unsaved">有未保存修改</span>
                             <slot name="reminder-settings-actions" :dirty="reminderSettingsDirty" />
                         </header>
                         <div class="buff-alert-picker">
@@ -533,11 +551,10 @@
                                     </span>
                                     <strong>{{ conditionDisplayName(rule.ccId) }}</strong>
                                     <small>CC {{ rule.ccId }}</small>
+                                    <ReminderHelpTooltip v-if="isStackOnlyBuffAlertCondition(rule.ccId)" :label="`${conditionDisplayName(rule.ccId)}提醒说明`" :text="`${rule.ccId === 1080 ? '层数型 Buff' : 'Boss 机制负面状态'} · 达到设定层数时提醒`" />
                                 </div>
+                                <div class="reminder-rule-controls">
                                 <template v-if="isStackAlertCondition(rule.ccId)">
-                                    <span v-if="isStackOnlyBuffAlertCondition(rule.ccId)" class="buff-alert-mode-note">
-                                        {{ rule.ccId === 1080 ? "层数型 Buff" : "Boss 机制负面状态" }} · 达到设定层数时提醒
-                                    </span>
                                     <div class="buff-stack-alert-controls">
                                         <label class="buff-stack-alert-toggle">
                                             <input v-model="rule.stackAlertEnabled" type="checkbox" @change="markBuffAlertSettingsDirty" />
@@ -559,7 +576,7 @@
                                         </span>
                                         <label v-if="rule.stackAlertEnabled">
                                             层数音效
-                                            <select v-model="rule.stackSoundMode" @change="markBuffAlertSettingsDirty">
+                                            <select class="reminder-sound-select" v-model="rule.stackSoundMode" @change="markBuffAlertSettingsDirty">
                                                 <option value="none">不提示</option>
                                                 <option value="electronic">内置电子音</option>
                                                 <option value="voice">晓晓语音</option>
@@ -611,7 +628,7 @@
                                     </label>
                                     <label>
                                         音效
-                                        <select v-model="rule.soundMode" @change="onBuffSoundModeChanged(rule)">
+                                        <select class="reminder-sound-select" v-model="rule.soundMode" @change="onBuffSoundModeChanged(rule)">
                                             <option value="none">不提示</option>
                                             <option value="electronic">欢快电子音</option>
                                             <option value="voice">晓晓：音乐要结束了</option>
@@ -641,6 +658,7 @@
                                         @click="previewBuffAlertSound(rule.soundMode, true, rule.customSoundId)"
                                     >试听</button>
                                 </template>
+                                </div>
                                 <button type="button" class="buff-alert-remove" @click="removeBuffAlertRule(rule.ccId)">
                                     <v-icon icon="mdi-delete-outline" size="13" />删除
                                 </button>
@@ -649,8 +667,314 @@
                         </div>
                         <p v-else>尚未添加提醒。添加后会在这里逐项显示，多个项目可同时启用。</p>
                     </section>
+<section v-show="reminderCategory === 'cooldown'" class="skill-cooldown-settings" aria-label="技能冷却完成提醒设置">
+                        <header>
+                            <div>
+                                <strong>技能 CD 好了提示</strong>
+                                <span>每个技能可设置自己的屏幕坐标；螺旋爆裂与蓄势突击每次使用都会把一份短时 CD 加入累计 CD，达到上限后进入技能 CD。</span>
+                            </div>
+                            <div class="skill-cooldown-header-actions">
+                                <label class="skill-cooldown-icon-size" for="skill-cooldown-icon-size">
+                                    图标大小
+                                    <input
+                                        id="skill-cooldown-icon-size"
+                                        v-model.number="skillCooldownSettings.iconSize"
+                                        type="number"
+                                        min="24"
+                                        max="96"
+                                        step="1"
+                                        inputmode="numeric"
+                                        aria-describedby="skill-cooldown-icon-size-unit"
+                                        @input="markSkillCooldownSettingsDirty"
+                                    />
+                                    <span id="skill-cooldown-icon-size-unit">px</span>
+                                </label>
+                            </div>
+                        </header>
+                        <div class="buff-alert-picker skill-cooldown-picker">
+                            <label for="skill-cooldown-target">搜索技能提醒</label>
+                            <input
+                                id="skill-cooldown-target"
+                                v-model.trim="skillCooldownInput"
+                                type="search"
+                                placeholder="输入技能名称或技能 ID"
+                                autocomplete="off"
+                                @keyup.enter="addFirstSkillCooldownSearchResult"
+                            />
+                            <button type="button" class="buff-alert-add" :disabled="!skillCooldownSearchResults.length" @click="addFirstSkillCooldownSearchResult">
+                                <v-icon icon="mdi-plus" size="13" />添加
+                            </button>
+                        </div>
+                        <div v-if="skillCooldownInput && skillCooldownSearchResults.length" class="buff-alert-search-results skill-cooldown-search-results">
+                            <button
+                                v-for="skill in skillCooldownSearchResults"
+                                :key="skill.id"
+                                type="button"
+                                :disabled="Boolean(skillCooldownSettings.rules[skill.id] && !skillCooldownSettings.rules[skill.id].barOnly)"
+                                @click="addSkillCooldownRule(skill.id)"
+                            >
+                                <span class="skill-alert-icon compact">
+                                    <span>技能</span>
+                                    <img :src="skillIconUrl(skill.id)" :alt="`${skill.name}图标`" @error="hideMissingConditionIcon" />
+                                </span>
+                                <span><strong>{{ skill.name }}</strong><small>ID {{ skill.id }}</small></span>
+                                <v-icon :icon="skillCooldownSettings.rules[skill.id] && !skillCooldownSettings.rules[skill.id].barOnly ? 'mdi-check' : 'mdi-plus'" size="13" />
+                            </button>
+                        </div>
+                        <div v-if="configuredSkillCooldownRules.length" class="skill-cooldown-rule-list">
+                            <div v-for="rule in configuredSkillCooldownRules" :key="rule.skillId" class="skill-cooldown-editor">
+                                <div class="buff-alert-identity">
+                                    <span class="skill-alert-icon compact">
+                                        <span>技能</span>
+                                        <img :src="skillIconUrl(rule.skillId)" :alt="`${skillDisplayName(rule.skillId)}图标`" @error="hideMissingConditionIcon" />
+                                    </span>
+                                    <strong>{{ skillDisplayName(rule.skillId) }}</strong>
+                                    <small>ID {{ rule.skillId }}</small>
+                                    <ReminderHelpTooltip v-if="builtinSkillCooldownRuleDescription(rule.skillId)" :label="`${skillDisplayName(rule.skillId)}技能说明`" :text="`${builtinSkillCooldownRuleDescription(rule.skillId)}检测到对应包信号时自动更新当前剩余 CD。`" />
+                                </div>
+                                <div class="reminder-rule-controls">
+                                <label>
+                                    <input v-model="rule.enabled" type="checkbox" @change="markSkillCooldownSettingsDirty" />
+                                    启用提醒
+                                </label>
+                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID">
+                                    多尔卡少于
+                                    <input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
+                                    <span>点时弹框</span>
+                                </label>
+                                <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">
+                                    提示进度
+                                    <input
+                                        v-model.number="rule.progressThresholdPercent"
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        step="1"
+                                        @change="markSkillCooldownSettingsDirty"
+                                    />
+                                    <span>%</span>
+                                </label>
+                                <label v-if="rule.skillId === 59047">技能 CD（秒）
+                                    <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
+                                </label>
+                                <div
+                                    v-else-if="isCumulativeCooldownSkill(rule.skillId)"
+                                    class="skill-cooldown-cumulative-fields"
+                                    title="每次使用都把完整短时 CD 加入当前剩余的累计 CD；例如短时 CD 为 3 秒时，第一下为 3 秒，1 秒后第二下为 2+3=5 秒；累计值持续回落，达到上限后进入技能 CD"
+                                >
+                                    <label>短时 CD <input v-model.number="rule.shortCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
+                                    <label>累计 CD <input v-model.number="rule.cumulativeCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
+                                    <label>技能 CD <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
+                                </div>
+                                <label v-else-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)">
+                                    技能 CD（秒）
+                                    <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
+                                </label>
+                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)" title="宠物技能不会被托亚灵满充刷新">
+                                    技能归属
+                                    <select v-model="rule.ownerMode" @change="markSkillCooldownSettingsDirty">
+                                        <option value="auto">自动识别</option>
+                                        <option value="player">角色技能</option>
+                                        <option value="pet">宠物技能</option>
+                                    </select>
+                                </label>
+                                <div class="skill-cooldown-coordinates" title="以整个桌面左上角为 (0, 0)，坐标表示技能图标左上角">
+                                    <span>{{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "弹框左上角" : "图标左上角" }}</span>
+                                    <label>X <input v-model.number="rule.x" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
+                                    <label>Y <input v-model.number="rule.y" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
+                                </div>
+                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID" title="同时缩放多尔卡弹框、文字和数字，默认 100%">
+                                    窗口大小
+                                    <input v-model.number="rule.scalePercent" aria-label="多尔卡精通窗口大小百分比" type="number" min="50" max="200" step="5" @input="markSkillCooldownSettingsDirty" />
+                                    <span>%</span>
+                                </label>
+                                <label>
+                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "提示音效" : "完成音效" }}
+                                    <select class="reminder-sound-select" v-model="rule.soundMode" @change="onSkillCooldownSoundModeChanged(rule)">
+                                        <option value="default">默认提示音</option>
+                                        <option value="none">不提示</option>
+                                        <option value="custom">自定义音效</option>
+                                    </select>
+                                </label>
+                                <label v-if="rule.soundMode === 'custom'" class="buff-alert-file-picker">
+                                    <input
+                                        type="file"
+                                        accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"
+                                        @change="uploadCustomSkillCooldownSound(rule, $event)"
+                                    />
+                                    <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
+                                </label>
+                                <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('skill', rule.skillId, skillDisplayName(rule.skillId))">
+                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
+                                </button>
+                                <button
+                                    v-if="rule.soundMode !== 'none'"
+                                    type="button"
+                                    class="buff-alert-preview"
+                                    :disabled="rule.soundMode === 'custom' && !rule.customSoundId"
+                                    @click="previewSkillCooldownSound(rule, true)"
+                                >试听</button>
+                                <label :title="rule.skillId === DORCHA_MASTERY_SKILL_ID ? '始终显示当前多尔卡数量；未勾选时仅在数量不足时显示' : '勾选后，冷却期间灰色显示并显示倒计时；完成后恢复彩色'">
+                                    <input v-model="rule.alwaysVisible" type="checkbox" @change="markSkillCooldownSettingsDirty" />
+                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : (rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)) ? "能量槽一直显示" : "技能图标一直显示" }}
+                                </label>
+                                <label v-if="rule.skillId === 59047"><input v-model="rule.showEnergyPercent" type="checkbox" @change="markSkillCooldownSettingsDirty" />显示能量百分比数字</label>
+                                <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">预览位置与动画</button>
+                                </div>
+                                <button type="button" class="buff-alert-remove" @click="removeSkillCooldownRule(rule.skillId)">
+                                    <v-icon icon="mdi-delete-outline" size="13" />删除
+                                </button>
+                                <span class="buff-alert-runtime-status">{{ skillCooldownRuntimeStatus(rule.skillId) }}</span>
+                            </div>
+                        </div>
+                        <p v-else>尚未添加技能。先搜索技能，再填写该技能在你当前装备与状态下的实际 CD 秒数。</p>
+                    </section>
+<section v-show="reminderCategory === 'effect'" class="boss-mechanic-settings effect-timer-settings" aria-label="Buff 效果计时条设置">
+                        <header>
+                            <div>
+                                <strong>Buff 效果计时条</strong>
+                                <span>技能执行或角色状态出现时开始倒数；读条随剩余时间缩短，到期自动消失。</span>
+                            </div>
+                            <button type="button" class="buff-alert-preview" @click="addEffectTimerRule"><v-icon icon="mdi-plus" size="13" />添加计时条</button>
+                        </header>
+                        <div v-if="configuredEffectTimerRules.length" class="boss-mechanic-rule-list">
+                            <div v-for="rule in configuredEffectTimerRules" :key="rule.key" class="boss-mechanic-rule effect-timer-rule">
+                                <div class="boss-mechanic-identity">
+                                    <v-icon :icon="rule.sourceType === 'skill' ? 'mdi-sword-cross' : 'mdi-timer-sand'" size="24" />
+                                    <EffectTimerSourcePicker :key="rule.sourceType" :source-type="rule.sourceType" :source-id="rule.sourceId" :options="rule.sourceType === 'skill' ? allSkillDefinitions : effectTimerConditionDefinitions" :normalize-search="toSimplified" @select="selectEffectTimerSource(rule, $event)" />
+                                    <small>{{ rule.sourceType === "skill" ? "技能" : "状态" }} ID {{ rule.sourceId }}</small>
+                                </div>
+                                <label><input v-model="rule.enabled" type="checkbox" @change="markEffectTimerSettingsDirty" />启用</label>
+                                <label>触发来源<select v-model="rule.sourceType" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()"><option value="skill">技能</option><option value="condition">Character Condition</option></select></label>
+                                <label>技能 / 状态 ID<input v-model.number="rule.sourceId" type="number" :min="rule.sourceType === 'skill' ? 1 : 0" max="4294967295" step="1" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()" /></label>
+                                <label>显示名称<input v-model.trim="rule.name" type="text" maxlength="80" aria-label="计时条显示名称" @input="markEffectTimerSettingsDirty" /></label>
+                                <label>作用对象<select v-model="rule.targetMode" @change="markEffectTimerSettingsDirty"><option value="self">自身</option><option value="monster">怪物</option></select></label>
+                                <label>持续时间（秒）<input v-model.number="rule.durationSeconds" type="number" min="0.1" max="86400" step="0.1" @input="markEffectTimerSettingsDirty" /></label>
+                                <label><input v-model="rule.alwaysVisible" type="checkbox" @change="markEffectTimerSettingsDirty" />到期后一直显示空条</label>
+                                <label>方向<select v-model="rule.orientation" @change="markEffectTimerSettingsDirty"><option value="horizontal">横向</option><option value="vertical">纵向</option></select></label>
+                                <label class="boss-mechanic-rule-coordinate">坐标 <b>X</b><input v-model.number="rule.x" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /><b>Y</b><input v-model.number="rule.y" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /></label>
+                                <label>大小<input v-model.number="rule.scalePercent" type="number" min="50" max="200" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
+                                <label>透明度<input v-model.number="rule.opacityPercent" type="number" min="20" max="100" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
+                                <button type="button" class="buff-alert-preview" @click="previewEffectTimer(rule)">预览</button>
+                                <button type="button" class="buff-alert-remove" @click="removeEffectTimerRule(rule.key)"><v-icon icon="mdi-delete-outline" size="13" />删除</button>
+                            </div>
+                        </div>
+                        <p v-else>尚未配置计时条。添加后可自由选择技能或 Character Condition 作为触发来源。</p>
+                    </section>
+<section v-show="reminderCategory === 'aim'" class="aim-reminder-settings" aria-label="穿心箭瞄准提醒设置">
+                        <header>
+                            <div>
+                                <strong>瞄准提醒 <ReminderHelpTooltip label="瞄准计算与校准说明" text="合计射程＝武器基础射程＋鉴定等级×70。固定距离改版后的基础瞄准时间按 7×1000÷合计射程＋1 秒计算，再叠加瞄准校准、尔格与临时加速，得出系统 70%（画面显示 85%）的最佳射击时间；网络与画面延迟因人而异，请先预览或实战测试，再用“延迟微调”校正。无影箭、拉蒂卡秘术和疾速会自动识别并换算。" /></strong>
+                                <span>填写并保存下方参数后，KPI 即可统计穿心瞄准率；无需启用提醒。启用后会在锁定目标时显示独立读条。</span>
+                            </div>
+                        </header>
+                        <div class="aim-reminder-controls">
+                            <label class="aim-reminder-toggle">
+                                <input v-model="skillCooldownSettings.aimReminder.enabled" type="checkbox" @change="markAimReminderSettingsDirty" />
+                                启用瞄准提醒
+                            </label>
+                            <label class="aim-reminder-toggle" title="未使用穿心箭时也保留 0% 的紧凑提示；开始瞄准后自动进入读条">
+                                <input v-model="skillCooldownSettings.aimReminder.alwaysVisible" type="checkbox" :disabled="!skillCooldownSettings.aimReminder.enabled" @change="markAimReminderSettingsDirty" />
+                                未瞄准时一直显示
+                            </label>
+                            <label title="填写武器面板的基础射程；可从候选武器中选择，也可以直接输入其他武器射程">
+                                武器基础射程
+                                <input
+                                    v-model.number="skillCooldownSettings.aimReminder.weaponRange"
+                                    list="magnum-weapon-range-presets"
+                                    type="number"
+                                    min="100"
+                                    max="10000"
+                                    step="10"
+                                    @input="markAimReminderSettingsDirty"
+                                />
+                                <datalist id="magnum-weapon-range-presets">
+                                    <option value="2200">毁灭弓 2200</option>
+                                    <option value="2000">释魂弓 2000</option>
+                                    <option value="2100">释魂弩 2100</option>
+                                </datalist>
+                            </label>
+                            <label title="鉴定射程会与武器基础射程相加，每级增加 70">
+                                鉴定射程
+                                <select v-model.number="skillCooldownSettings.aimReminder.rangeIdentificationLevel" @change="markAimReminderSettingsDirty">
+                                    <option
+                                        v-for="option in magnumRangeIdentificationOptions"
+                                        :key="option.level"
+                                        :value="option.level"
+                                    >
+                                        {{ option.level === 0 ? "无鉴定" : `${option.level}级（+${option.bonus}）` }}
+                                    </option>
+                                </select>
+                            </label>
+                            <output class="aim-reminder-effective-range">
+                                <span>合计射程</span>
+                                <strong>{{ magnumAimEffectiveRangeText() }}</strong>
+                            </output>
+                            <label>
+                                瞄准校准
+                                <input
+                                    v-model.number="skillCooldownSettings.aimReminder.calibrationPercent"
+                                    type="number"
+                                    min="20"
+                                    max="40"
+                                    step="1"
+                                    @input="markAimReminderSettingsDirty"
+                                />
+                                %
+                            </label>
+                            <label>
+                                尔格瞄准加成
+                                <input
+                                    v-model.number="skillCooldownSettings.aimReminder.ergSpeedPercent"
+                                    type="number"
+                                    min="100"
+                                    max="1000"
+                                    step="10"
+                                    @input="markAimReminderSettingsDirty"
+                                />
+                                %
+                            </label>
+                            <label>
+                                延迟微调
+                                <input
+                                    v-model.number="skillCooldownSettings.aimReminder.fineTuneSeconds"
+                                    type="number"
+                                    min="-10"
+                                    max="10"
+                                    step="0.01"
+                                    @input="markAimReminderSettingsDirty"
+                                />
+                                秒
+                            </label>
+                            <output class="aim-reminder-calculated-time">
+                                <span>85%最佳时间</span>
+                                <strong>{{ magnumAimCalculatedBestText() }}</strong>
+                                <small>秒</small>
+                            </output>
+                            <label>
+                                整体大小
+                                <input
+                                    v-model.number="skillCooldownSettings.aimReminder.scalePercent"
+                                    type="number"
+                                    min="50"
+                                    max="200"
+                                    step="5"
+                                    @input="markAimReminderSettingsDirty"
+                                />
+                                %
+                            </label>
+                            <div class="aim-reminder-coordinates" title="以整个桌面左上角为 (0, 0)，坐标表示长条提示左上角">
+                                <span>提示左上角</span>
+                                <label>X <input v-model.number="skillCooldownSettings.aimReminder.x" type="number" min="-32000" max="32000" @input="markAimReminderSettingsDirty" /></label>
+                                <label>Y <input v-model.number="skillCooldownSettings.aimReminder.y" type="number" min="-32000" max="32000" @input="markAimReminderSettingsDirty" /></label>
+                            </div>
+                            <button type="button" class="aim-reminder-preview" :disabled="!skillCooldownSettings.aimReminder.enabled" @click="previewAimReminder">
+                                <v-icon icon="mdi-play-circle-outline" size="14" />预览进度与最佳提示
+                            </button>
+                        </div>
 
-                    <section class="debuff-alert-settings" aria-label="Boss Debuff 提醒设置">
+                    </section>
+<section v-show="reminderCategory === 'debuff'" class="debuff-alert-settings" aria-label="Boss Debuff 提醒设置">
                         <header>
                             <div>
                                 <strong>Boss Debuff 提醒</strong>
@@ -775,10 +1099,9 @@
                                 <button type="button" class="buff-alert-remove" @click="removeDebuffAlert(rule.ccId)"><v-icon icon="mdi-delete-outline" size="13" />删除</button>
                             </div>
                         </div>
-                        <p v-else>尚未监控 Debuff。可在上方搜索名称或 CC ID，也可在“综合 → 怪物”的状态卡片右上角点击铃铛添加。</p>
+                        <p v-else>尚未监控 Debuff。可在上方搜索名称或 CC ID，也可在“战斗分析 → 怪物”的状态卡片右上角点击铃铛添加。</p>
                     </section>
-
-                    <section class="boss-mechanic-settings" aria-label="Boss 特殊机制提醒设置">
+<section v-show="reminderCategory === 'boss'" class="boss-mechanic-settings" aria-label="Boss 特殊机制提醒设置">
                         <header>
                             <div>
                                 <strong>Boss 特殊机制提醒</strong>
@@ -794,24 +1117,15 @@
                                 <input v-model.number="bossMechanicSettings.scalePercent" type="number" min="50" max="200" step="5" @input="markBossMechanicSettingsDirty" />
                                 <span>%</span>
                             </label>
-                            <span v-if="bossMechanicSettingsDirty" class="boss-mechanic-unsaved">有未保存修改</span>
-                            <button
-                                type="button"
-                                class="skill-cooldown-save"
-                                :class="{ 'needs-save': bossMechanicSettingsDirty, saved: bossMechanicSettingsSaved }"
-                                @click="persistBossMechanicSettings"
-                            >
-                                <v-icon :icon="bossMechanicSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                                {{ bossMechanicSettingsSaved ? "已保存" : "保存设定" }}
-                            </button>
                         </header>
                         <div class="boss-mechanic-rule-list">
-                            <div v-for="rule in configuredBossMechanicRules" :key="rule.key" class="boss-mechanic-rule">
+                            <div v-for="rule in configuredBossMechanicRules" :key="rule.key" class="boss-mechanic-rule boss-reminder-editor">
                                 <div class="boss-mechanic-identity">
                                     <v-icon :icon="rule.trigger === 'orb-spawn' ? 'mdi-orbit' : 'mdi-laser-pointer'" size="24" />
                                     <strong>{{ rule.name }}</strong>
-                                    <small>{{ rule.trigger === "orb-spawn" ? "米耶尔环绕球生成信号" : `怪物技能 ${rule.skillId} 执行信号` }}</small>
+                                    <small>{{ rule.trigger === "orb-spawn" ? "米耶尔环绕球生成信号" : `技能 ${rule.skillId} 执行信号` }}</small>
                                 </div>
+                                <div class="reminder-rule-controls">
                                 <label><input v-model="rule.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用提醒</label>
                                 <label>
                                     倒计时（秒）
@@ -827,7 +1141,7 @@
                                 </label>
                                 <label>
                                     音效
-                                    <select v-model="rule.soundMode" @change="markBossMechanicSettingsDirty">
+                                    <select class="reminder-sound-select" v-model="rule.soundMode" @change="markBossMechanicSettingsDirty">
                                         <option value="none">不提示</option>
                                         <option value="dedicated">专属机制音效</option>
                                         <option value="custom">自定义 / 本地TTS</option>
@@ -841,14 +1155,16 @@
                                     <v-icon icon="mdi-account-voice" size="13" />本地TTS
                                 </button>
                                 <button type="button" class="buff-alert-preview" :disabled="rule.soundMode === 'custom' && !rule.customSoundId" @click="previewBossMechanicRule(rule.key)">测试提醒</button>
+                                </div>
                                 <span class="buff-alert-runtime-status">{{ bossMechanicRuntimeStatus(rule.key) }}</span>
                             </div>
-                            <div class="boss-mechanic-rule boss-mechanic-health-rule">
+                            <div class="boss-mechanic-rule boss-mechanic-health-rule boss-reminder-editor">
                                 <div class="boss-mechanic-identity">
                                     <v-icon icon="mdi-heart-pulse" size="24" />
                                     <strong>安乐碎片机制</strong>
-                                    <small>选中对应阶段的机制碎片时显示放大血条；各阶段可独立开启</small>
+                                    <ReminderHelpTooltip label="安乐碎片机制说明" text="选中对应阶段的机制碎片时显示放大血条；各阶段可独立开启。血条的坐标、大小和透明度单独设置，不影响环绕球与射线提醒。" />
                                 </div>
+                                <div class="reminder-rule-controls">
                                 <div class="miel-shard-phase-options" aria-label="显示阶段">
                                     <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal80" type="checkbox" @change="markBossMechanicSettingsDirty" />普通米耶尔 80%</label>
                                     <label><input v-model="bossMechanicSettings.mielShardHealthPhases.normal60" type="checkbox" @change="markBossMechanicSettingsDirty" />普通米耶尔 60%</label>
@@ -873,351 +1189,32 @@
                                     <span>%</span>
                                 </label>
                                 <button type="button" class="buff-alert-preview" @click="previewMielShardHealthBar">预览血条</button>
+                                </div>
                                 <span class="buff-alert-runtime-status">{{ mielShardHealthBarPreview ? "正在预览 5 秒，可解锁后拖动" : "不影响环绕球与射线提醒" }}</span>
                             </div>
                         </div>
                     </section>
-
-                    <section class="boss-mechanic-settings effect-timer-settings" aria-label="伤害增益效果计时条设置">
-                        <header>
-                            <div>
-                                <strong>伤害增益效果计时条</strong>
-                                <span>技能执行或角色状态出现时开始倒数；读条随剩余时间缩短，到期自动消失。</span>
-                            </div>
-                            <span v-if="effectTimerSettingsDirty" class="boss-mechanic-unsaved">有未保存修改</span>
-                            <button type="button" class="skill-cooldown-save" :class="{ 'needs-save': effectTimerSettingsDirty, saved: effectTimerSettingsSaved }" @click="persistEffectTimerSettings">
-                                <v-icon :icon="effectTimerSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                                {{ effectTimerSettingsSaved ? "已保存" : "保存设定" }}
-                            </button>
-                            <button type="button" class="buff-alert-preview" @click="addEffectTimerRule"><v-icon icon="mdi-plus" size="13" />添加计时条</button>
-                        </header>
-                        <div v-if="configuredEffectTimerRules.length" class="boss-mechanic-rule-list">
-                            <div v-for="rule in configuredEffectTimerRules" :key="rule.key" class="boss-mechanic-rule effect-timer-rule">
-                                <div class="boss-mechanic-identity">
-                                    <v-icon :icon="rule.sourceType === 'skill' ? 'mdi-sword-cross' : 'mdi-timer-sand'" size="24" />
-                                    <input v-model.trim="rule.name" :list="rule.sourceType === 'skill' ? 'effect-timer-skill-options' : 'effect-timer-condition-options'" type="text" maxlength="80" aria-label="技能或状态名称" @input="markEffectTimerSettingsDirty" @change="resolveEffectTimerSourceFromName(rule)" />
-                                    <small>{{ rule.sourceType === "skill" ? "技能" : "状态" }} ID {{ rule.sourceId }}</small>
-                                </div>
-                                <label><input v-model="rule.enabled" type="checkbox" @change="markEffectTimerSettingsDirty" />启用</label>
-                                <label>触发来源<select v-model="rule.sourceType" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()"><option value="skill">技能</option><option value="condition">Character Condition</option></select></label>
-                                <label>技能 / 状态 ID<input v-model.number="rule.sourceId" type="number" min="1" step="1" @change="resolveEffectTimerRuleName(rule); markEffectTimerSettingsDirty()" /></label>
-                                <label>作用对象<select v-model="rule.targetMode" @change="markEffectTimerSettingsDirty"><option value="self">自身</option><option value="monster">怪物</option></select></label>
-                                <label>持续时间（秒）<input v-model.number="rule.durationSeconds" type="number" min="0.1" max="86400" step="0.1" @input="markEffectTimerSettingsDirty" /></label>
-                                <label><input v-model="rule.alwaysVisible" type="checkbox" @change="markEffectTimerSettingsDirty" />到期后一直显示空条</label>
-                                <label>方向<select v-model="rule.orientation" @change="markEffectTimerSettingsDirty"><option value="horizontal">横向</option><option value="vertical">纵向</option></select></label>
-                                <label class="boss-mechanic-rule-coordinate">坐标 <b>X</b><input v-model.number="rule.x" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /><b>Y</b><input v-model.number="rule.y" type="number" min="-32000" max="32000" step="1" @input="markEffectTimerSettingsDirty" /></label>
-                                <label>大小<input v-model.number="rule.scalePercent" type="number" min="50" max="200" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
-                                <label>透明度<input v-model.number="rule.opacityPercent" type="number" min="20" max="100" step="5" @input="markEffectTimerSettingsDirty" /><span>%</span></label>
-                                <button type="button" class="buff-alert-preview" @click="previewEffectTimer(rule)">预览</button>
-                                <button type="button" class="buff-alert-remove" @click="removeEffectTimerRule(rule.key)"><v-icon icon="mdi-delete-outline" size="13" />删除</button>
-                            </div>
                         </div>
-                        <p v-else>尚未配置计时条。添加后可自由选择技能或 Character Condition 作为触发来源。</p>
-                        <datalist id="effect-timer-skill-options"><option v-for="item in allSkillDefinitions" :key="item.id" :value="item.name">技能 {{ item.id }}</option></datalist>
-                        <datalist id="effect-timer-condition-options"><option v-for="item in allConditionDefinitions" :key="item.id" :value="item.name">CC {{ item.id }}</option></datalist>
-                    </section>
-
-                    <section class="aim-reminder-settings" aria-label="穿心箭瞄准提醒设置">
-                        <header>
-                            <div>
-                                <strong>瞄准提醒</strong>
-                                <span>穿心箭锁定目标后显示独立紧凑读条；无需在技能 CD 中添加穿心箭。</span>
-                            </div>
-                            <div class="aim-reminder-header-actions">
-                                <span v-if="aimReminderSettingsDirty" class="aim-reminder-unsaved">有未保存修改</span>
-                                <button
-                                    type="button"
-                                    class="aim-reminder-save skill-cooldown-save"
-                                    :class="{ 'needs-save': aimReminderSettingsDirty, saved: aimReminderSettingsSaved }"
-                                    :disabled="aimReminderSettingsSaving"
-                                    @click="persistAimReminderSettings"
-                                >
-                                    <v-icon :icon="aimReminderSettingsSaving ? 'mdi-loading' : aimReminderSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" :class="{ 'mdi-spin': aimReminderSettingsSaving }" size="13" />
-                                    {{ aimReminderSettingsSaving ? "保存中" : aimReminderSettingsSaved ? "已保存" : "保存设定" }}
-                                </button>
-                            </div>
-                        </header>
-                        <div class="aim-reminder-controls">
-                            <label class="aim-reminder-toggle">
-                                <input v-model="skillCooldownSettings.aimReminder.enabled" type="checkbox" @change="markAimReminderSettingsDirty" />
-                                启用瞄准提醒
-                            </label>
-                            <label class="aim-reminder-toggle" title="未使用穿心箭时也保留 0% 的紧凑提示；开始瞄准后自动进入读条">
-                                <input v-model="skillCooldownSettings.aimReminder.alwaysVisible" type="checkbox" :disabled="!skillCooldownSettings.aimReminder.enabled" @change="markAimReminderSettingsDirty" />
-                                未瞄准时一直显示
-                            </label>
-                            <label title="填写武器面板的基础射程；可从候选武器中选择，也可以直接输入其他武器射程">
-                                武器基础射程
-                                <input
-                                    v-model.number="skillCooldownSettings.aimReminder.weaponRange"
-                                    list="magnum-weapon-range-presets"
-                                    type="number"
-                                    min="100"
-                                    max="10000"
-                                    step="10"
-                                    @input="markAimReminderSettingsDirty"
-                                />
-                                <datalist id="magnum-weapon-range-presets">
-                                    <option value="2200">毁灭弓 2200</option>
-                                    <option value="2000">释魂弓 2000</option>
-                                    <option value="2100">释魂弩 2100</option>
-                                </datalist>
-                            </label>
-                            <label title="鉴定射程会与武器基础射程相加，每级增加 70">
-                                鉴定射程
-                                <select v-model.number="skillCooldownSettings.aimReminder.rangeIdentificationLevel" @change="markAimReminderSettingsDirty">
-                                    <option
-                                        v-for="option in magnumRangeIdentificationOptions"
-                                        :key="option.level"
-                                        :value="option.level"
-                                    >
-                                        {{ option.level === 0 ? "无鉴定" : `${option.level}级（+${option.bonus}）` }}
-                                    </option>
-                                </select>
-                            </label>
-                            <output class="aim-reminder-effective-range">
-                                <span>合计射程</span>
-                                <strong>{{ magnumAimEffectiveRangeText() }}</strong>
-                            </output>
-                            <label>
-                                瞄准校准
-                                <input
-                                    v-model.number="skillCooldownSettings.aimReminder.calibrationPercent"
-                                    type="number"
-                                    min="20"
-                                    max="40"
-                                    step="1"
-                                    @input="markAimReminderSettingsDirty"
-                                />
-                                %
-                            </label>
-                            <label>
-                                尔格瞄准加成
-                                <input
-                                    v-model.number="skillCooldownSettings.aimReminder.ergSpeedPercent"
-                                    type="number"
-                                    min="100"
-                                    max="1000"
-                                    step="10"
-                                    @input="markAimReminderSettingsDirty"
-                                />
-                                %
-                            </label>
-                            <label>
-                                延迟微调
-                                <input
-                                    v-model.number="skillCooldownSettings.aimReminder.fineTuneSeconds"
-                                    type="number"
-                                    min="-10"
-                                    max="10"
-                                    step="0.01"
-                                    @input="markAimReminderSettingsDirty"
-                                />
-                                秒
-                            </label>
-                            <output class="aim-reminder-calculated-time">
-                                <span>85%最佳时间</span>
-                                <strong>{{ magnumAimCalculatedBestText() }}</strong>
-                                <small>秒</small>
-                            </output>
-                            <label>
-                                整体大小
-                                <input
-                                    v-model.number="skillCooldownSettings.aimReminder.scalePercent"
-                                    type="number"
-                                    min="50"
-                                    max="200"
-                                    step="5"
-                                    @input="markAimReminderSettingsDirty"
-                                />
-                                %
-                            </label>
-                            <div class="aim-reminder-coordinates" title="以整个桌面左上角为 (0, 0)，坐标表示长条提示左上角">
-                                <span>提示左上角</span>
-                                <label>X <input v-model.number="skillCooldownSettings.aimReminder.x" type="number" min="-32000" max="32000" @input="markAimReminderSettingsDirty" /></label>
-                                <label>Y <input v-model.number="skillCooldownSettings.aimReminder.y" type="number" min="-32000" max="32000" @input="markAimReminderSettingsDirty" /></label>
-                            </div>
-                            <button type="button" class="aim-reminder-preview" :disabled="!skillCooldownSettings.aimReminder.enabled" @click="previewAimReminder">
-                                <v-icon icon="mdi-play-circle-outline" size="14" />预览进度与最佳提示
-                            </button>
+                    </div>
+                </div>
+                <div v-show="activeTab === 'team'" class="team-reminders-layout">
+                    <aside class="reminder-sidebar" aria-label="队友提醒分类">
+                        <h2>队友提醒</h2>
+                        <nav>
+                            <button v-for="category in teamReminderCategories" :key="category.id" type="button" :class="{ active: teamReminderCategory === category.id }" :aria-current="teamReminderCategory === category.id ? 'page' : undefined" @click="teamReminderCategory = category.id"><v-icon :icon="category.icon" size="23" />{{ category.label }}</button>
+                        </nav>
+                    </aside>
+                    <div class="team-reminders-content">
+                        <div v-show="teamReminderCategory === 'healer'">
+                            <slot name="team-reminders" :active="activeTab === 'team' && teamReminderCategory === 'healer'" />
                         </div>
-                        <p>合计射程＝武器基础射程＋鉴定等级×70。固定距离改版后的基础瞄准时间按 7×1000÷合计射程＋1 秒计算，再叠加瞄准校准、尔格与临时加速，得出系统 70%（画面显示 85%）的最佳射击时间；网络与画面延迟因人而异，请先预览或实战测试，再用“延迟微调”校正。无影箭、拉蒂卡秘术和疾速会自动识别并换算。</p>
-                    </section>
-
-                    <section class="skill-cooldown-settings" aria-label="技能冷却完成提醒设置">
-                        <header>
-                            <div>
-                                <strong>技能 CD 好了提示</strong>
-                                <span>每个技能可设置自己的屏幕坐标；螺旋爆裂与蓄势突击每次使用都会把一份短时 CD 加入累计 CD，达到上限后进入技能 CD。</span>
-                            </div>
-                            <div class="skill-cooldown-header-actions">
-                                <label class="skill-cooldown-icon-size" for="skill-cooldown-icon-size">
-                                    图标大小
-                                    <input
-                                        id="skill-cooldown-icon-size"
-                                        v-model.number="skillCooldownSettings.iconSize"
-                                        type="number"
-                                        min="24"
-                                        max="96"
-                                        step="1"
-                                        inputmode="numeric"
-                                        aria-describedby="skill-cooldown-icon-size-unit"
-                                        @input="markSkillCooldownSettingsDirty"
-                                    />
-                                    <span id="skill-cooldown-icon-size-unit">px</span>
-                                </label>
-                                <span v-if="skillCooldownSettingsDirty" class="skill-cooldown-unsaved">有未保存修改</span>
-                                <button
-                                    type="button"
-                                    class="skill-cooldown-save"
-                                    :class="{ 'needs-save': skillCooldownSettingsDirty, saved: skillCooldownSettingsSaved }"
-                                    :disabled="skillCooldownSettingsSaving"
-                                    @click="persistSkillCooldownSettings"
-                                >
-                                    <v-icon :icon="skillCooldownSettingsSaving ? 'mdi-loading' : skillCooldownSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" :class="{ 'mdi-spin': skillCooldownSettingsSaving }" size="13" />
-                                    {{ skillCooldownSettingsSaving ? "保存中" : skillCooldownSettingsSaved ? "已保存" : "保存设定" }}
-                                </button>
-                            </div>
-                        </header>
-                        <div class="buff-alert-picker skill-cooldown-picker">
-                            <label for="skill-cooldown-target">搜索技能提醒</label>
-                            <input
-                                id="skill-cooldown-target"
-                                v-model.trim="skillCooldownInput"
-                                type="search"
-                                placeholder="输入技能名称或技能 ID"
-                                autocomplete="off"
-                                @keyup.enter="addFirstSkillCooldownSearchResult"
-                            />
-                            <button type="button" class="buff-alert-add" :disabled="!skillCooldownSearchResults.length" @click="addFirstSkillCooldownSearchResult">
-                                <v-icon icon="mdi-plus" size="13" />添加
-                            </button>
+                        <div v-show="teamReminderCategory === 'burst'">
+                            <BurstReminderSettings :settings="burstSettings" :dirty="burstSettingsDirty" :saving="burstSettingsSaving" @change="burstSettingsDirty = true; reminderProfileSettingsDirty = true" @save="persistBurstSettings" @preview="previewBurstRule" />
                         </div>
-                        <div v-if="skillCooldownInput && skillCooldownSearchResults.length" class="buff-alert-search-results skill-cooldown-search-results">
-                            <button
-                                v-for="skill in skillCooldownSearchResults"
-                                :key="skill.id"
-                                type="button"
-                                :disabled="Boolean(skillCooldownSettings.rules[skill.id] && !skillCooldownSettings.rules[skill.id].barOnly)"
-                                @click="addSkillCooldownRule(skill.id)"
-                            >
-                                <span class="skill-alert-icon compact">
-                                    <span>技能</span>
-                                    <img :src="skillIconUrl(skill.id)" :alt="`${skill.name}图标`" @error="hideMissingConditionIcon" />
-                                </span>
-                                <span><strong>{{ skill.name }}</strong><small>ID {{ skill.id }}</small></span>
-                                <v-icon :icon="skillCooldownSettings.rules[skill.id] && !skillCooldownSettings.rules[skill.id].barOnly ? 'mdi-check' : 'mdi-plus'" size="13" />
-                            </button>
-                        </div>
-                        <div v-if="configuredSkillCooldownRules.length" class="skill-cooldown-rule-list">
-                            <div v-for="rule in configuredSkillCooldownRules" :key="rule.skillId" class="skill-cooldown-editor">
-                                <div class="buff-alert-identity">
-                                    <span class="skill-alert-icon compact">
-                                        <span>技能</span>
-                                        <img :src="skillIconUrl(rule.skillId)" :alt="`${skillDisplayName(rule.skillId)}图标`" @error="hideMissingConditionIcon" />
-                                    </span>
-                                    <strong>{{ skillDisplayName(rule.skillId) }}</strong>
-                                    <small>ID {{ rule.skillId }}</small>
-                                </div>
-                                <p v-if="builtinSkillCooldownRuleDescription(rule.skillId)" class="skill-cooldown-builtin-rule">
-                                    <v-icon icon="mdi-timer-sync-outline" size="14" />
-                                    {{ builtinSkillCooldownRuleDescription(rule.skillId) }}检测到对应包信号时自动更新当前剩余 CD。
-                                </p>
-                                <label>
-                                    <input v-model="rule.enabled" type="checkbox" @change="markSkillCooldownSettingsDirty" />
-                                    启用提醒
-                                </label>
-                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID">
-                                    多尔卡少于
-                                    <input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
-                                    <span>点时弹框</span>
-                                </label>
-                                <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">
-                                    提示进度
-                                    <input
-                                        v-model.number="rule.progressThresholdPercent"
-                                        type="number"
-                                        min="1"
-                                        max="100"
-                                        step="1"
-                                        @change="markSkillCooldownSettingsDirty"
-                                    />
-                                    <span>%</span>
-                                </label>
-                                <label v-if="rule.skillId === 59047">技能 CD（秒）
-                                    <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
-                                </label>
-                                <div
-                                    v-else-if="isCumulativeCooldownSkill(rule.skillId)"
-                                    class="skill-cooldown-cumulative-fields"
-                                    title="每次使用都把完整短时 CD 加入当前剩余的累计 CD；例如短时 CD 为 3 秒时，第一下为 3 秒，1 秒后第二下为 2+3=5 秒；累计值持续回落，达到上限后进入技能 CD"
-                                >
-                                    <label>短时 CD <input v-model.number="rule.shortCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
-                                    <label>累计 CD <input v-model.number="rule.cumulativeCooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
-                                    <label>技能 CD <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" /> 秒</label>
-                                </div>
-                                <label v-else-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)">
-                                    技能 CD（秒）
-                                    <input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @change="markSkillCooldownSettingsDirty" />
-                                </label>
-                                <label v-if="rule.skillId !== TOAH_SPIRIT_SKILL_ID && rule.skillId !== DORCHA_MASTERY_SKILL_ID && !isEnergySkill(rule.skillId)" title="宠物技能不会被托亚灵满充刷新">
-                                    技能归属
-                                    <select v-model="rule.ownerMode" @change="markSkillCooldownSettingsDirty">
-                                        <option value="auto">自动识别</option>
-                                        <option value="player">角色技能</option>
-                                        <option value="pet">宠物技能</option>
-                                    </select>
-                                </label>
-                                <div class="skill-cooldown-coordinates" title="以整个桌面左上角为 (0, 0)，坐标表示技能图标左上角">
-                                    <span>{{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "弹框左上角" : "图标左上角" }}</span>
-                                    <label>X <input v-model.number="rule.x" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
-                                    <label>Y <input v-model.number="rule.y" type="number" min="-32000" max="32000" @input="markSkillCooldownSettingsDirty" /></label>
-                                </div>
-                                <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID" title="同时缩放多尔卡弹框、文字和数字，默认 100%">
-                                    窗口大小
-                                    <input v-model.number="rule.scalePercent" aria-label="多尔卡精通窗口大小百分比" type="number" min="50" max="200" step="5" @input="markSkillCooldownSettingsDirty" />
-                                    <span>%</span>
-                                </label>
-                                <label>
-                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "提示音效" : "完成音效" }}
-                                    <select v-model="rule.soundMode" @change="onSkillCooldownSoundModeChanged(rule)">
-                                        <option value="default">默认提示音</option>
-                                        <option value="none">不提示</option>
-                                        <option value="custom">自定义音效</option>
-                                    </select>
-                                </label>
-                                <label v-if="rule.soundMode === 'custom'" class="buff-alert-file-picker">
-                                    <input
-                                        type="file"
-                                        accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav"
-                                        @change="uploadCustomSkillCooldownSound(rule, $event)"
-                                    />
-                                    <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
-                                </label>
-                                <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('skill', rule.skillId, skillDisplayName(rule.skillId))">
-                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
-                                </button>
-                                <button
-                                    v-if="rule.soundMode !== 'none'"
-                                    type="button"
-                                    class="buff-alert-preview"
-                                    :disabled="rule.soundMode === 'custom' && !rule.customSoundId"
-                                    @click="previewSkillCooldownSound(rule, true)"
-                                >试听</button>
-                                <label :title="rule.skillId === DORCHA_MASTERY_SKILL_ID ? '始终显示当前多尔卡数量；未勾选时仅在数量不足时显示' : '勾选后，冷却期间灰色显示并显示倒计时；完成后恢复彩色'">
-                                    <input v-model="rule.alwaysVisible" type="checkbox" @change="markSkillCooldownSettingsDirty" />
-                                    {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : (rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)) ? "能量槽一直显示" : "技能图标一直显示" }}
-                                </label>
-                                <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">预览位置与动画</button>
-                                <button type="button" class="buff-alert-remove" @click="removeSkillCooldownRule(rule.skillId)">
-                                    <v-icon icon="mdi-delete-outline" size="13" />删除
-                                </button>
-                                <span class="buff-alert-runtime-status">{{ skillCooldownRuntimeStatus(rule.skillId) }}</span>
-                            </div>
-                        </div>
-                        <p v-else>尚未添加技能。先搜索技能，再填写该技能在你当前装备与状态下的实际 CD 秒数。</p>
-                    </section>
-
+                    </div>
+                </div>
+                <div v-show="activeTab === 'skillbar'" class="extra-skillbar-page">
+                    <slot name="extra-skillbar" :active="activeTab === 'skillbar'" />
                 </div>
             </div>
         </section>
@@ -1343,6 +1340,13 @@
 </template>
 
 <script setup lang="ts">
+import ArcanaKpiPanel from "./ArcanaKpiPanel.vue";
+import ReminderHelpTooltip from "./ReminderHelpTooltip.vue";
+import type { BossMechanicOverlayItem } from "@/skillCooldown";
+import BurstReminderSettings from "./BurstReminderSettings.vue";
+import { loadBurstSettings, saveBurstSettings, normalizeBurstSettings, type BurstRule } from "@/burstReminder";
+import EffectTimerSourcePicker from "./EffectTimerSourcePicker.vue";
+import { buildArcanaKpi } from "@/arcanaKpi";
 import { isEnergySkill, holyEnergyState, energyReminderReady, type SkillEnergyState } from "@/skillEnergy";
 import { deadIntervals, invulnerableIntervals } from "@/battleChartHistory";
 import type { PeakActor } from "@/teamDpsPeaks";
@@ -1427,8 +1431,6 @@ import {
     saveSkillCooldownSettings,
     settleSkillCooldownRuntime,
     shouldRefreshSkillCooldownFromToah,
-    summarizeMagnumAimSamples,
-    type MagnumAimSample,
     type SkillCooldownRule,
     type SkillCooldownOverlayMessage,
     type SkillCooldownRuntime,
@@ -1443,6 +1445,7 @@ import {
     normalizeEffectTimerSettings,
     saveEffectTimerSettings,
     type EffectTimerRule,
+    type EffectTimerOverlayItem,
     type EffectTimerRuntime,
 } from "@/effectTimer";
 import { buildConditionTimelineScale } from "@/conditionTimeline";
@@ -1498,6 +1501,7 @@ const props = withDefaults(defineProps<{
     battleCatalog?: LiveBattleCatalog | null;
     loadedSessionKey?: string;
     isRecordReplay?: boolean;
+    reminderSavePending?: boolean;
 }>(), {
     isFileLoading: false,
     isStandalone: false,
@@ -1505,6 +1509,7 @@ const props = withDefaults(defineProps<{
     battleCatalog: null,
     loadedSessionKey: "",
     isRecordReplay: false,
+    reminderSavePending: false,
 });
 const { isFileLoading, isStandalone, dpsVisible, isRecordReplay } = toRefs(props);
 const emit = defineEmits<{
@@ -1519,7 +1524,7 @@ type NoticeType = "success" | "warning" | "error" | "info";
 type LocalTtsTargetKind = "buff" | "buff-stack" | "debuff" | "skill" | "boss";
 type LocalTtsTarget = { kind: LocalTtsTargetKind; id: number | string; label: string };
 type LocalTtsVoice = { name: string; culture: string; gender: string; description: string };
-type CombatTab = "summary" | "attack" | "alerts";
+type CombatTab = "summary" | "attack" | "alerts" | "team" | "skillbar";
 type BossMechanicRuntimeState = {
     startedAtMs: number;
     endsAtMs: number;
@@ -1686,14 +1691,27 @@ const previewParams = new URLSearchParams(window.location.search);
 const isDesignPreview = import.meta.env.DEV && previewParams.has("preview");
 const showPreviewControls = isDesignPreview && previewParams.has("controls");
 const isSharePreview = isDesignPreview && previewParams.has("share");
-const previewAimSummaryEnabled = isDesignPreview && previewParams.get("aimSummary") === "1";
 const sharePreviewUrl = ref("");
 const selectedBossId = ref("");
 const manuallyLockedBossId = ref("");
 const onlyBossTargets = ref(loadOnlyBossTargets());
 const reminderTargetId = ref("");
 const selectedPlayerId = ref("");
-const activeTab = ref<CombatTab>("attack");
+const activeTab = ref<CombatTab>("summary");
+const reminderCategory = ref("buff");
+const teamReminderCategory = ref("healer");
+const teamReminderCategories = [
+    { id: "healer", label: "圣歌监控", icon: "mdi-heart-pulse" },
+    { id: "burst", label: "爆发提醒", icon: "mdi-lightning-bolt-outline" },
+];
+const reminderCategories = [
+    { id: "buff", label: "Buff 提醒", icon: "mdi-bell-outline" },
+    { id: "cooldown", label: "技能 CD 提醒", icon: "mdi-clock-outline" },
+    { id: "effect", label: "Buff 效果计时条", icon: "mdi-timer-sand" },
+    { id: "aim", label: "瞄准提醒", icon: "mdi-crosshairs" },
+    { id: "debuff", label: "Boss Debuff 提醒", icon: "mdi-shield-alert-outline" },
+    { id: "boss", label: "Boss 机制提醒", icon: "mdi-skull-outline" },
+];
 const conditionTarget = ref<ConditionTarget>("ally");
 const selectedConditionId = ref<number | null>(null);
 const conditionTimelineElement = ref<HTMLElement | null>(null);
@@ -1733,7 +1751,6 @@ type MagnumAimCycle = {
 };
 const activeMagnumAimCycle = ref<MagnumAimCycle | null>(null);
 const recentMagnumAimCycle = ref<MagnumAimCycle | null>(null);
-const magnumAimSamples = ref<MagnumAimSample[]>([]);
 const finalShotActive = ref(false);
 let lastMagnumAimActionKey = "";
 const toahSpiritProgressRuntime = ref<ToahSpiritProgressRuntime>(initialToahSpiritProgressRuntime());
@@ -1744,6 +1761,10 @@ const bossMechanicSettingsDirty = ref(false);
 const bossMechanicSettingsSaved = ref(false);
 const bossMechanicRuntime = ref<Record<string, BossMechanicRuntimeState>>({});
 const mielShardHealthBarPreview = ref<{ endsAtMs: number; generation: number } | null>(null);
+const burstSettings = ref(loadBurstSettings());
+const burstSettingsDirty = ref(false), burstSettingsSaving = ref(false);
+const burstPreviewPopups = ref<BossMechanicOverlayItem[]>([]);
+const burstPreviewBars = ref<EffectTimerOverlayItem[]>([]);
 const effectTimerSettings = ref(loadEffectTimerSettings());
 const effectTimerRuntime = ref<Record<string, EffectTimerRuntime>>({});
 const effectTimerSettingsDirty = ref(false);
@@ -1769,6 +1790,7 @@ const reminderProfileStore = ref(loadReminderProfileStore({
     skillRules: skillCooldownSettings.value.rules,
     bossMechanicSettings: bossMechanicSettings.value,
     effectTimerSettings: effectTimerSettings.value,
+ burstSettings: burstSettings.value,
     playerBuffIds: playerBuffIds.value,
     playerBuffFavoriteIds: playerBuffFavoriteIds.value,
     playerBuffUsesDefaults: playerBuffUsesDefaults.value,
@@ -1823,14 +1845,16 @@ const announcedSkillReadySounds = new Set<string>();
 const recentBossMechanicAt = new Map<string, number>();
 const SKILL_READY_SOUND_WINDOW_MS = 1400;
 let conditionTimelineResizeObserver: ResizeObserver | undefined;
-const combatTabs: Array<{ id: CombatTab; label: string }> = [
-    { id: "summary", label: "综合" },
-    { id: "attack", label: "攻击技能" },
-    { id: "alerts", label: "提醒设置" },
+const combatTabs: Array<{ id: CombatTab; label: string; icon: string }> = [
+    { id: "summary", label: "战斗分析", icon: "mdi-chart-box-outline" },
+    { id: "attack", label: "技能分析", icon: "mdi-sword-cross" },
+    { id: "alerts", label: "提醒设置", icon: "mdi-bell-outline" },
+    { id: "team", label: "队友提醒", icon: "mdi-account-heart-outline" },
+    { id: "skillbar", label: "额外技能栏", icon: "mdi-view-grid-plus-outline" },
 ];
 const visibleCombatTabs = computed(() => dpsVisible.value
     ? combatTabs
-    : combatTabs.filter((tab) => tab.id === "alerts"));
+    : combatTabs.filter((tab) => tab.id !== "summary" && tab.id !== "attack"));
 const PREVIEW_BOSS_TOTAL_DAMAGE = 1_037_202_447;
 
 function loadOnlyBossTargets(): boolean {
@@ -2329,6 +2353,15 @@ const allConditionDefinitions = computed<PlayerBuffDefinition[]>(() => {
     }
     return [...definitions.values()].sort((a, b) => a.id - b.id);
 });
+// Timer triggers use the full condition library, including conditions hidden
+// only from the player Buff panel (for example enhanced dual-gun shooting).
+const effectTimerConditionDefinitions = computed(() => {
+    const definitions = new Map(allConditionDefinitions.value.map(item => [item.id, item]));
+    for (const id of HIDDEN_PLAYER_BUFF_IDS) {
+        definitions.set(id, { id, name: conditionDisplayName(id) });
+    }
+    return [...definitions.values()].sort((a, b) => a.id - b.id);
+});
 const playerBuffSearchResults = computed<PlayerBuffDefinition[]>(() => {
     const query = toSimplified(playerBuffInput.value.trim()).toLowerCase();
     if (!query) return [];
@@ -2440,7 +2473,7 @@ const skillCooldownSearchResults = computed<Array<{ id: number; name: string }>>
 });
 const reminderSettingsDirty = computed(() =>
     buffAlertSettingsDirty.value || debuffAlertSettingsDirty.value || skillCooldownSettingsDirty.value
-        || aimReminderSettingsDirty.value || bossMechanicSettingsDirty.value || effectTimerSettingsDirty.value || reminderProfileSettingsDirty.value,
+        || burstSettingsDirty.value || aimReminderSettingsDirty.value || bossMechanicSettingsDirty.value || effectTimerSettingsDirty.value || reminderProfileSettingsDirty.value,
 );
 const configuredDebuffAlertRules = computed(() => {
     const seen = new Set<number>();
@@ -2762,6 +2795,7 @@ function addFirstBuffAlertSearchResult() {
 function openBuffAlertEditor(ccId: number) {
     addBuffAlertRule(ccId);
     activeTab.value = "alerts";
+    reminderCategory.value = "buff";
 }
 
 function isBuffAlertEnabled(ccId: number) {
@@ -2886,6 +2920,13 @@ function markDebuffAlertSettingsDirty() {
     reminderProfileSettingsDirty.value = true;
 }
 
+function finalizeReminderSettingsSave(): Promise<boolean> {
+    // App merges shared appearance settings after the rule editors save.
+    // Capture those final values in the profile and await the final native write.
+    saveCurrentReminderProfile();
+    return scheduleNativeReminderSettingsSync(true);
+}
+
 function persistBuffAlertSettings(): Promise<boolean> {
     buffOverlaySettings.value.volume = Math.min(100, Math.max(0, Math.round(Number(buffOverlaySettings.value.volume) || 0)));
     buffOverlaySettings.value.timeAdjustmentSeconds = Math.min(3600, Math.max(-3600, Math.round(Number(buffOverlaySettings.value.timeAdjustmentSeconds) || 0)));
@@ -2939,6 +2980,7 @@ function persistBuffAlertSettings(): Promise<boolean> {
     saveDebuffAlertSettings(debuffAlertSettings.value);
     saveBossMechanicAlertSettings(bossMechanicSettings.value);
     saveEffectTimerSettings(effectTimerSettings.value);
+    saveBurstSettings(burstSettings.value);
     saveCurrentReminderProfile();
     void fetch("/api/buff_overlay", {
         method: "PUT",
@@ -2951,6 +2993,7 @@ function persistBuffAlertSettings(): Promise<boolean> {
     debuffAlertSettingsDirty.value = false;
     bossMechanicSettingsDirty.value = false;
     effectTimerSettingsDirty.value = false;
+    burstSettingsDirty.value = false;
     reminderProfileSettingsDirty.value = false;
     const nativeSync = scheduleNativeReminderSettingsSync(true);
     publishBuffOverlayState();
@@ -3072,16 +3115,15 @@ function removeEffectTimerRule(key: string) {
 }
 
 function resolveEffectTimerRuleName(rule: EffectTimerRule) {
-    const sourceId = Math.max(1, Math.round(Number(rule.sourceId) || 1));
+    const min = rule.sourceType === "skill" ? 1 : 0;
+    const sourceId = Math.min(4_294_967_295, Math.max(min, Math.round(Number(rule.sourceId) || min)));
     rule.sourceId = sourceId;
     rule.name = rule.sourceType === "skill" ? skillDisplayName(sourceId) : conditionDisplayName(sourceId);
 }
 
-function resolveEffectTimerSourceFromName(rule: EffectTimerRule) {
-    const name = rule.name.trim().toLowerCase();
-    const definitions = rule.sourceType === "skill" ? allSkillDefinitions.value : allConditionDefinitions.value;
-    const match = definitions.find((item) => item.name.trim().toLowerCase() === name);
-    if (match) rule.sourceId = match.id;
+function selectEffectTimerSource(rule: EffectTimerRule, source: { id: number; name: string }) {
+    rule.sourceId = source.id;
+    rule.name = source.name;
     markEffectTimerSettingsDirty();
 }
 
@@ -3090,6 +3132,31 @@ function markEffectTimerSettingsDirty() {
     effectTimerSettingsSaved.value = false;
     reminderProfileSettingsDirty.value = true;
     publishSkillCooldownOverlayState(true);
+}
+
+async function persistBurstSettings() {
+ if (burstSettingsSaving.value) return;
+ burstSettingsSaving.value = true;
+ try {
+  burstSettings.value = normalizeBurstSettings(burstSettings.value);
+  saveBurstSettings(burstSettings.value);
+  saveCurrentReminderProfile();
+  const synced = await scheduleNativeReminderSettingsSync(true);
+  burstSettingsDirty.value = !synced;
+  if (synced) reminderProfileSettingsDirty.value = false;
+  showNotice(synced ? "爆发提示设定已保存。" : "设定已保存在本机，但桌面同步失败，请再点一次保存。", synced ? "success" : "warning");
+ } finally { burstSettingsSaving.value = false; }
+}
+
+function previewBurstRule(raw: BurstRule, phase: 'cast' | 'ready' | 'effect') {
+ if (raw.skillId === 58014 && phase === 'ready') return;
+ const rule = normalizeBurstSettings({ ...burstSettings.value, rules: { [raw.skillId]: raw } }).rules[raw.skillId];
+ const display = rule.cast, startedAtMs = Date.now(), endsAtMs = startedAtMs + (phase === 'cast' ? rule.castSeconds * 1000 : phase === 'ready' ? 3000 : rule.skillId === 58014 ? 10000 : 8000);
+ burstPreviewBars.value = [];
+ const label = `预览 · ${rule.name}`;
+ burstPreviewPopups.value = [{ key: 'burst-preview', name: label, label, actorId: '4500000000000000', actorName: '预览队友', skillId: rule.skillId, skillName: rule.name, phase, orientation: rule.orientation, hideCountdown: phase === 'ready', icon: 'mdi-alert-decagram', x: display.x, y: display.y, scalePercent: display.scalePercent, startedAtMs, endsAtMs, generation: startedAtMs }];
+ if (phase !== 'effect' && rule[phase].soundEnabled) void fetch('/api/buff_sound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'skill-ready', volume: burstSettings.value.volume }) }).catch(() => undefined);
+ publishSkillCooldownOverlayState(true);
 }
 
 function persistEffectTimerSettings() {
@@ -3123,6 +3190,7 @@ function currentReminderSnapshot(): ReminderProfileSnapshot {
             .filter(([, rule]) => !rule.barOnly)),
         bossMechanicSettings: bossMechanicSettings.value,
         effectTimerSettings: effectTimerSettings.value,
+ burstSettings: burstSettings.value,
         playerBuffIds: playerBuffIds.value,
         playerBuffFavoriteIds: playerBuffFavoriteIds.value,
         playerBuffUsesDefaults: playerBuffUsesDefaults.value,
@@ -3177,6 +3245,7 @@ function applyReminderProfile(profileId: string) {
     })));
     bossMechanicSettings.value = normalizeBossMechanicAlertSettings(snapshot.bossMechanicSettings);
     effectTimerSettings.value = normalizeEffectTimerSettings(snapshot.effectTimerSettings);
+ burstSettings.value = normalizeBurstSettings(snapshot.burstSettings);
     playerBuffIds.value = snapshot.playerBuffIds;
     playerBuffFavoriteIds.value = snapshot.playerBuffFavoriteIds;
     playerBuffUsesDefaults.value = snapshot.playerBuffUsesDefaults;
@@ -3200,6 +3269,7 @@ function applyReminderProfile(profileId: string) {
     saveSkillCooldownSettings(skillCooldownSettings.value);
     saveBossMechanicAlertSettings(bossMechanicSettings.value);
     saveEffectTimerSettings(effectTimerSettings.value);
+    saveBurstSettings(burstSettings.value);
     if (playerBuffUsesDefaults.value) {
         try { localStorage.removeItem(PLAYER_BUFF_STORAGE_KEY); } catch { /* ignore */ }
     } else {
@@ -3212,6 +3282,7 @@ function applyReminderProfile(profileId: string) {
     aimReminderSettingsDirty.value = false;
     bossMechanicSettingsDirty.value = false;
     effectTimerSettingsDirty.value = false;
+    burstSettingsDirty.value = false;
     bossMechanicSettingsSaved.value = false;
     effectTimerSettingsSaved.value = false;
     skillCooldownSettingsSaved.value = false;
@@ -3789,6 +3860,7 @@ async function syncNativeReminderSettings(): Promise<boolean> {
         bossMechanics: {
             ...bossMechanicSettings.value,
         },
+        burst: normalizeBurstSettings(burstSettings.value),
         effectTimers: {
             rules: Object.fromEntries(Object.values(effectTimerSettings.value.rules).map((rule) => [rule.key, {
                 ...rule,
@@ -4089,7 +4161,7 @@ function handleSkillAction(event: Event) {
     if (!action) return;
     const effectTargetMode = action.IsLocal === false ? "monster" : "self";
     for (const rule of configuredEffectTimerRules.value) {
-        if (rule.enabled && rule.sourceType === "skill" && rule.sourceId === action.SkillId && rule.targetMode === effectTargetMode) {
+        if (!(action.IsLocal === false && actorManager.value.entityMap[action.SourceId || action.Id]?.isPC) && rule.enabled && rule.sourceType === "skill" && rule.sourceId === action.SkillId && rule.targetMode === effectTargetMode) {
             triggerEffectTimer(rule, Number(action.AtMs) || Number(action.At) * 1000, action.SourceId || action.Id);
         }
     }
@@ -4170,7 +4242,7 @@ function handleSkillState(event: Event) {
         }
         return;
     }
-    if (!skillCooldownSettings.value.aimReminder.enabled) return;
+    // KPI sampling uses the configured parameters even when the overlay is off.
     const timing = calculateMagnumAimTiming(skillCooldownSettings.value.aimReminder, {
         finalShot: finalShotActive.value,
         latikaSecret: Boolean(findLocalBuffCondition(actorManager.value, LATIKA_SECRET_CC_ID)),
@@ -4186,7 +4258,8 @@ function handleSkillState(event: Event) {
 }
 
 function observeMagnumAimShot(action: eventSkillAction) {
-    if (!skillCooldownSettings.value.aimReminder.enabled) return;
+    if (action.IsFallback || action.IsLocal === false || action.Id !== actorManager.value.localEntityId
+        || (action.SourceId && action.SourceId !== action.Id)) return;
     const atMs = Number(action.AtMs) > 0 ? Number(action.AtMs) : Number(action.At) * 1000;
     const actionKey = `${atMs}:${Number(action.CombatActionId) || 0}`;
     if (actionKey === lastMagnumAimActionKey) return;
@@ -4204,7 +4277,7 @@ function observeMagnumAimShot(action: eventSkillAction) {
         atMs,
         cycle.calibrationPercent,
     );
-    magnumAimSamples.value = [...magnumAimSamples.value, { atMs, rate }].slice(-512);
+    actorManager.value.kpiAimSamples.push({ entityId: action.Id, atMs, rate, targetId: cycle.targetId });
     lastMagnumAimActionKey = actionKey;
     activeMagnumAimCycle.value = null;
     recentMagnumAimCycle.value = null;
@@ -4486,6 +4559,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
                 name: skillDisplayName(rule.skillId),
                 iconUrl: skillIconUrl(rule.skillId),
                 alwaysVisible: rule.alwaysVisible,
+                showEnergyPercent: rule.showEnergyPercent !== false,
                 barOnly: rule.barOnly === true,
                 x: Math.min(32000, Math.max(-32000, Math.round(Number(rule.x) || 0))),
                 y: Math.min(32000, Math.max(-32000, Math.round(Number(rule.y) || 0))),
@@ -4604,8 +4678,8 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
         items,
         aimReminder,
         targetHealth,
-        effectTimers,
-        mechanics,
+        effectTimers: [...effectTimers, ...burstPreviewBars.value.filter(item => item.endsAtMs > atMs)],
+        mechanics: [...mechanics, ...burstPreviewPopups.value.filter(item => item.endsAtMs > atMs)],
         stackAlerts: quantityAlert ? [...stackAlerts, quantityAlert] : stackAlerts,
         settings: {
             iconSize: skillCooldownSettings.value.iconSize,
@@ -4626,7 +4700,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
             } catch { /* the native overlay endpoint remains available */ }
         }
     }
-    const stateKey = JSON.stringify({ items, aimReminder, targetHealth, effectTimers, mechanics, stackAlerts, settings: message.settings });
+    const stateKey = JSON.stringify({ ...message, atMs: 0 });
     if (stateKey === skillOverlayStateKey) return;
     skillOverlayStateKey = stateKey;
     void fetch("/api/skill_overlay/state", {
@@ -5254,25 +5328,32 @@ const combatSummaryRows = computed(() => {
         { label: "主动技能伤害（占比）", value: `${fmtNumber(activeDamage)} (${fmtPct(ratio(activeDamage))})` },
         { label: "特性伤害（连击，占比）", value: `${fmtNumber(traitDamage)} (${fmtPct(ratio(traitDamage))})` },
         { label: "星尘伤害（轰击、爆闪，占比）", value: `${fmtNumber(stardustDamage)} (${fmtPct(ratio(stardustDamage))})` },
-        { label: "推测职业", value: player.jobName || "尚未识别" },
+        { label: "推测阿尔卡纳职业", value: player.jobName || "尚未识别" },
     ];
-    const localEntityId = actorManager.value.localEntityId;
-    const aimReminderConfigured = isDesignPreview
-        ? previewAimSummaryEnabled
-        : skillCooldownSettings.value.aimReminder.enabled && Boolean(localEntityId) && player.entityId === localEntityId;
-    if (aimReminderConfigured) {
-        const session = reportSession.value;
-        const aimSummary = isDesignPreview && !summary.value
-            ? { count: 18, averageRate: 0.876 }
-            : session
-                ? summarizeMagnumAimSamples(magnumAimSamples.value, session.startAt, session.endAt)
-                : undefined;
-        rows.splice(rows.length - 1, 0, {
-            label: "穿心平均瞄准率",
-            value: aimSummary ? fmtPct(aimSummary.averageRate) : "—",
-        });
-    }
     return rows;
+});
+
+const arcanaKpiReport = computed(() => {
+    const player = reportPlayer.value;
+    const session = reportSession.value;
+    if (!player || !session) return undefined;
+    // summary is refreshed at the report's existing throttled cadence.
+    summary.value;
+    const manager = actorManager.value;
+    const actor = manager.entityMap[player.entityId] as EntityActor | undefined;
+    const boss = manager.entityMap[session.bossEntityId] as EntityActor | undefined;
+    return buildArcanaKpi({
+        player: actor ?? { id: player.entityId, conditionHistory: [] },
+        boss: boss ?? { id: session.bossEntityId, conditionHistory: [] },
+        jobName: player.jobName, session,
+        localEntityId: manager.localEntityId,
+        actions: manager.skillActions,
+        skillCooldowns: manager.skillCooldowns,
+        statUpdates: manager.statUpdates,
+        arcanaSignals: manager.arcanaSignals,
+        aimSamples: manager.kpiAimSamples,
+        dorchaMinimum: 0.5,
+    });
 });
 
 function saveBattleRecord() {
@@ -5303,7 +5384,6 @@ function saveBattleRecord() {
 }
 
 function clearReportData() {
-    magnumAimSamples.value = [];
     activeMagnumAimCycle.value = null;
     recentMagnumAimCycle.value = null;
     lastMagnumAimActionKey = "";
@@ -5973,7 +6053,7 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
 .reminder-profile-heading strong { font-size: 13px; }
 .reminder-profile-heading span { overflow: hidden; color: #b7b7b7; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
-.reminder-profile-toolbar > label {
+.reminder-profile-controls > label {
     display: grid;
     gap: 3px;
     color: #d5d5d5;
@@ -6745,6 +6825,7 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
 .effect-timer-settings { border-color: #527b83; box-shadow: inset 0 0 0 1px rgba(108, 230, 255, .07); }
 .effect-timer-settings > header strong { color: #9eebff; }
 .effect-timer-rule { border-color: #3f6269; }
+.effect-timer-rule > label > input[type="text"] { width: 140px; min-width: 0; height: 25px; padding: 0 6px; color: var(--ui-theme-text); background: var(--ui-theme-control); border: 1px solid var(--ui-theme-border); font-size: 10px; }
 
 .skill-cooldown-settings > header {
     display: flex;
@@ -7086,8 +7167,8 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
     color: var(--ui-color-accent);
 }
 
-.buff-alert-editor > label,
-.skill-cooldown-editor > label {
+.buff-alert-editor .reminder-rule-controls > label,
+.skill-cooldown-editor .reminder-rule-controls > label {
     display: flex;
     align-items: center;
     gap: 5px;
@@ -7181,9 +7262,9 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
     max-width: 120px;
 }
 
-.buff-alert-editor > label select,
-.buff-alert-editor > label input[type="number"],
-.skill-cooldown-editor > label input[type="number"] {
+.buff-alert-editor .reminder-rule-controls > label select,
+.buff-alert-editor .reminder-rule-controls > label input[type="number"],
+.skill-cooldown-editor .reminder-rule-controls > label input[type="number"] {
     min-width: 70px;
     max-width: 120px;
 }

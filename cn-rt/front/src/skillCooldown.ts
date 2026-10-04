@@ -17,6 +17,7 @@ export interface SkillCooldownRule {
     /** Pool limit that starts the full cooldown when reached. */
     cumulativeCooldownSeconds: number;
     alwaysVisible: boolean;
+    showEnergyPercent?: boolean;
     /** Auto uses the action source owner; explicit modes handle ambiguous skills. */
     ownerMode: SkillCooldownOwnerMode;
     soundMode: SkillCooldownSoundMode;
@@ -94,6 +95,7 @@ export interface SkillCooldownOverlayItem extends SkillCooldownRuntime {
     name: string;
     iconUrl: string;
     alwaysVisible: boolean;
+    showEnergyPercent?: boolean;
     barOnly?: boolean;
     x: number;
     y: number;
@@ -152,6 +154,16 @@ export interface TargetHealthBarOverlayItem {
 }
 
 export interface BossMechanicOverlayItem {
+    label?: string;
+    hideCountdown?: boolean;
+    actorId?: string;
+    actorName?: string;
+    skillId?: number;
+    skillName?: string;
+    phase?: "cast" | "ready" | "effect";
+    timingUnknown?: boolean;
+    orientation?: "horizontal" | "vertical";
+    targetId?: string;
     key: string;
     name: string;
     icon: string;
@@ -634,6 +646,7 @@ export function makeSkillCooldownRule(skillId: number, x = 600, y = 180): SkillC
         shortCooldownSeconds: DEFAULT_SHORT_COOLDOWN_SECONDS,
         cumulativeCooldownSeconds: DEFAULT_CUMULATIVE_COOLDOWN_SECONDS,
         alwaysVisible: isEnergySkill(skillId),
+        showEnergyPercent: true,
         ownerMode: "auto",
         soundMode: "default",
         customSoundId: "",
@@ -701,6 +714,7 @@ export function loadSkillCooldownSettings(): SkillCooldownSettings {
                         1,
                     ),
                     alwaysVisible: Boolean(value.alwaysVisible),
+                    showEnergyPercent: value.showEnergyPercent !== false,
                     ownerMode: value.ownerMode === "player" || value.ownerMode === "pet" ? value.ownerMode : "auto",
                     soundMode: value.soundMode === "none" || value.soundMode === "custom" ? value.soundMode : "default",
                     customSoundId: sanitizeText(value.customSoundId, 128),
@@ -852,6 +866,7 @@ export function saveSkillCooldownSettings(settings: SkillCooldownSettings) {
         );
         rule.soundMode = rule.soundMode === "none" || rule.soundMode === "custom" ? rule.soundMode : "default";
         rule.ownerMode = rule.ownerMode === "player" || rule.ownerMode === "pet" ? rule.ownerMode : "auto";
+        rule.showEnergyPercent = rule.showEnergyPercent !== false;
         rule.customSoundId = sanitizeText(rule.customSoundId, 128);
         rule.customSoundName = sanitizeText(rule.customSoundName, 180);
         rule.quantityThreshold = normalizeDorchaThreshold(rule.quantityThreshold);

@@ -18,7 +18,7 @@ $oldSkillBarTitle =
 $requiredMarkers = @(
     $skillBarTitle,
     $aimSummaryLabel,
-    "aim-reminder-save skill-cooldown-save"
+    "reminder-save-all"
 ) + $AdditionalRequiredMarkers
 $forbiddenMarkers = @($oldSkillBarTitle)
 

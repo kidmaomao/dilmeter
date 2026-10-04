@@ -1,4 +1,8 @@
 import { strict as assert } from "node:assert";
+import { createServer } from "vite";
+import { fileURLToPath } from "node:url";
+const server = await createServer({ configFile: false, root: fileURLToPath(new URL("..", import.meta.url)), logLevel: "error", server: { middlewareMode: true, hmr: false, ws: false }, optimizeDeps: { noDiscovery: true, include: [] } });
+try {
 
 const values = new Map<string, string>();
 Object.defineProperty(globalThis, "localStorage", {
@@ -12,7 +16,7 @@ const {
     loadReminderProfileStore,
     makeReminderProfile,
     saveReminderProfileStore,
-} = await import("../src/reminderProfiles.ts");
+} = await server.ssrLoadModule("/src/reminderProfiles.ts");
 
 const fallback = {
     buffRules: { 680: { ccId: 680, overlayEnabled: true } },
@@ -63,6 +67,9 @@ assert.equal(initial.profiles[0].bossMechanicSettings.scalePercent, 125);
 assert.deepEqual(initial.profiles[0].aimReminder, fallback.aimReminder);
 assert.equal(initial.profiles[0].effectTimerSettings.rules.boost.durationSeconds, 12);
 
+assert.equal(initial.profiles[0].burstSettings.enabled, false, "legacy profiles safely add disabled burst settings");
+initial.profiles[0].burstSettings.enabled = true;
+initial.profiles[0].burstSettings.rules[59005].cast.x = -120;
 const second = makeReminderProfile("人偶方案", {
     ...fallback,
     skillRules: { 59167: { skillId: 59167, enabled: true, cooldownSeconds: 20 } },
@@ -81,4 +88,9 @@ assert.equal(reloaded.profiles[1].bossMechanicSettings.x, 940);
 assert.deepEqual(reloaded.profiles[1].aimReminder, fallback.aimReminder);
 assert.equal(reloaded.profiles[1].effectTimerSettings.rules.boost.opacityPercent, 80);
 
+assert.equal(reloaded.profiles[0].burstSettings.enabled, true);
+assert.equal(reloaded.profiles[0].burstSettings.rules[59005].cast.x, -120);
+assert.equal(reloaded.profiles[1].burstSettings.enabled, false);
 console.log("multiple Buff, Debuff, aim reminder, skill cooldown, effect timer and Boss mechanic profiles verified");
+
+} finally { await server.close(); }

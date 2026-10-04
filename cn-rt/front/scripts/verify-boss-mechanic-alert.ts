@@ -141,7 +141,7 @@ assert.match(reportSource, /advanceMielOrbRuntime\(activeOrbRuntime\.mielOrb, at
     "the scheduled 8\/11-second checkpoint must be evaluated by the overlay clock");
 assert.match(reportSource, /action\.MechanicSignal === "miel-orb-late-confirm"/,
     "the dedicated 0x6d66 late-alive signal must reach the orb state machine");
-assert.match(reportSource, /class="boss-mechanic-rule boss-mechanic-health-rule"[\s\S]{0,800}安乐碎片机制/,
+assert.match(reportSource, /class="boss-mechanic-rule boss-mechanic-health-rule[^"]*"[\s\S]{0,800}安乐碎片机制/,
     "comfort-shard phase switches must have their own Boss-mechanic card");
 assert.match(reportSource, /mielShardHealthPhases\.normal80[\s\S]{0,1000}normal60[\s\S]{0,1000}normal40[\s\S]{0,1000}regret80/,
     "normal 80/60/40 and Regret 80 must be independently selectable");

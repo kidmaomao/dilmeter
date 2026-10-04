@@ -7,6 +7,7 @@ import "@mdi/font/css/materialdesignicons.css";
 // vuetify
 import "vuetify/styles";
 import "@/uiColorTheme.css";
+import "@/mainUi.css";
 import { createVuetify } from "vuetify";
 
 const vuetify = createVuetify({

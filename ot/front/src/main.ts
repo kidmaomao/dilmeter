@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import App from "@/App.vue";
 import * as store from "@/store";
 import { uiLocale, uiText, uiItems } from "@/uiLocale";
+import { gameUiText } from '@/gameTerms';
 import { jobDisplayName } from "@/gameNameDisplay";
 import { watch } from "vue";
 import { zhHans, zhHant } from "vuetify/locale";
@@ -11,6 +12,7 @@ import "@mdi/font/css/materialdesignicons.css";
 // vuetify
 import "vuetify/styles";
 import "@/uiColorTheme.css";
+import "@/mainUi.css";
 import { createVuetify } from "vuetify";
 
 const vuetify = createVuetify({
@@ -22,6 +24,7 @@ const vuetify = createVuetify({
 
 const app = createApp(App);
 app.config.globalProperties.$ui = uiText;
+app.config.globalProperties.$game = gameUiText;
 app.config.globalProperties.$uiItems = uiItems;
 app.config.globalProperties.$job = jobDisplayName;
 watch(uiLocale, value => { vuetify.locale.current.value = value === "zh-TW" ? "zhHant" : "zhHans"; });

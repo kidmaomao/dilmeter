@@ -38,10 +38,8 @@ var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterOT"
 
-// The legacy updater compares only three numeric components. Reserve 1.5.3
-// for the OT 1.5.2 R2 hotfix so existing 1.5.2 clients receive this release.
-var AppVersion = "1.5.3"
-var AppDisplayVersion = "1.5.2 R2"
+var AppVersion = "1.6.0"
+var AppDisplayVersion = "1.6.0"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {

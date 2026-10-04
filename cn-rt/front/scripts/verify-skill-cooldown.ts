@@ -340,8 +340,8 @@ assert.match(
 );
 assert.match(skillOverlaySource, /aimReminder\.value\?\.alwaysVisible/, "the overlay accepts an idle always-visible aim reminder");
 assert.match(reportSource, /未瞄准时一直显示/, "the aim settings expose the always-visible option");
-assert.match(reportSource, /class="aim-reminder-save skill-cooldown-save"/, "the aim save control shares the standard themed save-button treatment");
-assert.match(reportSource, /穿心平均瞄准率/, "configured aim reminder users receive a Magnum average aim row");
+assert.match(reportSource, /name="reminder-save-actions"/, "aim and other reminder categories share the workspace save action");
+assert.doesNotMatch(reportSource, /label: "穿心平均瞄准率/, "Magnum aim is shown only in the KPI panel, not duplicated in the summary");
 assert.match(reportSource, /SKILL_STATE_EVENT[\s\S]*?handleSkillState/, "Magnum aim start and end events feed the battle aggregate");
 assert.match(reportSource, /nativeReminderSettingsSyncQueue/, "desktop settings writes are serialized to prevent stale saves");
 assert.match(reportSource, /if \(response\.ok\) return/, "save success waits for a successful desktop response");
@@ -354,7 +354,7 @@ assert.match(reportSource, /content: "累计冷却"/, "the special rule is named
 assert.match(reportSource, /武器基础射程[\s\S]*?鉴定射程[\s\S]*?合计射程[\s\S]*?瞄准校准[\s\S]*?尔格瞄准加成[\s\S]*?延迟微调[\s\S]*?85%最佳时间/, "Magnum Shot collects range, correction and Erg inputs before displaying the best time");
 assert.match(reportSource, /毁灭弓 2200[\s\S]*?释魂弓 2000[\s\S]*?释魂弩 2100/, "the range input offers the requested weapon presets");
 assert.match(reportSource, /合计射程＝武器基础射程＋鉴定等级×70[\s\S]*?系统 70%[^。]*85%[\s\S]*?延迟微调/, "the aim settings explain range identification, the 85% marker and latency correction");
-assert.match(reportSource, /class="aim-reminder-settings"[\s\S]*?无需在技能 CD 中添加穿心箭/, "aim reminder is a separate settings section");
+assert.match(reportSource, /class="aim-reminder-settings"[\s\S]*?无需启用提醒/, "aim parameters can be configured independently of the overlay toggle");
 assert.match(skillOverlaySource, /<span>85%<\/span>[\s\S]*?aim-reminder-best-marker[\s\S]*?aim-reminder-footer[\s\S]*?aim-reminder-percent/, "the compact aim bar marks 85% above and keeps the smaller live number below");
 assert.doesNotMatch(skillOverlaySource, /aim-reminder-card::before/, "the aim reminder has no full-card translucent background");
 assert.match(skillOverlaySource, /\.aim-ready \.aim-reminder-icon[\s\S]*?aim-reminder-best-icon-glow[\s\S]*?aim-reminder-best-track-glow/, "reaching 85% gives the icon and bar a strong ready-style light pulse");
@@ -454,3 +454,15 @@ assert.equal(techniqueCooldownActionFromCondition({
 }, "local"), null, "expired channel snapshots must not start a technique cooldown");
 
 console.log("skill cooldown sound, decaying cumulative cooldown, captured Spiral Burst fallback actions, removed next-skill queue, themed team timeline, coordinates, and puppet damage fallback verified");
+
+localStorage.setItem(SKILL_COOLDOWN_STORAGE_KEY, JSON.stringify({ coordinateVersion: 2, rules: { 59047: { skillId: 59047, enabled: true, alwaysVisible: true } } }));
+const energySettings = loadSkillCooldownSettings();
+assert.equal(energySettings.rules[59047].showEnergyPercent, true, 'legacy energy digits remain enabled');
+const { saveSkillCooldownSettings } = await import('../src/skillCooldown.ts');
+energySettings.rules[59047].showEnergyPercent = false;
+Object.defineProperty(globalThis, 'window', { value: { dispatchEvent: () => true }, configurable: true });
+saveSkillCooldownSettings(energySettings);
+const energyReloaded = loadSkillCooldownSettings();
+assert.equal(energyReloaded.rules[59047].showEnergyPercent, false, 'energy digits toggle survives reload');
+assert.equal(energyReloaded.rules[59047].enabled, energySettings.rules[59047].enabled, 'digits toggle cannot hide icon');
+assert.equal(energyReloaded.rules[59047].alwaysVisible, energySettings.rules[59047].alwaysVisible, 'digits toggle cannot change visibility policy');

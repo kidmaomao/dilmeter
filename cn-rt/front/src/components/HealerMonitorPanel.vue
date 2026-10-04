@@ -1,26 +1,25 @@
 <template>
- <v-dialog :model-value="open" max-width="1200" scrollable @update:model-value="emit('update:open', $event)">
-  <v-card class="healer-panel" aria-label="圣歌监测">
-   <v-card-title class="healer-dialog-title"><span><v-icon icon="mdi-heart-pulse" size="20" /> 圣歌监测</span><button type="button" aria-label="关闭圣歌监测" @click="emit('update:open', false)">×</button></v-card-title>
-   <section class="healer-basics" aria-label="基础设定">
-     <div class="healer-section-title"><h2>基础设定</h2><span role="status">{{ saving ? '正在保存…' : dirty ? '有未保存的修改，请点击保存设定' : '设置已同步' }}</span></div>
-     <div class="healer-basics-row">
+ <component :is="embedded ? 'div' : VDialog" :model-value="open" :class="{ 'embedded-settings': embedded }" max-width="1200" scrollable @update:model-value="emit('update:open', $event)">
+  <v-card class="healer-panel teammate-settings-panel" :class="{ 'healer-embedded': embedded }" aria-label="圣歌监控">
+   <v-card-title class="healer-dialog-title teammate-panel-header"><span><v-icon icon="mdi-heart-pulse" size="20" /> 圣歌监控</span><button v-if="!embedded" type="button" aria-label="关闭圣歌监控" @click="emit('update:open', false)">×</button></v-card-title>
+   <section class="healer-basics teammate-basics" aria-label="基础设定">
+     <div class="healer-section-title teammate-section-heading"><h2>基础设定</h2><span role="status">{{ saving ? '正在保存…' : dirty ? '有未保存的修改' : '设置已同步' }}</span><button type="button" class="healer-save teammate-save" :class="{ 'healer-save-pending': dirty && !saving && !isRecordReplay }" :disabled="saving || audioBusy || !state || isRecordReplay" @click="save()">{{ saving ? '保存中…' : dirty ? '保存设定 · 未保存' : '保存设定' }}</button></div>
+     <div class="healer-basics-row teammate-basics-row">
       <label class="healer-master"><input v-model="draft.enabled" :disabled="saving || isRecordReplay" type="checkbox" @change="changed" />启用提醒</label>
       <label>音量 <input v-model.number="draft.volume" :disabled="saving || isRecordReplay" type="number" min="0" max="100" aria-label="圣歌提示音量" @input="changed" /> %</label>
       <label>悬浮图标 <input v-model.number="draft.iconSize" :disabled="saving || isRecordReplay" type="number" min="16" max="80" aria-label="悬浮图标大小" @input="changed" /> px</label>
       <label>提示字号 <input v-model.number="draft.text.fontSize" :disabled="saving || isRecordReplay" type="number" min="12" max="72" aria-label="提示字号" @input="changed" /> px</label>
       <label title="100% 完全不透明，数值越低越透明">悬浮窗透明度 <input v-model.number="draft.opacityPercent" :disabled="saving || isRecordReplay" type="number" min="20" max="100" step="5" aria-label="悬浮窗透明度" @input="changed" /> %</label>
-      <button type="button" class="healer-save" :class="{ 'healer-save-pending': dirty && !saving && !isRecordReplay }" :disabled="saving || audioBusy || !state || isRecordReplay" @click="save()">{{ saving ? '保存中…' : dirty ? '保存设定 · 未保存' : '保存设定' }}</button>
      </div>
     </section>
-   <v-card-text class="healer-panel-body">
+   <v-card-text class="healer-panel-body teammate-panel-body">
     <p v-if="isRecordReplay" class="healer-error">历史回放中不提供实时提醒设定。</p>
     <p v-if="error" class="healer-error" role="alert">{{ error }}</p>
     <p v-if="notice" class="healer-notice" role="status">{{ notice }}<button v-if="previewing" type="button" @click="stopPreview">停止预览</button></p>
     <section class="healer-templates" aria-label="通用队友模板">
      <div class="healer-section-title"><h2>通用模板 <span>{{ draft.templates.length }}/32</span></h2><button type="button" :disabled="saving || audioBusy || isRecordReplay || draft.templates.length >= 32" @click="openTemplate()">＋ 新建模板</button></div>
-     <p class="healer-help">预先配置「队友1」「队友2」等模板；识别角色后即可套用血量、Buff、声音及坐标。套用后可单独微调，悬浮窗仍显示真实角色 ID。</p>
-     <div class="healer-template-list"><div v-for="template in draft.templates" :key="template.id" class="healer-template-entry"><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`编辑模板 ${template.name}`" @click="openTemplate(undefined, template)"><strong>{{ template.name }}</strong><small>{{ template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭' }} · {{ template.buffSettings.rules.length }} 个 Buff</small><span>编辑</span></button><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`删除模板 ${template.name}`" @click="removeTarget = { kind: 'template', key: template.id, name: template.name }">×</button></div></div>
+     <p class="healer-help">预先配置「队友1」「队友2」等模板；识别角色后即可套用血量、Buff、技能、声音及坐标。套用后可单独微调，悬浮窗仍显示真实角色 ID。</p>
+     <div class="healer-template-list"><div v-for="template in draft.templates" :key="template.id" class="healer-template-entry"><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`编辑模板 ${template.name}`" @click="openTemplate(undefined, template)"><strong>{{ template.name }}</strong><small>{{ template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭' }} · {{ template.buffSettings.rules.length }} 个 Buff · {{ template.skillSettings.rules.length }} 个技能</small><span>编辑</span></button><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`删除模板 ${template.name}`" @click="removeTarget = { kind: 'template', key: template.id, name: template.name }">×</button></div></div>
      <p v-if="!draft.templates.length" class="healer-help">可新建模板，也可在已配置的队友上点击「存为模板」。</p>
     </section>
     <section class="healer-roster" aria-label="管理队友">
@@ -36,12 +35,12 @@
      <fieldset :disabled="saving || isRecordReplay">
       <HealerMemberEditor v-for="(member, index) in draft.members" :key="member.key" :member="member" :live="memberState(member)" :index="index" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :templates="draft.templates" :disabled="saving || audioBusy" @change="changed" @favorite-change="saveFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
      </fieldset>
-     <div v-if="!draft.members.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>先添加需要关注的队友</strong><span>然后分别设置血量和 Buff 提醒。</span></div>
+     <div v-if="!draft.members.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>先添加需要关注的队友</strong><span>然后分别设置血量、Buff 和技能提醒。</span></div>
     </section>
     <p class="healer-footnote">常用状态更改后自动保存；其他修改请点击顶部闪烁的「保存设定」。保存成功后停止闪烁，保存失败会保留修改并提示重试。血量超过 30 秒未更新会暂停提醒；已识别队友的已配置 Buff 窗立即显示，未观测的 Buff 按失效样式显示“补充”，不触发声音提醒。声音不依赖此窗口保持打开。</p>
    </v-card-text>
   </v-card>
- </v-dialog>
+ </component>
  <v-dialog :model-value="!!templateEdit" max-width="1100" scrollable :persistent="audioBusy" @update:model-value="!$event && (templateEdit = null)">
   <v-card v-if="templateEdit" class="healer-panel healer-template-dialog" aria-label="编辑通用队友模板">
    <v-card-title class="healer-dialog-title">{{ draft.templates.some(item => item.id === templateEdit!.id) ? '编辑通用模板' : '保存为通用模板' }}</v-card-title>
@@ -65,9 +64,10 @@
 </template>
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { VDialog } from 'vuetify/components';
 import HealerMemberEditor from './HealerMemberEditor.vue';
 import { cloneHealerSettings, makeHealerMember, makeHealerSettings, healerTemplateFromMember, applyHealerTemplate, type HealerMemberTemplate, type HealerMemberChoice, type HealerMemberState, type HealerMonitorState } from '@/healerMonitorTypes';
-const props = defineProps<{ open: boolean; isRecordReplay: boolean }>();
+const props = defineProps<{ open: boolean; isRecordReplay: boolean; embedded?: boolean }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const state = ref<HealerMonitorState | null>(null), draft = ref(makeHealerSettings());
 const dirty = ref(false), saving = ref(false), audioBusy = ref(false), error = ref(''), notice = ref('');
@@ -150,12 +150,13 @@ function validSettings(extra: HealerMemberChoice[] = []): boolean {
  const choices = [...draft.value.members, ...draft.value.templates, ...extra];
  for (const member of choices) {
   numbers.push([member.healthSettings.threshold, 5, 95], [member.healthSettings.repeatCount, 1, 10], [member.healthSettings.repeatIntervalSeconds, 2, 300]);
-  for (const position of [member.healthSettings.overlay, member.buffSettings.overlay]) numbers.push([position.x, -32000, 32000], [position.y, -32000, 32000]);
+  for (const position of [member.healthSettings.overlay, member.buffSettings.overlay, member.skillSettings.overlay]) numbers.push([position.x, -32000, 32000], [position.y, -32000, 32000]);
+  for (const rule of member.skillSettings.rules) { if (!Number.isInteger(rule.skillId) || rule.skillId < 1 || rule.skillId > 65535 || !Number.isFinite(rule.cooldownSeconds) || rule.cooldownSeconds < .1 || rule.cooldownSeconds > 86400) { error.value = '请填写有效技能 ID 和冷却时间（0.1–86400 秒）。'; return false; } }
   for (const rule of member.buffSettings.rules) numbers.push([rule.warningSeconds, 0, 60], [rule.flashSeconds, 0, 60], [rule.manualDurationSeconds, 1, 86400], [rule.repeatCount, 1, 10], [rule.repeatIntervalSeconds, 2, 300], [rule.deathLoss.repeatCount, 1, 10], [rule.deathLoss.repeatIntervalSeconds, 2, 300]);
  }
  if (!numbers.every(([value, min, max]) => Number.isInteger(value) && value >= min && value <= max)) { error.value = '请填写有效数值：图标 16–80、字号 12–72、透明度 20–100%、血量 5–95%、提前时间 0–60 秒、提醒次数 1–10 次、间隔 2–300 秒。'; return false; }
  for (const member of choices) {
-  const sounds = [member.healthSettings.sound, ...member.buffSettings.rules.flatMap(rule => [rule.sound, rule.deathLoss.sound])];
+  const sounds = [member.healthSettings.sound, ...member.skillSettings.rules.map(rule => rule.sound), ...member.buffSettings.rules.flatMap(rule => [rule.sound, rule.deathLoss.sound])];
   if (sounds.some(sound => sound.kind === 'custom' && !sound.soundId)) { error.value = `${member.name} 的自定义音效尚未选择文件。`; return false; }
  }
  return true;
@@ -173,7 +174,7 @@ async function save(successNotice = '已保存。通用模板和常用队友将�
  } catch (reason) { error.value = `保存失败：${String(reason)}`; }
  finally { saving.value = false; void refresh(); }
 }
-async function preview(member: HealerMemberChoice, kind: 'health' | 'buff') {
+async function preview(member: HealerMemberChoice, kind: 'health' | 'buff' | 'skill') {
  if (!validSettings([member])) return;
  try {
   const response = await fetch('/api/healer_monitor/text_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: draft.value.text, iconSize: draft.value.iconSize, opacityPercent: draft.value.opacityPercent, member, kind }), signal: AbortSignal.timeout(5000) });

@@ -10,7 +10,7 @@ Dilmeter 是面向《洛奇》的 Windows 桌面伤害统计与战斗提醒工�
 
 CN 与 RT 固定使用随程序提供的 CN 名称和图标数据，可离线启动。OT 默认同样携带 CN 数据，顶部可切换简体／繁体界面，并选择载入 Prilus 的 TW 资料；首次下载后保留本地缓存。OT 保留外置资源包覆盖能力。详见[台服支持说明](docs/tw-support.md)。资料选择不改变 OT 的抓包网络设置。
 
-CN、RT 当前版本为 **1.5.2**；OT 当前版本为 **1.5.2 R2 Hotfix**，新增繁体中文及台服档适配。原 [1.5.2 更新公告](docs/release-notes/v1.5.2.md) 保留，OT 补充说明见 [R2 Hotfix](docs/release-notes/v1.5.2-r2.md)。公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
+CN、RT、OT 当前版本统一为 **1.6.0**，更新主界面、职业 KPI 与队友爆发提醒，并按台服资料核对 OT 技能名称。详见 [1.6.0 更新说明](docs/release-notes/v1.6.0.md)。公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
 
 ## 仓库结构
 

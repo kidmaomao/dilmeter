@@ -1,11 +1,16 @@
 <template>
-    <v-dialog v-model="open" max-width="980" persistent>
-        <v-card class="skill-bar-settings-card">
-            <v-card-title class="skill-bar-title">
-                <span><v-icon icon="mdi-view-grid-plus-outline" class="mr-2" />额外技能栏(测试)</span>
-                <v-btn icon="mdi-close" variant="text" size="small" aria-label="关闭技能栏设置" @click="open = false" />
+    <component :is="embedded ? 'div' : VDialog" v-model="open" :class="{ 'embedded-settings': embedded }" max-width="980" persistent>
+        <v-card class="skill-bar-settings-card" :class="{ 'skillbar-embedded': embedded, 'teammate-settings-panel': embedded }">
+            <v-card-title class="skill-bar-title" :class="{ 'teammate-panel-header': embedded }">
+                <span><v-icon icon="mdi-view-grid-plus-outline" size="20" />额外技能栏(测试)</span>
+                <div class="reminder-save-actions skill-bar-save-actions">
+                    <span role="status" aria-live="polite" :class="{ 'save-error': noticeType === 'error' && notice }">{{ saving ? '正在保存…' : noticeType === 'error' && notice ? '保存失败，请重试' : hasUnsavedChanges ? '有未保存修改' : '设置已同步' }}</span>
+                    <button type="button" class="skill-bar-reset" :disabled="saving" @click="resetDraft">恢复已保存</button>
+                    <button type="button" class="reminder-save-all" :disabled="saving || keyCaptureActive || stopMovementCaptureActive" @click="saveSettings">{{ saving ? '保存中…' : '保存设定' }}</button>
+                </div>
+                <v-btn v-if="!embedded" icon="mdi-close" variant="text" size="small" aria-label="关闭技能栏设置" @click="open = false" />
             </v-card-title>
-            <v-card-text :inert="saving">
+            <v-card-text :inert="saving" :class="{ 'teammate-panel-body': embedded }">
                 <div class="skill-bar-switches">
                     <label><input v-model="draft.enabled" type="checkbox" />显示技能栏</label>
                     <label title="开启且锁定后，点击技能图标会在洛奇保持前台时发送绑定按键">
@@ -140,18 +145,14 @@
             </v-card-text>
             <v-card-actions class="skill-bar-actions">
                 <span>游戏保持前台；左键防点地与技能施放鼠标键相互独立。</span>
-                <v-spacer />
-                <v-btn variant="text" :disabled="saving" @click="resetDraft">恢复已保存</v-btn>
-                <v-btn color="primary" :loading="saving" :disabled="keyCaptureActive || stopMovementCaptureActive" @click="saveSettings">
-                    <v-icon icon="mdi-content-save-outline" class="mr-1" />保存并应用
-                </v-btn>
             </v-card-actions>
         </v-card>
-    </v-dialog>
+    </component>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { VDialog } from "vuetify/components";
 import { skillNameMap, resourceNameVersion } from "@/store";
 import {
     SKILL_BAR_CHANNEL,
@@ -173,7 +174,7 @@ import {
     saveSkillCooldownSettings,
 } from "@/skillCooldown";
 
-const props = defineProps<{ modelValue: boolean }>();
+const props = defineProps<{ modelValue: boolean; embedded?: boolean }>();
 const emit = defineEmits<{ (event: "update:modelValue", value: boolean): void }>();
 
 const open = computed({
@@ -181,6 +182,8 @@ const open = computed({
     set: (value: boolean) => emit("update:modelValue", value),
 });
 const draft = ref<SkillBarSettings>(loadSkillBarSettings());
+const savedDraft = ref<SkillBarSettings>(loadSkillBarSettings());
+const hasUnsavedChanges = computed(() => JSON.stringify(normalizeSkillBarSettings(draft.value)) !== JSON.stringify(savedDraft.value));
 const selectedIndex = ref(0);
 const searchText = ref("");
 const keyCaptureActive = ref(false);
@@ -253,12 +256,13 @@ watch(() => props.modelValue, (visible) => {
 		stopStopMovementCapture();
         return;
     }
-    resetDraft();
+    if (!props.embedded) resetDraft();
     void refreshNativePosition(true);
 });
 
 function resetDraft() {
     draft.value = loadSkillBarSettings();
+    savedDraft.value = normalizeSkillBarSettings(draft.value);
     selectedIndex.value = Math.min(selectedIndex.value, draft.value.slots.length - 1);
     searchText.value = "";
     stopKeyCaptureState();
@@ -279,6 +283,7 @@ async function refreshNativePosition(force = false) {
         if (force || nativeMoved) {
             draft.value.x = next.x;
             draft.value.y = next.y;
+            savedDraft.value = { ...savedDraft.value, x: next.x, y: next.y };
         }
         lastNativePosition.value = next;
     } catch {
@@ -500,6 +505,7 @@ async function saveSettings() {
         const nativeState = await syncNativeSkillBarSettings(normalized);
         const saved = saveSkillBarSettings(normalized);
         draft.value = saved;
+        savedDraft.value = normalizeSkillBarSettings(saved);
         syncCooldownRules(saved);
         lastNativePosition.value = { x: Math.round(nativeState.x), y: Math.round(nativeState.y) };
         if (typeof BroadcastChannel !== "undefined") {

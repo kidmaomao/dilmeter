@@ -15,8 +15,9 @@ try {
  source.buffSettings.rules[0].repeatCount = 4; source.buffSettings.rules[0].repeatIntervalSeconds = 12;
  source.buffSettings.rules[0].sound = { kind: 'custom', soundId: 'existing-audio', name: '自定义音乐.mp3' };
  source.buffSettings.rules[0].deathLoss = { enabled: false, sound: {kind: 'custom', soundId: 'death-audio', name: '死亡.mp3'}, repeatCount: 3, repeatIntervalSeconds: 9 };
+ source.skillSettings.enabled = true; source.skillSettings.rules = [{ skillId: 59005, name: '崩坏', cooldownSeconds: 12.5, sound: {kind: 'skill-ready', soundId: '', name: ''} }];
  const template = healerTemplateFromMember(source, 'template-1', '队友1');
- assert.deepEqual(Object.keys(template).sort(), ['id', 'name', 'health', 'healthSettings', 'buffSettings'].sort(), 'templates contain no character identity/favorite fields');
+ assert.deepEqual(Object.keys(template).sort(), ['id', 'name', 'health', 'healthSettings', 'buffSettings', 'skillSettings'].sort(), 'templates contain no character identity/favorite fields');
  source.healthSettings.threshold = 80;
  assert.equal(template.healthSettings.threshold, 35, 'saving a template captures independent preferences');
  const second = makeHealerMember({ id: 'second-session-id', name: 'SecondPlayer' }, 1);
@@ -31,6 +32,9 @@ try {
  assert.equal(second.buffSettings.rules[0].deathLoss.repeatCount, 3); assert.equal(second.buffSettings.rules[0].deathLoss.repeatIntervalSeconds, 9);
  second.buffSettings.rules[0].deathLoss.sound.soundId = 'another-death-audio';
  assert.equal(template.buffSettings.rules[0].deathLoss.sound.soundId, 'death-audio');
+ assert.equal(second.skillSettings.rules[0].cooldownSeconds, 12.5);
+ second.skillSettings.rules[0].cooldownSeconds = 70;
+ assert.equal(template.skillSettings.rules[0].cooldownSeconds, 12.5);
  second.buffSettings.rules[0].warningSeconds = 4;
  second.buffSettings.rules[0].sound.name = 'changed';
  assert.equal(template.buffSettings.rules[0].warningSeconds, 25);
@@ -42,5 +46,8 @@ try {
  delete settings.templates; delete settings.opacityPercent;
  assert.deepEqual(cloneHealerSettings(settings).templates, []);
  assert.equal(cloneHealerSettings(settings).opacityPercent, 100, 'old settings retain full opacity');
+ const legacy = makeHealerMember({id: 'legacy', name: 'Legacy'}, 0); delete legacy.skillSettings;
+ settings.members = [legacy];
+ assert.deepEqual(cloneHealerSettings(settings).members[0].skillSettings.rules, []);
  console.log('Healer templates: independent copy, identity, custom sounds, coordinates, persistence shape and legacy opacity verified');
 } finally { await server.close(); }

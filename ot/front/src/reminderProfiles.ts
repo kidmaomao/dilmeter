@@ -4,7 +4,10 @@ import type { DebuffAlertSettings } from "@/debuffAlert";
 import type { AimReminderSettings, SkillCooldownRule } from "@/skillCooldown";
 import type { EffectTimerSettings } from "@/effectTimer";
 
+import { normalizeBurstSettings, type BurstSettings } from "./burstReminder";
+
 export interface ReminderProfileSnapshot {
+ burstSettings: BurstSettings;
     buffRules: Record<number, BuffAlertRule>;
     debuffSettings: DebuffAlertSettings;
     aimReminder: AimReminderSettings;
@@ -68,6 +71,7 @@ export function cloneReminderSnapshot(snapshot: ReminderProfileSnapshot): Remind
         skillRules: cloneRecord(snapshot.skillRules),
         bossMechanicSettings: cloneBossMechanicSettings(snapshot.bossMechanicSettings),
         effectTimerSettings: cloneEffectTimerSettings(snapshot.effectTimerSettings),
+ burstSettings: normalizeBurstSettings(snapshot.burstSettings),
         playerBuffIds: sanitizeIds(snapshot.playerBuffIds),
         playerBuffFavoriteIds: sanitizeIds(snapshot.playerBuffFavoriteIds),
         playerBuffUsesDefaults: Boolean(snapshot.playerBuffUsesDefaults),
@@ -104,6 +108,7 @@ function sanitizeProfile(
         : `profile-${index + 1}`;
     const name = sanitizeName(profile.name) || `方案 ${index + 1}`;
     const snapshot = cloneReminderSnapshot({
+ burstSettings: normalizeBurstSettings(profile.burstSettings ?? fallback.burstSettings),
         buffRules: profile.buffRules && typeof profile.buffRules === "object" ? profile.buffRules : fallback.buffRules,
         debuffSettings: profile.debuffSettings && typeof profile.debuffSettings === "object"
             ? profile.debuffSettings
@@ -205,6 +210,7 @@ function emptySnapshot(): ReminderProfileSnapshot {
         skillRules: {},
         bossMechanicSettings: emptyBossMechanicSettings(),
         effectTimerSettings: { rules: {} },
+ burstSettings: normalizeBurstSettings(null),
         playerBuffIds: [],
         playerBuffFavoriteIds: [],
         playerBuffUsesDefaults: false,

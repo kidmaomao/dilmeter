@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot ".."))
-$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.5.2" }
+$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.6.0" }
 if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid DILMETER_APP_VERSION: $version"
 }
@@ -36,7 +36,7 @@ foreach ($relativePath in $requiredFiles) {
 }
 
 $cnGuide = Get-ChildItem -LiteralPath $projectRoot -Filter "*.md" -File |
-    Where-Object { $_.Name -notlike "README*" -and $_.Name -notlike "DilmeterRT-*" } |
+    Where-Object { $_.Name -ne "design-qa.md" -and $_.Name -notlike "README*" -and $_.Name -notlike "DilmeterRT-*" } |
     Sort-Object Length -Descending |
     Select-Object -First 1
 $rtGuide = Get-ChildItem -LiteralPath $projectRoot -Filter "DilmeterRT-*.md" -File | Select-Object -First 1

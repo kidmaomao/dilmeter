@@ -9,7 +9,7 @@
         <SkillCooldownOverlay />
     </v-app>
     <v-app v-else-if="isHealerOverlay" class="healer-overlay-app"><HealerOverlay /></v-app>
-    <v-app v-else class="main-dilmeter-app" :style="uiColorThemeVars">
+    <v-app v-else class="main-dilmeter-app modern-ui" :data-theme="uiColorTheme" :style="uiColorThemeVars">
         <v-main>
             <transition name="foreground-recovery-fade">
                 <div
@@ -28,32 +28,27 @@
                     </div>
                 </div>
             </transition>
-            <v-toolbar v-if="!isDesignPreview" density="compact" class="px-2 app-toolbar">
+            <v-toolbar density="comfortable" class="app-toolbar">
                 <v-toolbar-title class="text-body-1">
-                    {{ appName }}
-                    <span class="app-version">v{{ appVersion }}</span>
-                    <v-chip class="ml-2" size="x-small" :color="statusColor" variant="tonal">
-                        {{ statusLabel }}
-                    </v-chip>
+                    <img class="app-brand-icon" src="/app-icon.png" alt="" />
+                    <strong>{{ appName }}</strong>
+                    <span class="app-version" :title="appVersion">v{{ appVersion.includes('-ui-test.') ? appVersion.split('-ui-test.')[0] + ' · UI 测试版' : appVersion }}</span>
                 </v-toolbar-title>
-                <v-spacer />
-                <button v-if="!isStandalone" type="button" class="skill-bar-settings-button" aria-haspopup="dialog" @click="healerMonitorOpen = true">
-                    <v-icon icon="mdi-heart-pulse" size="14" />圣歌监测
-                </button>
-                <button v-if="!isStandalone" type="button" class="skill-bar-settings-button" @click="skillBarSettingsOpen = true">
-                    <v-icon icon="mdi-view-grid-plus-outline" size="14" />技能栏
-                </button>
+                <div v-if="!isStandalone" class="app-runtime-notice" :class="{ error: runtimeStatus.state === 'error', capturing: runtimeStatus.capturing }" :title="runtimeNoticeDetail" :aria-label="runtimeNoticeDetail" role="status" aria-live="polite">
+                    <v-icon :icon="isRecordReplay ? 'mdi-history' : runtimeStatus.state === 'error' ? 'mdi-alert-circle-outline' : runtimeStatus.capturing ? 'mdi-radar' : 'mdi-gamepad-variant-outline'" size="18" />
+                    <span>{{ runtimeNoticeText }}</span>
+                </div>
+                <div class="app-toolbar-controls">
                 <button v-if="!isStandalone" type="button" class="update-check-button" :class="{ available: updateInfo?.available }" :disabled="updatePending" @click="checkForUpdate(true)">
                     <v-icon :icon="updateInfo?.available ? 'mdi-download-circle' : 'mdi-update'" size="14" />
                     {{ updateInfo?.available ? `发现 v${updateInfo.latestVersion}` : "检查更新" }}
                 </button>
-                <label v-if="!isStandalone" class="ui-color-picker" title="参照洛奇界面颜色预设，选择会立即保存">
-                    <span class="ui-color-swatch" aria-hidden="true" />
+                <div v-if="!isStandalone" class="ui-theme-control" aria-label="UI 模式">
                     <span>UI</span>
-                    <select v-model="uiColorTheme" aria-label="选择 UI 颜色" @change="updateUiColorTheme">
-                        <option v-for="theme in uiColorThemes" :key="theme.id" :value="theme.id">{{ theme.name }}</option>
-                    </select>
-                </label>
+                    <div class="ui-theme-segmented">
+                        <button v-for="mode in ['light', 'dark']" :key="mode" type="button" :class="{ active: uiColorTheme === mode }" :aria-pressed="uiColorTheme === mode" @click="uiColorTheme = mode; updateUiColorTheme()"><v-icon :icon="mode === 'light' ? 'mdi-white-balance-sunny' : 'mdi-weather-night'" size="14" />{{ mode === 'light' ? '浅色' : '深色' }}</button>
+                    </div>
+                </div>
                 <label v-if="!isStandalone" class="dps-recording-switch" title="关闭后只隐藏 DPS 界面；网络数据仍会照常处理，Buff、Debuff 和技能 CD 提醒不受影响">
                     <input v-model="dpsMonitoringEnabled" type="checkbox" @change="updateDpsMonitoring" />
                     <span>显示 DPS</span>
@@ -80,19 +75,8 @@
                         </option>
                     </select>
                 </label>
+                </div>
             </v-toolbar>
-
-            <v-alert
-                v-if="!isStandalone && !isDesignPreview"
-                :type="isRecordReplay ? 'info' : runtimeStatus.state === 'error' ? 'error' : runtimeStatus.capturing ? 'success' : 'info'"
-                variant="tonal"
-                density="compact"
-                class="ma-2 mb-0"
-                :icon="isRecordReplay ? 'mdi-history' : runtimeStatus.capturing ? 'mdi-radar' : 'mdi-gamepad-variant-outline'"
-            >
-                {{ isRecordReplay ? `正在查看历史记录${loadedRecordName ? `：${loadedRecordName}` : ""}，实时数据暂不写入当前页面。` : runtimeStatus.message }}
-                <span v-if="!isRecordReplay && runtimeStatus.interface" class="text-caption ml-2">{{ runtimeStatus.interface }}</span>
-            </v-alert>
 
             <v-sheet v-if="isFileLoading && !silentLiveLoading && !isDesignPreview" class="d-flex align-center pa-2" style="gap: 10px">
                 <v-icon icon="mdi-file-import-outline" size="small" />
@@ -112,22 +96,33 @@
                 :battle-catalog="battleCatalog"
                 :loaded-session-key="loadedSessionKey"
                 :is-record-replay="isRecordReplay"
+                :reminder-save-pending="reminderSavePending"
                 @select-archived-session="loadArchivedSession"
                 @return-live="loadFromServer"
                 @refresh-info="loadFromServer"
                 @view-records="recordBrowserOpen = true"
                 @clear-data="clearData"
             >
-                <template #reminder-settings-actions="{ dirty: reminderRulesDirty }">
-                    <div v-if="!isStandalone" class="reminder-inline-settings" aria-label="桌面 Buff 悬浮设置">
-                        <label class="reminder-overlay-checkbox" title="独立控制 Buff 与技能覆盖层；后台计时和统计不会停止">
-                            <input v-model="appBuffSettings.overlayEnabled" type="checkbox" @change="previewOverlayAppearance" />
-                            显示 Buff/技能
-                        </label>
-                        <label class="reminder-overlay-checkbox" title="锁定时 Buff、Debuff、技能 CD、瞄准、Boss 机制和层数提示均为鼠标穿透；解锁后可直接拖动">
+                <template #team-reminders="{ active }">
+                    <HealerMonitorPanel v-if="!isStandalone" embedded :open="active" :is-record-replay="isRecordReplay" />
+                </template>
+                <template #extra-skillbar="{ active }">
+                    <SkillBarSettingsDialog v-if="!isStandalone" embedded :model-value="active" />
+                </template>
+                <template #reminder-save-actions="{ dirty, save, sync }">
+                    <div class="reminder-save-actions">
+                        <span role="status" aria-live="polite" :class="{ 'save-error': reminderSaveError }">{{ reminderSavePending ? '正在保存…' : reminderSaveError || (dirty || appBuffSettingsDirty || appDebuffSettingsDirty ? '有未保存修改' : '设置已同步') }}</span>
+                        <button type="button" class="reminder-save-all" :disabled="reminderSavePending" @click="saveAllReminderSettings(save, sync)">{{ reminderSavePending ? '保存中…' : '保存设定' }}</button>
+                    </div>
+                </template>
+                <template #reminder-common-settings>
+                    <div v-if="!isStandalone" class="reminder-inline-settings reminder-common-controls" aria-label="覆盖层通用设置">
+                        <strong>覆盖层通用</strong>
+                        <label class="reminder-overlay-checkbox" title="锁定时鼠标穿透，不拦截游戏操作；解锁用于拖动已显示的提醒。也可使用各分类的坐标输入定位">
                             <input v-model="appBuffSettings.locked" type="checkbox" @change="persistOverlayLock" />
                             锁定覆盖层
                         </label>
+                        <ReminderHelpTooltip label="覆盖层锁定说明" text="勾选后鼠标穿透，不拦截游戏操作。取消勾选用于拖动已显示的提醒；也可在各分类中输入屏幕坐标定位。此项不控制额外技能栏。" />
                         <label class="reminder-opacity-setting" title="同时调整 Buff、Debuff、技能图标与倒计时的透明度">
                             <span>透明度</span>
                             <input
@@ -148,6 +143,14 @@
                                     {{ percent }}%
                                 </option>
                             </select>
+                        </label>
+                    </div>
+                </template>
+                <template #reminder-settings-actions>
+                    <div v-if="!isStandalone" class="reminder-inline-settings" aria-label="桌面 Buff 悬浮设置">
+                        <label class="reminder-overlay-checkbox" title="独立控制 Buff 与技能覆盖层；后台计时和统计不会停止">
+                            <input v-model="appBuffSettings.overlayEnabled" type="checkbox" @change="previewOverlayAppearance" />
+                            显示 Buff/技能
                         </label>
                         <label title="桌面 Buff 图标的宽高">
                             <span>图标</span>
@@ -178,15 +181,6 @@
                             <b>Y</b>
                             <input v-model.number="buffOverlayY" type="number" min="-32000" max="32000" @input="markAppBuffSettingsDirty(); applyBuffOverlayPosition(false)" />
                         </label>
-                        <button
-                            type="button"
-                            class="reminder-save-settings"
-                            :class="{ 'needs-save': reminderRulesDirty || appBuffSettingsDirty, saved: settingsSaved }"
-                            @click="saveAppBuffSettings(true)"
-                        >
-                            <v-icon :icon="settingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                            {{ settingsSaved ? "已保存" : "保存设定" }}
-                        </button>
                     </div>
                 </template>
                 <template #debuff-reminder-settings-actions>
@@ -197,25 +191,21 @@
                         </label>
                         <label title="Boss Debuff 提醒图标的宽高">
                             <span>图标</span>
-                            <input v-model.number="appDebuffSettings.iconSize" type="number" min="16" max="80" @input="debuffSettingsSaved = false" />
+                            <input v-model.number="appDebuffSettings.iconSize" type="number" min="16" max="80" @input="markAppDebuffSettingsDirty()" />
                             <em>px</em>
                         </label>
                         <label title="Boss Debuff 缺失或临期提示音的统一音量；设为 0 可静音">
                             <span>音量</span>
-                            <input v-model.number="appDebuffSettings.volume" type="number" min="0" max="100" @input="debuffSettingsSaved = false" />
+                            <input v-model.number="appDebuffSettings.volume" type="number" min="0" max="100" @input="markAppDebuffSettingsDirty()" />
                             <em>%</em>
                         </label>
                         <label class="reminder-coordinate-setting" title="Debuff 使用独立坐标，不会再与 Buff 排在同一行">
                             <span>坐标</span>
                             <b>X</b>
-                            <input v-model.number="debuffOverlayX" type="number" min="-32000" max="32000" @input="debuffSettingsSaved = false; applyDebuffOverlayPosition(false)" />
+                            <input v-model.number="debuffOverlayX" type="number" min="-32000" max="32000" @input="markAppDebuffSettingsDirty(); applyDebuffOverlayPosition(false)" />
                             <b>Y</b>
-                            <input v-model.number="debuffOverlayY" type="number" min="-32000" max="32000" @input="debuffSettingsSaved = false; applyDebuffOverlayPosition(false)" />
+                            <input v-model.number="debuffOverlayY" type="number" min="-32000" max="32000" @input="markAppDebuffSettingsDirty(); applyDebuffOverlayPosition(false)" />
                         </label>
-                        <button type="button" class="reminder-save-settings debuff-save-settings" @click="saveAppDebuffSettings(true)">
-                            <v-icon :icon="debuffSettingsSaved ? 'mdi-check' : 'mdi-content-save-outline'" size="13" />
-                            {{ debuffSettingsSaved ? "已保存" : "保存设定" }}
-                        </button>
                     </div>
                 </template>
             </GameDpsReport>
@@ -228,8 +218,7 @@
 
             <LogCleanupDialog v-if="!isStandalone && !isDesignPreview" />
 
-            <SkillBarSettingsDialog v-if="!isStandalone && !isDesignPreview" v-model="skillBarSettingsOpen" />
-            <HealerMonitorPanel v-if="!isStandalone && !isDesignPreview" v-model:open="healerMonitorOpen" :is-record-replay="isRecordReplay" />
+
 
             <v-dialog v-model="msgBoxOpen" max-width="520">
                 <v-card>
@@ -287,16 +276,17 @@ import { loadSkillBarSettings, saveSkillBarSettings, syncNativeSkillBarSettings 
 import { clearTimeRange } from "@/store";
 import { normalizeSkillDisplayName } from "@/skillDisplay";
 import {
-    UI_COLOR_THEMES,
     loadUiColorTheme,
     saveUiColorTheme,
     uiColorThemeStyle as buildUiColorThemeStyle,
 } from "@/uiColorTheme";
+import { loadMainUiTheme, saveMainUiTheme, mainUiThemeStyle } from "@/mainUiTheme";
 import { LiveBattleCursor, applyLiveDelta, needsLiveRecovery, type LiveBattleCatalog, type LiveBattleTarget } from "@/liveBattles";
 import { bossDisplayName } from "@/bossDisplay";
 import { ActorManager } from "@/eventActor";
 import { DamageCollectorManager } from "@/actionCollector";
 import HealerMonitorPanel from "@/components/HealerMonitorPanel.vue";
+import ReminderHelpTooltip from "@/components/ReminderHelpTooltip.vue";
 import HealerOverlay from "@/components/HealerOverlay.vue";
 import { hydrateFromSnapshot } from "@/worker/hydrateActorManager";
 import type { WorkerOutMessage, WorkerSnapshot } from "@/worker/workerProtocol";
@@ -340,7 +330,7 @@ interface GameServerSettings {
 
 export default defineComponent({
     name: "App",
-    components: { GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
+    components: { ReminderHelpTooltip, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
     setup() {
         const db = inject("db") as any;
         const region = inject("region") as any;
@@ -388,11 +378,12 @@ export default defineComponent({
         const updateInfo = ref<UpdateInfo | null>(null);
         const updatePending = ref(false);
         const updateDialogOpen = ref(false);
-        const uiColorThemes = UI_COLOR_THEMES;
-        const uiColorTheme = ref(loadUiColorTheme());
-        const uiColorThemeVars = computed(() => buildUiColorThemeStyle(uiColorTheme.value));
+        const isOverlayWindow = isBuffOverlay || isDebuffOverlay || isSkillOverlay || isHealerOverlay;
+        const uiColorTheme = ref(isOverlayWindow ? loadUiColorTheme() : loadMainUiTheme());
+        const uiColorThemeVars = computed(() => isOverlayWindow ? buildUiColorThemeStyle(uiColorTheme.value) : mainUiThemeStyle(uiColorTheme.value));
+        if (!isOverlayWindow) document.documentElement.classList.add("main-ui-root");
         watch(uiColorTheme, (themeId) => {
-            const themeStyle = buildUiColorThemeStyle(themeId);
+            const themeStyle = isOverlayWindow ? buildUiColorThemeStyle(themeId) : mainUiThemeStyle(themeId);
             for (const [property, color] of Object.entries(themeStyle)) {
                 document.documentElement.style.setProperty(property, color);
             }
@@ -403,8 +394,6 @@ export default defineComponent({
         const isRecordReplay = ref(false);
         const loadedRecordName = ref("");
         const recordBrowserOpen = ref(false);
-        const skillBarSettingsOpen = ref(false);
-        const healerMonitorOpen = ref(false);
         const selectedGameServer = ref("irusha");
         const savedGameServer = ref("irusha");
         const acceleratorMode = ref(false);
@@ -414,6 +403,9 @@ export default defineComponent({
         const dpsMonitoringEnabled = ref(loadDpsMonitoringEnabled());
         const settingsSaved = ref(false);
         const appBuffSettingsDirty = ref(false);
+        const appDebuffSettingsDirty = ref(false);
+        const reminderSavePending = ref(false);
+        const reminderSaveError = ref("");
         const appBuffSettings = ref(loadBuffOverlaySettings());
         const appDebuffSettings = ref(loadDebuffAlertSettings());
         const buffOverlayX = ref(40);
@@ -440,6 +432,17 @@ export default defineComponent({
             if (runtimeStatus.value.state === "detecting_game") return "正在连接游戏";
             if (runtimeStatus.value.state === "error") return "需要处理";
             return socketConnected.value ? "等待游戏" : "正在启动";
+        });
+        const runtimeNoticeDetail = computed(() => isRecordReplay.value
+            ? `正在查看历史记录${loadedRecordName.value ? `：${loadedRecordName.value}` : ""}，实时数据暂不写入当前页面。`
+            : `${runtimeStatus.value.message}${runtimeStatus.value.interface ? ` · ${runtimeStatus.value.interface}` : ""}`);
+        const runtimeNoticeText = computed(() => {
+            if (isRecordReplay.value) return `历史记录${loadedRecordName.value ? `：${loadedRecordName.value}` : "回放中"}`;
+            if (runtimeStatus.value.state === "error") return `需要处理：${runtimeStatus.value.message}`;
+            if (runtimeStatus.value.capturing) return "正在监测战斗";
+            if (runtimeStatus.value.state === "detecting_game") return "正在连接洛奇…";
+            if (runtimeStatus.value.state === "waiting_game" || socketConnected.value) return "等待洛奇启动 · 可查看历史记录";
+            return "正在连接监测器…";
         });
         const statusColor = computed(() => {
             if (isRecordReplay.value) return "info";
@@ -843,7 +846,7 @@ export default defineComponent({
         };
 
         const updateUiColorTheme = () => {
-            uiColorTheme.value = saveUiColorTheme(uiColorTheme.value);
+            uiColorTheme.value = isOverlayWindow ? saveUiColorTheme(uiColorTheme.value) : saveMainUiTheme(uiColorTheme.value);
         };
 
         const updateGameServer = async () => {
@@ -883,9 +886,9 @@ export default defineComponent({
             }
         };
 
-        const saveAppBuffSettings = async (showConfirmation = false) => {
+        const saveAppBuffSettings = async (showConfirmation = false, saveRules = true) => {
             const draft = { ...appBuffSettings.value };
-            window.dispatchEvent(new CustomEvent("dilmeter-save-settings-request"));
+            if (saveRules) window.dispatchEvent(new CustomEvent("dilmeter-save-settings-request"));
             appBuffSettings.value = draft;
             appBuffSettings.value.iconSize = Math.min(80, Math.max(16, Math.round(Number(appBuffSettings.value.iconSize) || 20)));
             appBuffSettings.value.volume = Math.min(100, Math.max(0, Math.round(Number(appBuffSettings.value.volume) || 0)));
@@ -899,18 +902,19 @@ export default defineComponent({
             appBuffSettings.value.rules = latestReminderSettings.rules;
             appBuffSettings.value.timeAdjustmentSeconds = latestReminderSettings.timeAdjustmentSeconds;
             saveBuffOverlaySettings(appBuffSettings.value);
-            await fetch("/api/buff_overlay", {
+            const lockSaved = await fetch("/api/buff_overlay", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ locked: appBuffSettings.value.locked }),
-            }).catch(() => undefined);
-            await applyBuffOverlayPosition(true, false);
+            }).then(response => response.ok).catch(() => false);
+            const positionSaved = await applyBuffOverlayPosition(true, false);
             appBuffSettingsDirty.value = false;
             if (showConfirmation) {
                 settingsSaved.value = true;
                 if (settingsSavedTimer !== undefined) window.clearTimeout(settingsSavedTimer);
                 settingsSavedTimer = window.setTimeout(() => (settingsSaved.value = false), 1600);
             }
+            return lockSaved && positionSaved;
         };
 
         const persistOverlayAppearance = () => {
@@ -952,6 +956,42 @@ export default defineComponent({
             appBuffSettingsDirty.value = true;
         };
 
+        const markAppDebuffSettingsDirty = () => {
+            debuffSettingsSaved.value = false;
+            appDebuffSettingsDirty.value = true;
+        };
+
+        const saveAllReminderSettings = async (saveRules: () => Promise<boolean>, syncFinal: () => Promise<boolean>) => {
+            if (reminderSavePending.value) return;
+            reminderSavePending.value = true;
+            reminderSaveError.value = "";
+            // Rule persistence emits synchronous refresh events. Keep both sets
+            // of global controls before saving so neither draft can be replaced.
+            const buffDraft = { ...appBuffSettings.value };
+            const debuffDraft = { ...appDebuffSettings.value };
+            try {
+                await saveRules();
+                let appearanceSaved = true;
+                if (!isStandalone) {
+                    appBuffSettings.value = buffDraft;
+                    const buffSaved = await saveAppBuffSettings(false, false);
+                    appDebuffSettings.value = debuffDraft;
+                    const debuffSaved = await saveAppDebuffSettings(false, false);
+                    appearanceSaved = buffSaved && debuffSaved;
+                }
+                const nativeSynced = await syncFinal();
+                if (!appearanceSaved || !nativeSynced) throw new Error("sync failed");
+                appBuffSettingsDirty.value = false;
+                appDebuffSettingsDirty.value = false;
+            } catch {
+                appBuffSettingsDirty.value = true;
+                appDebuffSettingsDirty.value = true;
+                reminderSaveError.value = "保存未完成，请重试";
+            } finally {
+                reminderSavePending.value = false;
+            }
+        };
+
         const loadBuffOverlayPosition = async () => {
             try {
                 const response = await fetch("/api/buff_overlay/position", { cache: "no-store" });
@@ -967,7 +1007,7 @@ export default defineComponent({
         const applyBuffOverlayPosition = async (save = true, showError = true) => {
             const rawX = Number(buffOverlayX.value);
             const rawY = Number(buffOverlayY.value);
-            if (!Number.isFinite(rawX) || !Number.isFinite(rawY)) return;
+            if (!Number.isFinite(rawX) || !Number.isFinite(rawY)) return false;
             buffOverlayX.value = Math.min(32000, Math.max(-32000, Math.round(rawX)));
             buffOverlayY.value = Math.min(32000, Math.max(-32000, Math.round(rawY)));
             const clockSequence = Math.round((performance.timeOrigin + performance.now()) * 1000);
@@ -984,11 +1024,13 @@ export default defineComponent({
                     }),
                 });
                 if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+                return true;
             } catch (error) {
                 if (showError) {
                     msgBoxText.value = `应用悬浮图标坐标失败：${error}`;
                     msgBoxOpen.value = true;
                 }
+                return false;
             }
         };
 
@@ -1007,7 +1049,7 @@ export default defineComponent({
         const applyDebuffOverlayPosition = async (save = true, showError = true) => {
             const rawX = Number(debuffOverlayX.value);
             const rawY = Number(debuffOverlayY.value);
-            if (!Number.isFinite(rawX) || !Number.isFinite(rawY)) return;
+            if (!Number.isFinite(rawX) || !Number.isFinite(rawY)) return false;
             debuffOverlayX.value = Math.min(32000, Math.max(-32000, Math.round(rawX)));
             debuffOverlayY.value = Math.min(32000, Math.max(-32000, Math.round(rawY)));
             const clockSequence = Math.round((performance.timeOrigin + performance.now()) * 1000);
@@ -1024,16 +1066,20 @@ export default defineComponent({
                     }),
                 });
                 if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
+                return true;
             } catch (error) {
                 if (showError) {
                     msgBoxText.value = `应用 Debuff 悬浮图标坐标失败：${error}`;
                     msgBoxOpen.value = true;
                 }
+                return false;
             }
         };
 
-        const saveAppDebuffSettings = async (showConfirmation = false) => {
-            window.dispatchEvent(new CustomEvent("dilmeter-save-settings-request"));
+        const saveAppDebuffSettings = async (showConfirmation = false, saveRules = true) => {
+            const draft = { ...appDebuffSettings.value };
+            if (saveRules) window.dispatchEvent(new CustomEvent("dilmeter-save-settings-request"));
+            appDebuffSettings.value = draft;
             appDebuffSettings.value.iconSize = Math.min(80, Math.max(16, Math.round(Number(appDebuffSettings.value.iconSize) || 30)));
             appDebuffSettings.value.volume = Math.min(100, Math.max(0, Math.round(Number(appDebuffSettings.value.volume) || 0)));
             const latest = loadDebuffAlertSettings();
@@ -1042,12 +1088,14 @@ export default defineComponent({
             latest.volume = appDebuffSettings.value.volume;
             saveDebuffAlertSettings(latest);
             appDebuffSettings.value = latest;
-            await applyDebuffOverlayPosition(true, false);
+            const positionSaved = await applyDebuffOverlayPosition(true, false);
+            appDebuffSettingsDirty.value = !positionSaved;
             if (showConfirmation) {
                 debuffSettingsSaved.value = true;
                 if (debuffSettingsSavedTimer !== undefined) window.clearTimeout(debuffSettingsSavedTimer);
                 debuffSettingsSavedTimer = window.setTimeout(() => (debuffSettingsSaved.value = false), 1600);
             }
+            return positionSaved;
         };
 
         const toggleDebuffOverlayVisibility = () => {
@@ -1067,7 +1115,10 @@ export default defineComponent({
         };
 
         const refreshAppDebuffSettings = () => {
-            appDebuffSettings.value = loadDebuffAlertSettings();
+            const latest = loadDebuffAlertSettings();
+            appDebuffSettings.value = appDebuffSettingsDirty.value
+                ? { ...latest, iconSize: appDebuffSettings.value.iconSize, volume: appDebuffSettings.value.volume, overlayEnabled: appDebuffSettings.value.overlayEnabled }
+                : latest;
             debuffSettingsSaved.value = false;
         };
 
@@ -1210,12 +1261,13 @@ export default defineComponent({
             updateDialogOpen,
             checkForUpdate,
             downloadUpdate,
-            uiColorThemes,
             uiColorTheme,
             uiColorThemeVars,
             updateUiColorTheme,
             socketConnected,
             runtimeStatus,
+            runtimeNoticeText,
+            runtimeNoticeDetail,
             statusLabel,
             statusColor,
             msgBoxOpen,
@@ -1230,10 +1282,8 @@ export default defineComponent({
             loadArchivedSession,
             loadError,
             isRecordReplay,
-            healerMonitorOpen,
             loadedRecordName,
             recordBrowserOpen,
-            skillBarSettingsOpen,
             selectedGameServer,
             acceleratorMode,
             gameServerOptions,
@@ -1241,6 +1291,11 @@ export default defineComponent({
             dpsMonitoringEnabled,
             settingsSaved,
             appBuffSettingsDirty,
+            appDebuffSettingsDirty,
+            reminderSavePending,
+            reminderSaveError,
+            saveAllReminderSettings,
+            markAppDebuffSettingsDirty,
             debuffSettingsSaved,
             appBuffSettings,
             appDebuffSettings,

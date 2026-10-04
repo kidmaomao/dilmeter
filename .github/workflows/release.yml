@@ -66,6 +66,27 @@ jobs:
           cmd /c cn-rt\build_backend.bat
           cmd /c cn-rt\build_rt.bat
 
+      - name: Verify frontend behavior and OT terminology
+        shell: pwsh
+        run: |
+          foreach ($frontend in @('cn-rt/front', 'ot/front')) {
+            Push-Location $frontend
+            try {
+              npx vue-tsc --noEmit
+              if ($LASTEXITCODE -ne 0) { throw "Type check failed: $frontend" }
+              foreach ($check in @('verify:arcana-kpi', 'verify:aim-kpi-sampling', 'verify:burst-reminders', 'verify:healer-templates', 'verify:battle-record')) {
+                npm run $check
+                if ($LASTEXITCODE -ne 0) { throw "Check failed: $frontend $check" }
+              }
+              if ($frontend -eq 'ot/front') {
+                npm run verify:tw-resources
+                if ($LASTEXITCODE -ne 0) { throw 'TW resource regression failed' }
+                npm run verify:tw-game-terms
+                if ($LASTEXITCODE -ne 0) { throw 'TW terminology regression failed' }
+              }
+            } finally { Pop-Location }
+          }
+
       - name: Build OT
         shell: pwsh
         env:

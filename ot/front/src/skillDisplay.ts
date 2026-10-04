@@ -22,6 +22,13 @@ export const PUPPET_DAMAGE_SKILL_NAMES: Readonly<Record<number, string>> = {
 };
 
 export const SKILL_DISPLAY_NAME_OVERRIDES: Readonly<Record<number, string>> = {
+    24103: "逆龙袭",
+    24201: "连续技：升龙裂破",
+    24301: "连续技：飞身踢",
+    59165: "间奏斩",
+    59185: "疾风突刺",
+    59186: "愤怒践踏",
+    59187: "烈拳三击",
     27000: "多尔卡精通",
     27012: "托亚灵震爆",
     59046: "魔法穿刺",

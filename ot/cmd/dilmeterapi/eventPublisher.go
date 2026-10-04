@@ -40,6 +40,19 @@ type eventPublisher struct {
 	activeAimTargetID      uint64
 	combatTargetID         uint64
 	finalShotActive        bool
+	gunnerSniper           *gunnerSniperCast
+	gunnerHeavy            *gunnerHeavyCast
+	gunnerPendingDomains   *event.EventArcanaSignal
+	chemicalCast           *chemicalCarnivalCast
+	chemicalPendingEffect  *event.EventArcanaSignal
+	puppeteerAct7          *puppeteerAct7Cast
+	puppeteerInterlude     *puppeteerInterludeCast
+	puppeteerPositions     *puppeteerPositionGroup
+	fighterCombo           *fighterComboCast
+	fighterSpend           *fighterSpendCast
+	hydroPierce            *hydroPierceCast
+	partyHydroPierce       map[uint64]int64
+	partyArcana            map[uint64]*partyArcanaState
 	statCache              map[uint64]map[uint32]float64
 	connectionEpoch        uint64
 	lastSentEventAt        time.Time
@@ -97,8 +110,16 @@ func (t *eventPublisher) loop() {
 					logger.Println("* msg", i, msg.Type(), msg.String())
 				}
 			}
+			t.publishPartyBurstSignal(p)
 			// Boss mechanism deployment packets use a small family of shared
 			// opcodes. Keep their opcode and payload dispatch in one testable path.
+			t.publishGunnerPacket(p)
+			t.publishAlchemistPacket(p)
+			t.publishPuppeteerPacket(p)
+			t.publishFighterPacket(p)
+			t.publishStingerPacket(p)
+			t.publishDarkMagePacket(p)
+			t.publishPartyArcanaPacket(p)
 			if t.publishBossLaserPacket(p) {
 				continue
 			}
@@ -189,6 +210,8 @@ func (t *eventPublisher) loop() {
 
 				t.Lock()
 				t.entityCache.disappear(id, p.At)
+				delete(t.partyHydroPierce, id)
+				delete(t.partyArcana, id)
 				t.Unlock()
 
 				e := &event.EventEntityDisappear{
@@ -291,6 +314,8 @@ func (t *eventPublisher) loop() {
 
 					t.Lock()
 					t.entityCache.disappear(id, p.At)
+					delete(t.partyHydroPierce, id)
+					delete(t.partyArcana, id)
 					t.Unlock()
 
 					e := &event.EventEntityDisappear{
@@ -428,6 +453,9 @@ func (t *eventPublisher) loop() {
 					t.publish(&event.EventSkillEnergy{EventBase: event.EventBase{EventId: event.EventIdSkillEnergy, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)}, SkillId: darkEnergySkillID, Active: false})
 				}
 				continue
+			case packet.OpCode(27012):
+				t.publishPartyPreparation(p, true, false)
+				continue
 			case packet.OpcodeSkillPrepareReady:
 				if p.Id != t.localEntityId {
 					continue
@@ -439,6 +467,7 @@ func (t *eventPublisher) loop() {
 				continue
 
 			case packet.OpcodeSkillPrepareEnd:
+				t.publishPartyPreparation(p, false, true)
 				if p.Id != t.localEntityId {
 					continue
 				}
@@ -516,6 +545,9 @@ func (t *eventPublisher) loop() {
 					logger.Println("ParseCombatActionPackPacket failed:", err)
 					continue
 				}
+				t.publishAlchemistHitCounts(p, pack)
+				t.observePuppeteerCombat(p, pack)
+				t.observePartyArcanaCombat(p, pack)
 
 				attackerId := uint64(0)
 				attackSkillId := uint16(0)
@@ -585,6 +617,8 @@ func (t *eventPublisher) loop() {
 						}
 					}
 				}
+
+				t.publishPartyCombatAction(p, pack)
 
 				for _, v := range pack.SubPackets {
 					if v.Hit == nil {
@@ -877,6 +911,7 @@ func (t *eventPublisher) addClient(ctx context.Context, ch chan<- []event.IEvent
 					At:      entity.appearAt,
 					Id:      strconv.FormatUint(entity.Id, 10),
 				},
+				Snapshot:    true,
 				CCId:        cond.CCId,
 				DisableAt:   cond.DisableAt,
 				DisableAtMs: cond.DisableAtMs,
@@ -982,6 +1017,19 @@ func (t *eventPublisher) beginConnectionEpoch(epoch uint64, at time.Time) {
 	t.activeAimTargetID = 0
 	t.combatTargetID = 0
 	t.finalShotActive = false
+	t.gunnerSniper = nil
+	t.gunnerHeavy = nil
+	t.gunnerPendingDomains = nil
+	t.chemicalCast = nil
+	t.chemicalPendingEffect = nil
+	t.puppeteerAct7 = nil
+	t.puppeteerInterlude = nil
+	t.puppeteerPositions = nil
+	t.fighterCombo = nil
+	t.fighterSpend = nil
+	t.hydroPierce = nil
+	clear(t.partyHydroPierce)
+	clear(t.partyArcana)
 	clear(t.recentSkillActionIds)
 	clear(t.recentBossSkillAt)
 	clear(t.recentCooldownSignals)
@@ -1012,6 +1060,7 @@ func toEventListEntityContains(now int64, p *packet.EntityInfo, entityCache *ent
 				At:      now,
 				Id:      strconv.FormatUint(p.Id, 10),
 			},
+			Snapshot:    true,
 			CCId:        v.CCId,
 			DisableAt:   v.DisableAt,
 			DisableAtMs: v.DisableAtMs,
@@ -1098,6 +1147,19 @@ func (t *eventPublisher) updateLocalEntityId(candidate uint64) (uint64, bool, bo
 
 	t.localEntityId = resolved
 	t.localEntityReliable = reliable
+	t.gunnerSniper = nil
+	t.gunnerHeavy = nil
+	t.gunnerPendingDomains = nil
+	t.chemicalCast = nil
+	t.chemicalPendingEffect = nil
+	t.puppeteerAct7 = nil
+	t.puppeteerInterlude = nil
+	t.puppeteerPositions = nil
+	t.fighterCombo = nil
+	t.fighterSpend = nil
+	t.hydroPierce = nil
+	clear(t.partyHydroPierce)
+	clear(t.partyArcana)
 	clear(t.recentSkillActionIds)
 	t.recentSkillActionOrder = t.recentSkillActionOrder[:0]
 	t.Unlock()
@@ -1130,6 +1192,19 @@ func (t *eventPublisher) reconcileLocalEntityInfo(entity *packet.EntityInfo) (ui
 
 	t.localEntityId = resolved
 	t.localEntityReliable = true
+	t.gunnerSniper = nil
+	t.gunnerHeavy = nil
+	t.gunnerPendingDomains = nil
+	t.chemicalCast = nil
+	t.chemicalPendingEffect = nil
+	t.puppeteerAct7 = nil
+	t.puppeteerInterlude = nil
+	t.puppeteerPositions = nil
+	t.fighterCombo = nil
+	t.fighterSpend = nil
+	t.hydroPierce = nil
+	clear(t.partyHydroPierce)
+	clear(t.partyArcana)
 	clear(t.recentSkillActionIds)
 	t.recentSkillActionOrder = t.recentSkillActionOrder[:0]
 	t.Unlock()
@@ -1178,11 +1253,23 @@ func (t *eventPublisher) publishSkillExecutePacket(p *packet.GamePacket) error {
 	isLocal := t.localEntityId != 0 && (p.Id == t.localEntityId || sourceOwner == t.localEntityId)
 	if !isLocal {
 		entity := t.entityCache[p.Id]
-		if entity == nil || entity.EntityInfo == nil || entity.IsUser() {
+		if entity == nil || entity.EntityInfo == nil {
 			return nil
 		}
 	}
-	if !t.acceptSkillAction(action.ActionId) {
+	if !isLocal && t.entityCache[p.Id].IsUser() {
+		if partyArcanaPublicSkill(action.SkillId) {
+			return nil
+		}
+		if t.recentBossSkillAt == nil {
+			t.recentBossSkillAt = make(map[string]int64)
+		}
+		key := fmt.Sprintf("party-execute:%d:%d", p.Id, action.SkillId)
+		if previous := t.recentBossSkillAt[key]; previous > 0 && p.At.UnixMilli() <= previous {
+			return nil
+		}
+		t.recentBossSkillAt[key] = p.At.UnixMilli()
+	} else if !t.acceptSkillAction(action.ActionId) {
 		return nil
 	}
 
@@ -1348,8 +1435,14 @@ var techniqueSkillByCondition = map[uint32]uint16{
 // Active techniques do not consistently emit the normal skill-execute
 // packet. Their authoritative local signal is the technique's self-applied CC.
 func (t *eventPublisher) publishTechniqueConditionSkillAction(at time.Time, condition *packet.CharacterConditionPacket) {
-	if condition == nil || !condition.IsEnable || condition.Id == 0 || condition.Id != t.localEntityId {
+	if condition == nil || !condition.IsEnable || condition.Id == 0 {
 		return
+	}
+	if condition.Id != t.localEntityId {
+		entity := t.entityCache[condition.Id]
+		if entity == nil || entity.EntityInfo == nil || !entity.IsUser() {
+			return
+		}
 	}
 	skillID := techniqueSkillByCondition[condition.CCId]
 	if skillID == 0 {
@@ -1362,14 +1455,14 @@ func (t *eventPublisher) publishTechniqueConditionSkillAction(at time.Time, cond
 	if atMs <= 0 {
 		atMs = time.Now().UnixMilli()
 	}
-	key := fmt.Sprintf("technique:%d", skillID)
+	key := fmt.Sprintf("technique:%d:%d", condition.Id, skillID)
 	if previous := t.recentBossSkillAt[key]; previous > 0 && atMs-previous < 1000 {
 		return
 	}
 	t.recentBossSkillAt[key] = atMs
 	t.publish(&event.EventSkillAction{
-		EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: at.Unix(), Id: strconv.FormatUint(t.localEntityId, 10)},
-		SkillId:   skillID, AtMs: atMs, SourceId: strconv.FormatUint(condition.Id, 10), IsFallback: false, IsLocal: true,
+		EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: at.Unix(), Id: strconv.FormatUint(condition.Id, 10)},
+		SkillId:   skillID, AtMs: atMs, SourceId: strconv.FormatUint(condition.Id, 10), IsFallback: false, IsLocal: condition.Id == t.localEntityId,
 	})
 }
 
@@ -1594,7 +1687,17 @@ func (t *eventPublisher) publishConditionMetadataSkillAction(at time.Time, entit
 	}
 	// The condition owner can be the enemy target. Attribute the cast only
 	// through the explicit metadata source (or AttackerId), never from its CC id.
-	if !isLocalTrackedConditionSource(metadataSourceID, attackerID, t.localEntityId, t.entityCache) {
+	isLocal := isLocalTrackedConditionSource(metadataSourceID, attackerID, t.localEntityId, t.entityCache)
+	if !isLocal {
+		source := metadataSourceID
+		if source == 0 {
+			source = attackerID
+		}
+		entity := t.entityCache[source]
+		if entity == nil || entity.EntityInfo == nil || !entity.IsUser() || entity.OwnerId != 0 {
+			return
+		}
+		t.publish(&event.EventSkillAction{EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: at.Unix(), Id: strconv.FormatUint(source, 10)}, SkillId: skillID, AtMs: at.UnixMilli(), SourceId: strconv.FormatUint(source, 10), IsFallback: true, IsLocal: false})
 		return
 	}
 
@@ -1644,5 +1747,128 @@ func newMessageBoxEvent(message string) *event.EventMessageBox {
 			Id:      "0",
 		},
 		Message: message,
+	}
+}
+
+// 27012 starts preparation; 27028 ends/cancels it. A ready ACK is not a new cast.
+func (t *eventPublisher) publishPartyPreparation(p *packet.GamePacket, active, ended bool) {
+	if p == nil || p.Id == 0 {
+		return
+	}
+	if p.Id != t.localEntityId {
+		e := t.entityCache[p.Id]
+		if e == nil || e.EntityInfo == nil || !e.IsUser() {
+			return
+		}
+	}
+	skill, ok := parsePreparedSkillID(p.Msg)
+	if ended {
+		skill, ok = parseEndedSkillID(p.Msg)
+	}
+	if !ok || (skill != 59005 && skill != 58014) {
+		return
+	}
+	t.publishPartyPreparationState(p, skill, active)
+}
+
+func (t *eventPublisher) partySignalActor(id uint64) bool {
+	if id == 0 {
+		return false
+	}
+	if id == t.localEntityId {
+		return true
+	}
+	e := t.entityCache[id]
+	return e != nil && e.EntityInfo != nil && e.IsUser() && e.OwnerId == 0
+}
+
+func (t *eventPublisher) publishPartyPreparationState(p *packet.GamePacket, skill uint16, active bool) {
+	if t.recentBossSkillAt == nil {
+		t.recentBossSkillAt = make(map[string]int64)
+	}
+	key := fmt.Sprintf("party-prepare:%d:%d", p.Id, skill)
+	previous := t.recentBossSkillAt[key]
+	if active {
+		// The public animation precedes the local preparation ACK in the same
+		// frame. Publish one start, while allowing a cancelled cast to restart.
+		if previous > 0 && p.At.UnixMilli()-previous < 100 {
+			return
+		}
+		t.recentBossSkillAt[key] = p.At.UnixMilli()
+	} else {
+		if previous == 0 {
+			return
+		}
+		delete(t.recentBossSkillAt, key)
+	}
+	t.publish(&event.EventSkillState{EventBase: event.EventBase{EventId: event.EventIdSkillState, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)}, AtMs: p.At.UnixMilli(), SkillId: skill, Scope: "prepare", Active: active})
+}
+
+// These public preparation signals are present for teammates in the October 3
+// capture even though their private 27012/27016 messages are absent. Preparation
+// and cancellation do not start cooldowns. Collapse 778/2 confirms a release.
+func (t *eventPublisher) publishPartyBurstSignal(p *packet.GamePacket) {
+	if p == nil || !t.partySignalActor(p.Id) {
+		return
+	}
+	msg := p.Msg
+	switch p.Op {
+	case packet.OpCode(28006):
+		if len(msg) == 1 && msg[0].Type() == packet.MessageElemTypeByte && msg[0].Data().(uint8) == 0 {
+			for _, skill := range []uint16{59005, 58014} {
+				t.publishPartyPreparationState(p, skill, false)
+			}
+		}
+	case packet.OpCode(28002):
+		if len(msg) == 5 && msg[0].Type() == packet.MessageElemTypeInt && msg[1].Type() == packet.MessageElemTypeInt && msg[2].Type() == packet.MessageElemTypeByte && msg[3].Type() == packet.MessageElemTypeShort && msg[4].Type() == packet.MessageElemTypeShort && msg[0].Data().(uint32) == 205 && msg[1].Data().(uint32) == 5 && msg[2].Data().(uint8) == 0 && msg[3].Data().(uint16) == 0 && msg[4].Data().(uint16) == 0 {
+			t.publishPartyPreparationState(p, 58014, true)
+		}
+	case packet.OpCode(37011):
+		if len(msg) < 2 || msg[0].Type() != packet.MessageElemTypeInt {
+			return
+		}
+		if msg[0].Data().(uint32) == 778 && len(msg) == 2 && msg[1].Type() == packet.MessageElemTypeInt {
+			switch msg[1].Data().(uint32) {
+			case 1:
+				t.publishPartyPreparationState(p, 59005, true)
+			case 2:
+				t.publishPartyPreparationState(p, 59005, false)
+				// 778/2 accompanies the local 59005 execute in eight captured
+				// casts. Remote players broadcast this completion without 27016.
+				t.publish(&event.EventSkillState{EventBase: event.EventBase{EventId: event.EventIdSkillState, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)}, AtMs: p.At.UnixMilli(), SkillId: 59005, Scope: "burst-release", Active: true})
+			}
+		} else if msg[0].Data().(uint32) == 615 && msg[1].Type() == packet.MessageElemTypeByte && (len(msg) == 2 && msg[1].Data().(uint8) == 1 || len(msg) == 3 && msg[1].Data().(uint8) == 0 && msg[2].Type() == packet.MessageElemTypeByte && msg[2].Data().(uint8) == 1) {
+			t.publishPartyPreparationState(p, 58014, false)
+			// Public Power activation belongs to the caster. CC516 may only be
+			// broadcast to recipients and need not appear on the caster at all.
+			t.publish(&event.EventSkillState{EventBase: event.EventBase{EventId: event.EventIdSkillState, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)}, AtMs: p.At.UnixMilli(), SkillId: 58014, Scope: "burst-effect", Active: msg[1].Data().(uint8) == 1})
+		}
+	}
+}
+
+// Remote public combat records are a fallback when a skill does not send 27016.
+// Consumers keep the original cooldown start through subsequent damage phases.
+func (t *eventPublisher) publishPartyCombatAction(p *packet.GamePacket, pack *packet.CombatActionPackPacket) {
+	if p == nil || pack == nil {
+		return
+	}
+	for _, action := range pack.SubPackets {
+		if action == nil || action.Hit != nil || action.Attacker == nil || action.SkillId == 0 || action.EntityId == t.localEntityId {
+			continue
+		}
+		entity := t.entityCache[action.EntityId]
+		if entity == nil || entity.EntityInfo == nil || !entity.IsUser() || entity.OwnerId != 0 {
+			continue
+		}
+		id := strconv.FormatUint(action.EntityId, 10)
+		actionID := action.CombatActionId
+		if actionID == 0 {
+			actionID = pack.CombatActionId
+		}
+		confirmed := publicKpiAction(action) && actionID != 0
+		if confirmed && !t.acceptSkillAction(actionID) {
+			continue
+		}
+		t.publish(&event.EventSkillAction{EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: p.At.Unix(), Id: id}, SkillId: action.SkillId, CombatActionId: actionID, AtMs: p.At.UnixMilli(), SourceId: id, IsFallback: !confirmed, IsLocal: false})
 	}
 }

@@ -136,6 +136,11 @@ try {
         const loaded = await loadResourceNames('tw', true);
         const strings = Object.fromEntries(actual.StringTable.map(row => [row.Id, row.Str]));
         const resolve = key => strings[key] || key;
+        const { TW_GAME_TERMS } = await server.ssrLoadModule('/src/data/twGameTerms.ts');
+        for (const term of TW_GAME_TERMS) {
+            const list = term.kind === 'skill' ? actual.SkillList : term.kind === 'condition' ? actual.CharCondList : actual.MultiClassList;
+            assert.equal(resolve(list.find(row => row.Id === term.id)?.Name || '').trim(), term.tw, `verified TW ${term.kind} ${term.id}`);
+        }
         for (const row of actual.SkillList) assert.equal(store.skillNameMap.value[row.Id], resolve(row.Name).trim(), `skill ${row.Id}`);
         for (const row of actual.CharCondList) {
             assert.equal(store.condNameMap.value[row.Id], resolve(row.Name), `condition ${row.Id}`);

@@ -1,0 +1,385 @@
+/* Only the main window opts into this layout. Transparent reminder windows
+   retain uiColorTheme.css and the original component styling. */
+.main-ui-root { background: var(--ui-theme-canvas); color-scheme: var(--ui-color-scheme); }
+.main-dilmeter-app.modern-ui { font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; font-size: 13px; }
+.modern-ui .v-toolbar.app-toolbar { height: auto; padding: 14px 20px; background: var(--ui-theme-canvas) !important; }
+.modern-ui .app-toolbar .v-toolbar__content { height: auto !important; min-height: 44px; gap: 14px; flex-wrap: wrap; overflow: visible; }
+.modern-ui .app-toolbar .v-toolbar-title { flex: 0 0 auto; margin: 0; }
+.modern-ui .app-toolbar .v-toolbar-title__placeholder { display: flex; align-items: center; gap: 8px; overflow: visible; }
+.modern-ui .app-toolbar strong { font: 700 22px/1.2 system-ui, sans-serif; letter-spacing: -.5px; }
+.modern-ui .app-brand-icon { width: 36px; height: 36px; border-radius: 9px; object-fit: contain; }
+.modern-ui .app-version { font-size: 11px; font-weight: 400; white-space: nowrap; }
+.modern-ui .app-toolbar .v-chip { margin-left: 0 !important; }
+.modern-ui .app-toolbar-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 14px; margin-left: auto; }
+.modern-ui .app-runtime-notice { display: flex; flex: 1 1 180px; min-width: 150px; align-items: center; justify-content: center; gap: 7px; padding: 6px 0; color: var(--ui-theme-muted); font-size: 13px; min-height: 34px; }
+.modern-ui .app-runtime-notice span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modern-ui .app-runtime-notice.error { color: var(--ui-theme-danger); }
+.modern-ui .app-runtime-notice.capturing { color: var(--ui-theme-accent-text); }
+.main-dilmeter-app.modern-ui :where(.update-check-button, .ui-theme-segmented, .server-switcher select, .game-button, .profile-action, .buff-time-adjustment button, .condition-settings-button, .local-tts-open, .buff-alert-add, .buff-alert-remove, .buff-alert-preview, .player-buff-search-row button, .skill-cooldown-save, .reminder-save-settings, .healer-panel button:not(.healer-save-pending), .key-capture) {
+    border: 1px solid var(--ui-theme-border); border-radius: 6px; box-shadow: none !important;
+    color: var(--ui-theme-text) !important; background: var(--ui-theme-control) !important;
+    font-size: 12px; min-height: 34px; height: auto; padding: 6px 10px;
+}
+.modern-ui .update-check-button { margin: 0; gap: 6px; }
+.modern-ui .ui-theme-control { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; }
+.modern-ui .ui-theme-segmented { display: flex; padding: 3px !important; gap: 2px; }
+.modern-ui .ui-theme-segmented button { display: flex; gap: 4px; align-items: center; padding: 4px 8px; border: 0; border-radius: 4px; font-size: 12px; background: transparent; color: var(--ui-theme-muted); cursor: pointer; }
+.modern-ui .ui-theme-segmented button.active { background: var(--ui-theme-selection-soft); color: var(--ui-theme-accent-text); }
+.modern-ui :where(.dps-recording-switch, .accelerator-switch, .server-switcher) { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; margin: 0; white-space: nowrap; }
+.modern-ui :where(.dps-recording-switch, .accelerator-switch) input { width: 16px; height: 16px; }
+.modern-ui .server-switcher select { width: 145px; }
+.modern-ui .v-alert { font-size: 12px; border-radius: 7px; margin-inline: 16px !important; }
+.main-dilmeter-app.modern-ui :where(button, input, select, textarea):focus-visible { outline: 2px solid var(--ui-color-accent); outline-offset: 2px; }
+.main-dilmeter-app.modern-ui :where(button, select, input) { transition: background-color .15s, border-color .15s; }
+.main-dilmeter-app.modern-ui :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { border-radius: 6px; color: var(--ui-theme-text) !important; background: var(--ui-theme-control) !important; border-color: var(--ui-theme-border) !important; min-height: 32px; font-size: 12px; }
+.main-dilmeter-app.modern-ui :where(.game-button.confirm, .reminder-save-settings.needs-save, .skill-cooldown-save.needs-save) { background: var(--ui-color-accent) !important; color: var(--ui-theme-on-accent) !important; border-color: var(--ui-color-accent) !important; }
+.main-dilmeter-app.modern-ui :where(.profile-action.danger, .buff-alert-remove, .game-button.danger) { color: var(--ui-theme-danger) !important; }
+.main-dilmeter-app.modern-ui :where(button:hover:not(:disabled)) { border-color: var(--ui-color-accent); }
+.main-dilmeter-app.modern-ui :where(.game-button:hover:not(:disabled), .profile-action:hover:not(:disabled), .buff-alert-preview:hover:not(:disabled)) { background: var(--ui-theme-surface-hover) !important; }
+.modern-ui .report-page { min-width: 0; padding: 12px 16px 16px; }
+.modern-ui .report-page.design-preview { height: auto; padding: 12px 16px 16px; overflow: visible; }
+.main-dilmeter-app.modern-ui :where(.report-controls, .top-stat-grid, .combat-window, .table-frame, .combat-summary-panel, .condition-panel, .player-buff-settings, .condition-timeline-panel, .favorite-condition-section, .condition-category-list, .buff-alert-settings, .debuff-alert-settings, .boss-mechanic-settings, .skill-cooldown-settings, .aim-reminder-settings, .reminder-profile-toolbar, .buff-alert-editor, .skill-cooldown-editor, .boss-mechanic-rule, .debuff-alert-rule, .buff-alert-picker, .team-chart-dialog, .team-privacy-dialog, .local-tts-dialog, .healer-panel, .skill-bar-settings-card, .burst-reminder-settings) {
+    border-radius: 8px; box-shadow: none !important; background: var(--ui-theme-surface) !important; border-color: var(--ui-theme-border) !important;
+}
+.modern-ui .report-controls { padding: 16px; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.modern-ui .control-field { min-width: 0; flex: 0 1 230px; gap: 7px; }
+.modern-ui .control-field select { font-weight: 400; height: 34px; width: 100%; min-width: 0; text-overflow: ellipsis; }
+.modern-ui .control-label { font-size: 13px; gap: 6px; }
+.modern-ui .only-boss-switch { height: 34px; flex: 0 0 auto; }
+.modern-ui .report-actions { margin-left: auto; gap: 7px; flex-wrap: wrap; }
+.modern-ui .notice-line { border-radius: 6px; padding: 8px 12px; font-size: 12px; margin-bottom: 10px; }
+.modern-ui .combat-window { height: auto; min-height: 540px; border: 0; overflow: visible; }
+.main-dilmeter-app.modern-ui .window-titlebar { height: 36px; padding: 0 14px; background: var(--ui-theme-surface) !important; border: 1px solid var(--ui-theme-border); border-bottom: 0; border-radius: 8px 8px 0 0; font-size: 14px; text-shadow: none; box-shadow: none; }
+.modern-ui .window-titlebar .v-icon { color: var(--ui-color-accent); }
+.modern-ui .window-close { display: none; }
+.main-dilmeter-app.modern-ui .top-stat-grid { padding: 4px 14px 14px; gap: 12px; border: 1px solid var(--ui-theme-border); border-top: 0; border-radius: 0 0 8px 8px; margin-bottom: 12px; }
+.modern-ui .top-stat { background: var(--ui-theme-raised); border: 1px solid var(--ui-theme-border); border-radius: 7px; padding: 10px 4px; min-height: 76px; }
+.main-dilmeter-app.modern-ui .top-stat-label { font-size: 12px; font-weight: 400; color: var(--ui-theme-muted) !important; height: 24px; line-height: 24px; }
+.main-dilmeter-app.modern-ui .top-stat-value { font: 700 21px/1.5 system-ui, sans-serif; background: transparent !important; border: 0; height: auto; box-shadow: none; font-variant-numeric: tabular-nums; }
+.main-dilmeter-app.modern-ui .table-frame { padding: 0; height: auto; border: 0; background: transparent !important; }
+.modern-ui .combat-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; height: auto; min-height: 48px; padding: 0; align-items: stretch; border: 0; border-radius: 8px; overflow: visible; margin-bottom: 12px; }
+.main-dilmeter-app.modern-ui .combat-tab { display: flex; align-items: center; justify-content: center; gap: 9px; height: auto; min-height: 48px; font-size: 14px; padding: 10px 6px; border: 1px solid var(--ui-theme-border); border-radius: 8px; background: var(--ui-theme-surface) !important; box-shadow: none !important; color: var(--ui-theme-muted) !important; }
+.main-dilmeter-app.modern-ui .combat-tab.active { background: var(--ui-color-accent) !important; color: var(--ui-theme-on-accent) !important; border-bottom-color: var(--ui-color-accent) !important; font-weight: 600; }
+.main-dilmeter-app.modern-ui .combat-tab:hover:not(.active) { background: var(--ui-theme-surface-hover) !important; }
+.modern-ui .combat-tabs:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.main-dilmeter-app.modern-ui .combat-summary-panel { height: auto; min-height: 410px; padding: 20px; border: 1px solid var(--ui-theme-border); background: var(--ui-theme-surface) !important; }
+.modern-ui .combat-summary-panel h2 { font-size: 16px; margin-bottom: 16px; }
+.modern-ui .combat-summary-row { min-height: 34px; font-size: 13px; }
+.modern-ui .condition-panel { margin-top: 18px; overflow: hidden; }
+.main-dilmeter-app.modern-ui :where(.condition-panel-header, .player-buff-manage-group > summary, .condition-category > summary, .favorite-condition-section > header, .skill-head > span) { background: var(--ui-theme-raised) !important; box-shadow: none; }
+.modern-ui .condition-panel-header { padding: 12px; height: auto; gap: 10px; flex-wrap: wrap; }
+.modern-ui .condition-panel-title strong { font-size: 14px; }
+.modern-ui :where(.condition-card, .player-buff-chip) { border-radius: 6px; }
+.modern-ui :where(.reminder-layout, .team-reminders-layout) { display: grid; grid-template-columns: 208px minmax(0, 1fr); border: 1px solid var(--ui-theme-border); background: var(--ui-theme-surface); border-radius: 8px; overflow: hidden; min-height: 520px; }
+.modern-ui .team-reminders-content { min-width: 0; padding: 20px; container-type: inline-size; }
+
+.modern-ui .reminder-sidebar { background: var(--ui-theme-raised); border-right: 1px solid var(--ui-theme-border); padding: 20px 12px; }
+.modern-ui .reminder-sidebar h2 { margin: 0 6px 16px; font-size: 16px; }
+.modern-ui .reminder-sidebar nav { display: flex; flex-direction: column; gap: 8px; }
+.modern-ui .reminder-sidebar button { display: flex; align-items: center; gap: 10px; min-height: 45px; padding: 10px; border: 0; border-radius: 7px; font-size: 13px; background: transparent; color: var(--ui-theme-text); cursor: pointer; text-align: left; }
+.main-dilmeter-app.modern-ui .reminder-sidebar button.active { background: var(--ui-theme-selection-soft); color: var(--ui-theme-accent-text) !important; font-weight: 600; }
+.modern-ui .reminder-sidebar button:hover { background: var(--ui-theme-surface-hover); }
+.main-dilmeter-app.modern-ui .reminder-settings-page { height: auto; min-width: 0; padding: 20px; overflow: visible; box-shadow: none !important; }
+.modern-ui .reminder-profile-toolbar { display: block; padding: 12px; margin-bottom: 16px; }
+.modern-ui .reminder-profile-header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 12px; }
+.modern-ui .reminder-profile-heading { flex: 1 1 360px; }
+.modern-ui .reminder-profile-controls { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
+.modern-ui .reminder-profile-controls .buff-time-adjustment { margin-left: auto; }
+.modern-ui .reminder-profile-heading strong { font-size: 14px; }
+.modern-ui .buff-time-adjustment { grid-template-columns: auto 30px 76px 30px 20px; gap: 5px; margin-left: auto; }
+.modern-ui :where(.buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings) { padding: 16px; margin-top: 0; font-size: 12px; }
+.modern-ui :where(.buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings) > header { flex-wrap: wrap; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; }
+.main-dilmeter-app.modern-ui :where(.buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings) > header strong { font-size: 15px; color: var(--ui-theme-text) !important; }
+.modern-ui :where(.buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings) > header > div:first-child { flex: 1 1 100%; }
+.main-dilmeter-app.modern-ui :where(.buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings) > header span { font-size: 12px; line-height: 1.7; color: var(--ui-theme-muted) !important; }
+.modern-ui .reminder-inline-settings { flex-wrap: wrap; justify-content: flex-start; margin: 0; white-space: normal; gap: 8px; }
+.main-dilmeter-app.modern-ui .reminder-inline-settings label { background: transparent; border: 0; padding: 0; height: auto; font-size: 12px; }
+.modern-ui .reminder-inline-settings input[type=number] { width: 62px; }
+.modern-ui .reminder-inline-settings input[type=range] { width: 86px; }
+.modern-ui .reminder-inline-settings select { height: 32px; }
+.modern-ui :where(.buff-alert-picker, .skill-cooldown-picker) { padding: 10px; gap: 10px; margin-bottom: 14px; }
+.modern-ui :where(.buff-alert-picker, .skill-cooldown-picker) input { min-width: 0; }
+.modern-ui :where(.buff-alert-rule-list, .skill-cooldown-rule-list, .debuff-alert-rule-list, .boss-mechanic-rule-list) { gap: 12px; }
+.modern-ui :where(.buff-alert-editor, .skill-cooldown-editor, .boss-mechanic-rule, .debuff-alert-rule) { padding: 14px; gap: 12px 16px; font-size: 12px; }
+.main-dilmeter-app.modern-ui :where(.buff-alert-editor, .skill-cooldown-editor, .boss-mechanic-rule, .debuff-alert-rule) :where(label, button, select, input, span, small) { font-size: 12px; }
+.modern-ui :where(.buff-alert-settings, .skill-cooldown-settings, .debuff-alert-settings, .boss-mechanic-settings, .aim-reminder-settings) input[type=number] { max-width: 92px; }
+.modern-ui :where(.team-reminders-page, .extra-skillbar-page) { min-height: 470px; padding: 22px; border: 1px solid var(--ui-theme-border); border-radius: 8px; background: var(--ui-theme-surface); }
+.modern-ui .ui-page-heading { margin-bottom: 20px; }
+.modern-ui .ui-page-heading h2 { display: flex; align-items: center; gap: 9px; font-size: 17px; }
+.modern-ui .ui-page-heading .v-icon { color: var(--ui-color-accent); }
+.modern-ui .ui-page-heading p { margin-top: 7px; color: var(--ui-theme-muted); font-size: 12px; }
+.modern-ui .embedded-settings { min-width: 0; }
+.modern-ui .healer-embedded { border: 1px solid var(--ui-theme-border); box-shadow: none; }
+.modern-ui .healer-embedded .healer-dialog-title { font-size: 15px; background: transparent; padding: 16px; }
+.modern-ui .healer-basics-row { gap: 12px 24px; }
+.modern-ui .healer-basics-row label { flex: 0 0 auto; }
+.modern-ui .healer-basics-row input[type=number] { width: 70px; flex: 0 0 70px; }
+.modern-ui .healer-panel :where(button, input, select) { border-radius: 6px; }
+.modern-ui .healer-save-pending { color: var(--ui-theme-accent-text) !important; border-color: var(--ui-color-accent) !important; min-height: 34px; padding: 6px 10px; animation: main-ui-save-pulse 1.8s ease-in-out infinite; }
+@keyframes main-ui-save-pulse { 0%, 100% { background: var(--ui-theme-control); box-shadow: 0 0 0 0 transparent; } 50% { background: var(--ui-theme-selection-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-color-accent) 30%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .modern-ui .healer-save-pending { animation: none; background: var(--ui-theme-selection-soft); } }
+.modern-ui .skillbar-embedded { border: 0; box-shadow: none; }
+.modern-ui .skillbar-embedded .v-card-text { padding: 16px 0; }
+.modern-ui .skillbar-embedded .skill-bar-title { padding: 0 0 16px; color: var(--ui-theme-text); }
+.modern-ui :where(.skill-bar-switches, .skill-bar-input-settings, .stop-movement-settings, .slot-editor, .skill-bar-layout-settings) { border-radius: 7px; padding: 12px; background: var(--ui-theme-raised); color: var(--ui-theme-text); border-color: var(--ui-theme-border); }
+.modern-ui .stop-movement-settings :where(label, small) { color: var(--ui-theme-muted); }
+.modern-ui .skill-bar-actions { flex-wrap: wrap; gap: 10px; padding: 14px 0 0; }
+.main-dilmeter-app.modern-ui .burst-settings { margin-top: 20px; padding: 16px; border-radius: 8px; background: var(--ui-theme-surface); font-size: 12px; }
+.modern-ui .burst-settings > header { padding-bottom: 12px; }
+.modern-ui .burst-settings > header strong { font-size: 15px; color: var(--ui-theme-text); }
+.modern-ui .burst-settings article { margin-top: 12px; padding: 14px; border-radius: 7px; font-size: 13px; background: var(--ui-theme-raised); }
+.modern-ui .burst-settings .burst-line { gap: 12px 18px; }
+.main-dilmeter-app.modern-ui :where(.reminder-settings-page, .burst-settings) :where(label, input, select, button, p, small) { font-size: 12px !important; }
+.modern-ui .burst-settings :where(input, select, button) { border-radius: 6px; min-height: 32px; height: auto; padding: 5px 8px; }
+.modern-ui .burst-settings input[type=checkbox] { min-height: 0; padding: 0; }
+.main-dilmeter-app.modern-ui .combat-summary-row :where(dt, dd) { border-color: var(--ui-theme-border); padding: 8px 12px; }
+.modern-ui .combat-summary-row { border-color: var(--ui-theme-border); }
+.main-dilmeter-app.modern-ui :where(.healer-panel, .skill-bar-settings-card, .record-browser-dialog) { border-radius: 8px !important; }
+.modern-ui .burst-settings > header strong { display: flex; align-items: center; gap: 6px; }
+.modern-ui .record-browser-titlebar { background: var(--ui-theme-raised); min-height: 48px; padding: 10px 14px; }
+.modern-ui .record-browser-dialog :where(.record-button, .record-primary-button, .record-favorite-button, .record-confirm-delete-button) { border-radius: 6px; min-height: 32px; font-size: 12px; }
+/* Coordinate controls belong to the same form as the other numeric inputs. */
+.main-dilmeter-app.modern-ui :where(.skill-cooldown-coordinates, .buff-stack-alert-coordinates, .buff-stack-alert-controls, .skill-cooldown-cumulative-fields, .debuff-boss-manager, .aim-reminder-controls) { background: var(--ui-theme-raised) !important; color: var(--ui-theme-text) !important; border-color: var(--ui-theme-border) !important; border-radius: 6px; padding: 7px 9px; }
+.main-dilmeter-app.modern-ui :where(.skill-cooldown-coordinates, .buff-stack-alert-coordinates) > span { color: var(--ui-theme-muted) !important; font-size: 12px; font-weight: 400; }
+.main-dilmeter-app.modern-ui .buff-alert-runtime-status { color: var(--ui-theme-muted) !important; background: transparent !important; font-size: 12px; line-height: 1.7; padding: 6px 0 0; }
+/* Main-window skill-bar editor and its explanations support both themes.
+   The native skill-bar renderer and all reminder overlay previews are separate. */
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.locked-note, .move-note) { color: var(--ui-theme-accent-text) !important; background: var(--ui-theme-selection-soft) !important; border: 1px solid var(--ui-theme-border); border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.stop-movement-settings, .skill-bar-input-settings, .skill-bar-switches, .skill-bar-layout-settings label, .skill-bar-preview-panel, .skill-slot-editor) { color: var(--ui-theme-text) !important; background: var(--ui-theme-raised) !important; border-color: var(--ui-theme-border) !important; border-radius: 7px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(label, p, small, .skill-bar-actions > span) { font-size: 13px !important; line-height: 1.75; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.skill-bar-switches, .skill-bar-input-settings, .stop-movement-settings, .input-setting-title) { font-size: 13px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(p, small, .skill-bar-actions > span) { color: var(--ui-theme-muted) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.stop-movement-settings label, .skill-bar-switches label, .skill-bar-input-settings label, .slot-fields label, .skill-search-label) { color: var(--ui-theme-text) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .stop-movement-settings small { flex: 1 1 100%; padding-top: 5px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .stop-movement-settings .stop-warning { color: var(--ui-theme-danger) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .skill-bar-preview { background: var(--ui-theme-control) !important; border-color: var(--ui-theme-border) !important; border-radius: 7px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .skill-bar-preview button { background: var(--ui-theme-raised) !important; border-color: var(--ui-theme-border) !important; border-radius: 5px; color: var(--ui-theme-text) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .skill-bar-preview button.selected { border: 2px solid var(--ui-color-accent) !important; box-shadow: 0 0 0 2px var(--ui-theme-selection-soft); background: var(--ui-theme-selection-soft) !important; }
+.modern-ui .skillbar-embedded .skill-bar-preview button.empty { opacity: 1; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.search-icon, .selected-icon) { background: var(--ui-theme-raised) !important; border-color: var(--ui-theme-border) !important; color: var(--ui-theme-muted) !important; border-radius: 5px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .sequence-note kbd { color: var(--ui-theme-accent-text) !important; background: var(--ui-theme-selection-soft) !important; border-color: var(--ui-theme-border) !important; border-radius: 4px; font-size: 12px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.clear-slot, .cancel-capture) { color: var(--ui-theme-danger) !important; background: var(--ui-theme-control) !important; border-color: var(--ui-theme-border) !important; border-radius: 6px; font-size: 12px; padding: 6px 9px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.finish-capture, .key-capture.capturing) { color: var(--ui-theme-on-accent) !important; background: var(--ui-color-accent) !important; border-color: var(--ui-color-accent) !important; border-radius: 6px; font-size: 13px; padding: 6px 9px; }
+.modern-ui .skillbar-embedded .skill-bar-preview-panel > header, .modern-ui .skillbar-embedded .skill-slot-editor > header { flex-wrap: wrap; gap: 8px; }
+.modern-ui .skillbar-embedded .skill-bar-input-settings small { flex: 1 1 100%; margin-left: 0; }
+.modern-ui .skillbar-embedded .skill-bar-actions > span { flex: 1 1 380px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.skill-bar-preview-panel header strong, .skill-slot-editor header strong, .selected-skill-summary strong) { font-size: 14px; color: var(--ui-theme-text) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :where(.slot-number, .slot-fallback) { color: var(--ui-theme-text) !important; font-size: 13px; }
+.main-dilmeter-app.modern-ui :where(.boss-mechanic-rule-coordinate b, .debuff-boss-manager p) { color: var(--ui-theme-muted) !important; font-size: 12px; }
+.main-ui-root .healer-panel :where(.healer-error, .healer-danger, .healer-inline-status.warning) { color: var(--ui-theme-danger); }
+.main-ui-root .healer-panel .healer-notice { color: var(--ui-theme-accent-text); }
+.modern-ui .combat-summary-table { border: 1px solid var(--ui-theme-border); border-radius: 7px; overflow: hidden; }
+.modern-ui :where(.condition-category > summary, .favorite-condition-section > header) { border-color: var(--ui-theme-border); padding: 10px 12px; font-size: 12px; }
+.main-dilmeter-app.modern-ui .skill-head { height: auto; gap: 0; padding: 0; margin: 0; border: 1px solid var(--ui-theme-border); border-radius: 8px 8px 0 0; overflow: hidden; font-size: 12px; }
+.main-dilmeter-app.modern-ui .skill-head > span { height: auto; border: 0; border-right: 1px solid var(--ui-theme-border); box-shadow: none; text-shadow: none; padding: 8px 4px; min-height: 36px; font-size: 12px; line-height: 20px; }
+.main-dilmeter-app.modern-ui .skill-head > span:last-child { border-right: 0; }
+.modern-ui .skill-scroll { height: auto; min-height: 360px; max-height: 650px; padding: 8px; background: var(--ui-theme-surface); border: 1px solid var(--ui-theme-border); border-radius: 0 0 8px 8px; }
+.main-dilmeter-app.modern-ui .empty-combat-state { height: auto; min-height: 360px; padding: 36px 20px; gap: 12px; background: var(--ui-theme-surface); border: 1px solid var(--ui-theme-border); border-radius: 0 0 8px 8px; color: var(--ui-theme-muted); font-size: 13px; text-align: center; }
+.main-dilmeter-app.modern-ui .empty-combat-state .v-icon { flex: 0 0 30px; width: 30px; height: 30px; color: var(--ui-color-accent); }
+.main-dilmeter-app.modern-ui .empty-combat-state strong { font-size: 15px; }
+.main-dilmeter-app.modern-ui .report-page .skill-row { background: var(--ui-theme-raised) !important; border-color: var(--ui-theme-border) !important; outline: none; box-shadow: none !important; border-radius: 6px; min-height: 38px; margin-bottom: 6px; }
+.main-dilmeter-app.modern-ui .report-page .skill-progress-track span { background: color-mix(in srgb, var(--ui-color-accent) 48%, var(--ui-theme-raised)) !important; box-shadow: none !important; }
+.main-dilmeter-app.modern-ui .report-page .skill-row > span, .main-dilmeter-app.modern-ui .report-page .skill-row .skill-name-text { color: var(--ui-theme-text) !important; -webkit-text-stroke: 0; text-shadow: none !important; }
+.modern-ui :where(.team-chart-dialog, .local-tts-dialog) { box-shadow: 0 18px 50px #0004; }
+.modern-ui :where(.team-chart-titlebar, .local-tts-dialog > header) { height: auto; min-height: 48px; padding: 12px 16px; font-size: 14px; box-shadow: none; }
+.modern-ui :where(.team-chart-toolbar, .team-chart-dialog footer) { padding: 12px 16px; font-size: 12px; }
+.main-ui-root .v-overlay-container :where(button, input, select, .v-btn) { border-radius: 6px; }
+/* Main-window control states: solid accent actions, soft informational chips,
+   and outlined inputs use separate foreground/background pairs. */
+.main-dilmeter-app.modern-ui .combat-window { background: transparent !important; }
+.main-dilmeter-app.modern-ui :where(.report-controls, .app-toolbar) select { border-radius: 6px; }
+.main-dilmeter-app.modern-ui .record-browser-dialog { --record-danger: var(--ui-theme-danger); }
+.main-dilmeter-app.modern-ui :where(.record-bulk-delete-button, .record-confirm-delete-button):not(:disabled) { color: var(--ui-theme-on-accent) !important; background: var(--ui-theme-danger) !important; border-color: var(--ui-theme-danger) !important; }
+.main-dilmeter-app.modern-ui :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { border: 1px solid var(--ui-theme-control-border) !important; }
+.main-dilmeter-app.modern-ui :where(.game-button, .profile-action, .record-button, .record-view-button, .record-favorite-button, .record-delete-button, .record-bulk-delete-button, .record-detail-toggle, .team-chart-view-switch button, .team-chart-granularity button, .skill-timeline-zoom button, .burst-settings button) { border: 1px solid var(--ui-theme-control-border); border-radius: 6px; min-height: 32px; padding: 5px 10px; font-size: 12px; box-shadow: none !important; }
+.main-dilmeter-app.modern-ui :is(.game-button.active, .game-button.confirm, .condition-settings-button.active, .condition-target-toggle label.active, .player-buff-chip.selected, .record-view-button, .record-favorite-button.active, .record-detail-toggle.active, .team-chart-view-switch button.active, .team-chart-granularity button.active, .skill-timeline-zoom button.active):not(:disabled) { color: var(--ui-theme-on-accent) !important; background: var(--ui-color-accent) !important; border-color: var(--ui-color-accent) !important; box-shadow: none !important; }
+.main-dilmeter-app.modern-ui :is(.game-button.active, .game-button.confirm, .condition-settings-button.active, .condition-target-toggle label.active, .player-buff-chip.selected, .record-view-button, .record-favorite-button.active, .record-detail-toggle.active, .team-chart-view-switch button.active, .team-chart-granularity button.active, .skill-timeline-zoom button.active):not(:disabled) :where(span, strong, small, i) { color: inherit !important; }
+.main-dilmeter-app.modern-ui :where(.record-favorite-badge, .debuff-boss-race-list > span) { color: var(--ui-theme-accent-text) !important; background: var(--ui-theme-selection-soft) !important; border: 1px solid var(--ui-color-accent); border-radius: 5px; }
+.main-dilmeter-app.modern-ui :where(.record-favorite-badge, .record-live-badge) { font-size: 10px; line-height: 1.7; padding: 1px 6px; white-space: nowrap; }
+.main-dilmeter-app.modern-ui .record-dps-ranking > button.active { color: var(--ui-theme-text); background: var(--ui-theme-selection-soft); }
+.main-dilmeter-app.modern-ui .record-dps-ranking > button.active :where(strong, small, span, em) { color: var(--ui-theme-text) !important; }
+.main-dilmeter-app.modern-ui .record-table { font-size: 12px; }
+.main-dilmeter-app.modern-ui .record-col-date { width: 152px; }
+.main-dilmeter-app.modern-ui .record-col-action { width: 230px; }
+.main-dilmeter-app.modern-ui .record-table td { background: var(--ui-theme-surface); padding-block: 10px; }
+.main-dilmeter-app.modern-ui .record-table tr.favorite td { background: color-mix(in srgb, var(--ui-theme-selection-soft) 45%, var(--ui-theme-surface)); }
+.main-dilmeter-app.modern-ui .record-table tr.selected td { background: var(--ui-theme-selection-soft) !important; }
+.main-dilmeter-app.modern-ui .record-table tr:hover:not(.selected) td { background: var(--ui-theme-hover) !important; }
+.main-dilmeter-app.modern-ui .debuff-boss-race-list > span { gap: 8px; padding: 3px 4px 3px 10px; font-size: 12px; }
+.main-dilmeter-app.modern-ui .debuff-boss-race-list small { color: var(--ui-theme-muted) !important; font-size: 11px; }
+.main-dilmeter-app.modern-ui .debuff-boss-race-list button { width: 28px; height: 28px; border: 1px solid var(--ui-theme-border); border-radius: 4px; color: var(--ui-theme-danger) !important; background: var(--ui-theme-surface) !important; font-size: 16px; }
+/* Both teammate pages share the same frame and fixed save position. */
+.main-dilmeter-app.modern-ui .teammate-settings-panel { margin: 0; padding: 0; border: 1px solid var(--ui-theme-border); border-radius: 8px; overflow: hidden; background: var(--ui-theme-surface); }
+.main-dilmeter-app.modern-ui .teammate-panel-header { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 14px 18px; margin: 0; border-bottom: 1px solid var(--ui-theme-border); background: var(--ui-theme-raised); font-size: 15px; font-weight: 650; letter-spacing: normal; line-height: 26px; }
+.main-dilmeter-app.modern-ui .teammate-panel-header > :is(span, strong) { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; color: var(--ui-theme-text) !important; }
+.main-dilmeter-app.modern-ui .teammate-panel-header .v-icon { color: var(--ui-theme-accent-text); }
+.main-dilmeter-app.modern-ui .teammate-basics { font-size: 12px; padding: 16px 18px; border-bottom: 1px solid var(--ui-theme-border); background: var(--ui-theme-surface); }
+.main-dilmeter-app.modern-ui .teammate-section-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; min-height: 34px; }
+.main-dilmeter-app.modern-ui .teammate-section-heading h2 { margin: 0 auto 0 0; font-size: 14px; font-weight: 650; }
+.main-dilmeter-app.modern-ui .teammate-section-heading > span { font-size: 12px; color: var(--ui-theme-muted) !important; }
+.main-dilmeter-app.modern-ui .teammate-section-heading .teammate-save { margin: 0; min-width: 92px; min-height: 34px; padding: 6px 10px; color: var(--ui-theme-on-accent) !important; background: var(--ui-color-accent) !important; border: 1px solid var(--ui-color-accent); font-size: 12px; border-radius: 6px; }
+.main-dilmeter-app.modern-ui .teammate-save.healer-save-pending { animation: main-ui-save-pulse 1.8s ease-in-out infinite; }
+.main-dilmeter-app.modern-ui .teammate-basics-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 22px; min-height: 34px; margin: 0; }
+.main-dilmeter-app.modern-ui .teammate-settings-panel :where(label, input, select, button, p, small) { font-size: 12px; line-height: 1.7; }
+.main-dilmeter-app.modern-ui .teammate-basics-row label { display: inline-flex; align-items: center; flex: 0 0 auto; gap: 7px; }
+.main-dilmeter-app.modern-ui .teammate-basics-row input[type=number] { width: 70px; flex: 0 0 70px; height: 34px; }
+.main-dilmeter-app.modern-ui .teammate-panel-body { padding: 18px !important; font-size: 12px; }
+.main-dilmeter-app.modern-ui .teammate-panel-body > .healer-templates { padding-top: 0; }
+.main-dilmeter-app.modern-ui .teammate-panel-body :where(h2, article > strong) { font-size: 14px; font-weight: 650; }
+.main-dilmeter-app.modern-ui .teammate-panel-body > p:first-child { margin-top: 0; }
+.main-dilmeter-app.modern-ui .burst-settings .burst-phase { padding-top: 10px; border-top: 1px solid var(--ui-theme-border); }
+/* Vuetify resets native appearance. Restore an explicit, keyboard-operable
+   checkbox/radio state instead of relying on a dark system control surface. */
+.main-dilmeter-app.modern-ui input:is([type=checkbox], [type=radio]) { appearance: none; display: inline-grid; place-content: center; flex: 0 0 16px; width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; vertical-align: middle; border: 1px solid var(--ui-theme-control-border) !important; border-radius: 4px; color: var(--ui-theme-on-accent) !important; background: var(--ui-theme-control) !important; cursor: pointer; }
+.main-dilmeter-app.modern-ui input[type=radio] { border-radius: 50%; }
+.main-dilmeter-app.modern-ui input:is([type=checkbox], [type=radio]):is(:checked, :indeterminate) { border-color: var(--ui-color-accent) !important; background: var(--ui-color-accent) !important; }
+.main-dilmeter-app.modern-ui input[type=checkbox]:checked::after { content: ''; width: 9px; height: 5px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-1px) rotate(-45deg); }
+.main-dilmeter-app.modern-ui input[type=checkbox]:indeterminate::after { content: ''; width: 8px; height: 2px; background: currentColor; }
+.main-dilmeter-app.modern-ui input[type=radio]:checked::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.main-ui-root .main-dilmeter-app.modern-ui :is(button, input, select, textarea):disabled:disabled { opacity: 1 !important; color: var(--ui-theme-disabled-text) !important; background: var(--ui-theme-disabled) !important; border-color: var(--ui-theme-border) !important; box-shadow: none !important; cursor: not-allowed; }
+.main-dilmeter-app.modern-ui button:disabled :where(span, strong, small, i) { color: inherit !important; }
+/* R4: translucent shells over the supplied pastel artwork; solid controls
+   keep state contrast independent of the background underneath them. */
+.main-ui-root body { background: var(--ui-theme-canvas) var(--ui-backdrop-image) center / cover fixed; }
+.main-dilmeter-app.modern-ui,
+.main-dilmeter-app.modern-ui :is(.v-application__wrap, .v-main, .report-page) { background: transparent !important; }
+.main-dilmeter-app.modern-ui :is(.app-toolbar, .report-controls, .top-stat-grid, .window-titlebar, .combat-summary-panel, .reminder-layout, .team-reminders-layout, .extra-skillbar-page, .condition-panel) { background: var(--ui-glass-surface) !important; border-color: var(--ui-glass-border) !important; backdrop-filter: blur(18px) saturate(115%); -webkit-backdrop-filter: blur(18px) saturate(115%); box-shadow: var(--ui-glass-shadow) !important; }
+.main-dilmeter-app.modern-ui .app-toolbar { margin: 12px 16px 0; width: auto; border: 1px solid var(--ui-glass-border); border-radius: 16px; padding: 12px 18px; }
+.main-dilmeter-app.modern-ui :is(.report-controls, .combat-summary-panel, .reminder-layout, .team-reminders-layout, .extra-skillbar-page, .condition-panel) { border-radius: 16px; }
+.main-dilmeter-app.modern-ui .window-titlebar { border-radius: 16px 16px 0 0; box-shadow: none !important; }
+.main-dilmeter-app.modern-ui .top-stat-grid { border-radius: 0 0 16px 16px; padding: 6px 14px 14px; }
+.main-dilmeter-app.modern-ui .top-stat { border: 1px solid var(--ui-glass-border); border-radius: 12px; padding: 12px 4px; min-height: 80px; background: var(--ui-tint-sky); }
+.main-dilmeter-app.modern-ui .top-stat:nth-child(2) { background: var(--ui-tint-lilac); }
+.main-dilmeter-app.modern-ui .top-stat:nth-child(3) { background: var(--ui-tint-mint); }
+.main-dilmeter-app.modern-ui .top-stat:nth-child(4) { background: var(--ui-tint-peach); }
+.main-dilmeter-app.modern-ui[data-theme=light] :is(.window-titlebar, .top-stat-grid) { background: rgba(255, 255, 255, .30) !important; }
+.main-dilmeter-app.modern-ui[data-theme=light] .top-stat { background: linear-gradient(135deg, rgba(255, 255, 255, .48), rgba(208, 226, 255, .22)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85), 0 3px 12px rgba(65, 89, 151, .04); }
+.main-dilmeter-app.modern-ui :is(.top-stat-label, .top-stat-value) { text-shadow: none !important; -webkit-text-stroke: 0 !important; color: var(--ui-theme-text) !important; }
+.main-dilmeter-app.modern-ui .top-stat-label { font-size: 13px; font-weight: 500; }
+.main-dilmeter-app.modern-ui .top-stat-value { font-size: 22px; font-weight: 650; }
+.main-dilmeter-app.modern-ui .combat-tabs { gap: 10px; margin-bottom: 14px; }
+.main-dilmeter-app.modern-ui .combat-tab { border-radius: 12px; background: var(--ui-glass-surface) !important; border: 1px solid var(--ui-glass-border); color: var(--ui-theme-text) !important; backdrop-filter: blur(16px); min-height: 52px; box-shadow: var(--ui-glass-shadow) !important; }
+.main-dilmeter-app.modern-ui .combat-tab[data-section=summary] { --section-tint: var(--ui-tint-sky); }
+.main-dilmeter-app.modern-ui .combat-tab[data-section=attack] { --section-tint: var(--ui-tint-lilac); }
+.main-dilmeter-app.modern-ui .combat-tab[data-section=alerts] { --section-tint: var(--ui-tint-peach); }
+.main-dilmeter-app.modern-ui .combat-tab[data-section=team] { --section-tint: var(--ui-tint-mint); }
+.main-dilmeter-app.modern-ui .combat-tab[data-section=skillbar] { --section-tint: var(--ui-tint-rose); }
+.main-dilmeter-app.modern-ui .combat-tab .v-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--section-tint); color: var(--ui-theme-text); font-size: 20px !important; }
+.main-dilmeter-app.modern-ui .combat-tab.active:not(:disabled) { background: var(--section-tint, var(--ui-tint-lilac)) !important; color: var(--ui-theme-text) !important; border-color: var(--ui-color-accent) !important; box-shadow: inset 0 -3px var(--ui-color-accent), var(--ui-glass-shadow) !important; }
+.main-dilmeter-app.modern-ui .combat-tab:hover:not(.active) { background: var(--ui-theme-surface) !important; }
+.main-dilmeter-app.modern-ui .reminder-sidebar { background: var(--ui-glass-inner); border-color: var(--ui-glass-border); }
+.main-dilmeter-app.modern-ui .reminder-sidebar button { border: 1px solid transparent; border-radius: 10px; }
+.main-dilmeter-app.modern-ui .reminder-sidebar button.active { background: var(--ui-tint-lilac); border-color: var(--ui-color-accent); color: var(--ui-theme-text) !important; }
+.main-dilmeter-app.modern-ui .team-reminders-layout .reminder-sidebar button.active { background: var(--ui-tint-mint); }
+.main-dilmeter-app.modern-ui :is(.teammate-settings-panel, .reminder-profile-toolbar, .buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings, .condition-category-list, .favorite-condition-section) { background: var(--ui-glass-inner) !important; border-color: var(--ui-glass-border) !important; border-radius: 12px !important; }
+.main-dilmeter-app.modern-ui :is(.teammate-panel-header, .skillbar-embedded .skill-bar-title) { padding: 14px 18px; min-height: 56px; background: var(--ui-tint-mint); border-bottom: 1px solid var(--ui-glass-border); font-size: 15px; font-weight: 650; letter-spacing: normal; line-height: 26px; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .skill-bar-title { background: var(--ui-tint-rose); }
+.main-dilmeter-app.modern-ui .skillbar-embedded .teammate-panel-header > span { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650; line-height: 26px; }
+.main-dilmeter-app.modern-ui .extra-skillbar-page { padding: 20px; }
+.main-dilmeter-app.modern-ui .teammate-basics { background: transparent; }
+.main-dilmeter-app.modern-ui .burst-settings article { background: var(--ui-tint-sky); border-color: var(--ui-glass-border); border-radius: 12px; }
+.main-dilmeter-app.modern-ui .burst-settings article:nth-of-type(2) { background: var(--ui-tint-lilac); }
+.main-dilmeter-app.modern-ui .healer-empty-roster { background: var(--ui-tint-sky); border: 1px solid var(--ui-glass-border); border-radius: 12px; }
+.main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor, .boss-mechanic-rule, .debuff-alert-rule, .buff-alert-picker) { background: var(--ui-glass-inner) !important; border-color: var(--ui-theme-border) !important; border-radius: 10px; }
+.main-dilmeter-app.modern-ui .reminder-profile-toolbar { background: var(--ui-tint-lilac) !important; }
+.main-dilmeter-app.modern-ui :is(.buff-alert-settings, .skill-cooldown-settings, .debuff-alert-settings, .boss-mechanic-settings, .aim-reminder-settings) > header { background: var(--ui-tint-sky); margin: -16px -16px 16px; padding: 16px; border-radius: 12px 12px 0 0; border-color: var(--ui-glass-border); }
+.main-dilmeter-app.modern-ui .skillbar-embedded :is(.skill-bar-switches, .skill-bar-layout-settings label) { background: var(--ui-tint-lilac) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .skill-bar-input-settings { background: var(--ui-tint-sky) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .stop-movement-settings { background: var(--ui-tint-peach) !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded :is(.skill-bar-preview-panel, .skill-slot-editor) { background: var(--ui-glass-inner) !important; border-color: var(--ui-theme-border) !important; }
+.main-dilmeter-app.modern-ui .combat-summary-row:nth-child(2n) { background: var(--ui-glass-inner); }
+.main-dilmeter-app.modern-ui .combat-summary-row:first-child { background: var(--ui-tint-sky); }
+.main-dilmeter-app.modern-ui .combat-summary-row:nth-child(4) { background: var(--ui-tint-mint); }
+.main-dilmeter-app.modern-ui :is(.team-chart-dialog, .record-browser-dialog, .local-tts-dialog) { border: 1px solid var(--ui-glass-border); border-radius: 16px !important; box-shadow: 0 24px 70px #09193555 !important; }
+.main-dilmeter-app.modern-ui :is(.record-browser-titlebar, .team-chart-titlebar) { background: var(--ui-tint-lilac) !important; box-shadow: none; }
+@supports not (backdrop-filter: blur(1px)) { .main-dilmeter-app.modern-ui { --ui-glass-surface: var(--ui-theme-surface); --ui-glass-inner: var(--ui-theme-surface); } }
+/* The shared save action belongs to the profile header, above time adjustment. */
+.main-dilmeter-app.modern-ui .reminder-save-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.main-dilmeter-app.modern-ui .reminder-save-actions > span { font-size: 12px; color: var(--ui-theme-muted); }
+.main-dilmeter-app.modern-ui .reminder-save-actions > .save-error { color: var(--ui-theme-danger) !important; }
+.main-ui-root .main-dilmeter-app.modern-ui .reminder-save-all:not(:disabled) { color: var(--ui-theme-on-accent) !important; background: var(--ui-color-accent) !important; border: 1px solid var(--ui-color-accent); }
+.main-dilmeter-app.modern-ui .reminder-save-all { border-radius: 6px; min-width: 92px; min-height: 34px; padding: 6px 10px; font-size: 12px; line-height: 20px; font-weight: 500; cursor: pointer; }
+.main-dilmeter-app.modern-ui .reminder-editors > :is(.buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings) { padding: 16px; margin: 0; }
+.main-dilmeter-app.modern-ui .reminder-editors > :is(.buff-alert-settings, .debuff-alert-settings, .skill-cooldown-settings, .boss-mechanic-settings, .aim-reminder-settings) > header { box-sizing: border-box; margin: -16px -16px 16px; padding: 16px; border-radius: 11px 11px 0 0; }
+/* Compact Buff actions need their own paired foreground/background states. */
+.main-dilmeter-app.modern-ui :is(.condition-alert-button, .condition-favorite-button) { width: 24px; height: 24px; border-radius: 5px; color: var(--ui-theme-text) !important; background: var(--ui-theme-control) !important; border: 1px solid var(--ui-theme-control-border) !important; box-shadow: none !important; }
+.main-dilmeter-app.modern-ui :is(.condition-alert-button, .condition-favorite-button):hover { background: var(--ui-theme-hover) !important; border-color: var(--ui-color-accent) !important; }
+.main-dilmeter-app.modern-ui .condition-alert-button.active { color: var(--ui-theme-on-accent) !important; background: var(--ui-color-accent) !important; border-color: var(--ui-color-accent) !important; }
+.main-dilmeter-app.modern-ui .condition-favorite-button.active { color: #79520b !important; background: #ffecb3 !important; border-color: #b38527 !important; }
+.main-dilmeter-app.modern-ui[data-theme=dark] .condition-favorite-button.active { color: #3f2c08 !important; background: #ffe19e !important; border-color: #ffe19e !important; }
+.main-dilmeter-app.modern-ui :is(.condition-alert-button, .condition-favorite-button) .v-icon { color: inherit !important; font-size: 17px !important; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .skill-bar-layout-settings input[type=number] { width: 72px; padding: 0 10px; text-align: center; font-variant-numeric: tabular-nums; }
+.main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor) { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; align-items: start; gap: 10px 14px; padding: 12px; }
+.main-dilmeter-app.modern-ui .buff-alert-identity { grid-template-columns: 25px minmax(0, 1fr) auto; min-height: 34px; }
+.main-dilmeter-app.modern-ui .buff-alert-identity > small { grid-column: 2; }
+.main-dilmeter-app.modern-ui .buff-alert-identity .reminder-help { grid-column: 3; grid-row: 1 / 3; }
+.main-dilmeter-app.modern-ui .reminder-rule-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px 12px; min-width: 0; }
+.main-dilmeter-app.modern-ui .reminder-rule-controls > label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.main-dilmeter-app.modern-ui .reminder-rule-controls input[type=number] { width: 70px; padding-inline: 8px; }
+.main-dilmeter-app.modern-ui .reminder-rule-controls select { min-width: 100px; max-width: 160px; padding-inline: 8px; }
+.main-dilmeter-app.modern-ui .buff-stack-alert-controls { flex: 1 1 100%; margin-left: 0; justify-content: flex-start; gap: 8px 12px; }
+.main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor) > .buff-alert-runtime-status { grid-column: 2 / -1; margin: 0; background: transparent !important; border: 0; padding: 0; }
+.main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor) > .buff-alert-remove { grid-column: 3; grid-row: 1; }
+.main-dilmeter-app.modern-ui .reminder-settings-page .reminder-sound-select,
+.main-dilmeter-app.modern-ui .healer-sound-picker select { width: 160px; min-width: 160px; max-width: 160px; text-overflow: ellipsis; }
+.main-dilmeter-app.modern-ui :is(.buff-alert-file-picker, .healer-file-picker) { max-width: 190px; }
+.main-dilmeter-app.modern-ui :is(.buff-alert-file-picker, .healer-file-picker) > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-dilmeter-app.modern-ui .healer-member-compact { margin: 8px 0; border-radius: 9px; overflow: hidden; }
+.main-dilmeter-app.modern-ui .healer-member-compact .healer-member-heading { display: flex; flex-wrap: wrap; min-height: 54px; gap: 10px 16px; padding: 9px 12px; }
+.main-dilmeter-app.modern-ui .healer-member-compact .healer-member-name { flex: 1 1 120px; }
+.main-dilmeter-app.modern-ui .healer-member-compact .healer-member-name strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.main-dilmeter-app.modern-ui .healer-quick-toggles { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px; }
+.main-dilmeter-app.modern-ui .healer-quick-toggles label { white-space: nowrap; }
+.main-dilmeter-app.modern-ui .healer-expand-member { display: inline-flex; align-items: center; gap: 5px; }
+.main-dilmeter-app.modern-ui .healer-member-management { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--ui-theme-border); }
+.main-dilmeter-app.modern-ui .healer-member-management > span { color: var(--ui-theme-muted); font-size: 12px; }
+@media (max-width: 1100px) {
+    .main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor) { grid-template-columns: minmax(0, 1fr) auto; }
+    .main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor) > .buff-alert-identity { max-width: 300px; }
+    .main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor) > .buff-alert-remove { grid-column: 2; }
+    .main-dilmeter-app.modern-ui :is(.buff-alert-editor, .skill-cooldown-editor) > :is(.reminder-rule-controls, .buff-alert-runtime-status) { grid-column: 1 / -1; }
+}
+/* Shared reminder appearance and aligned mechanism controls. */
+.main-dilmeter-app.modern-ui .reminder-profile-common { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ui-glass-border); }
+.main-dilmeter-app.modern-ui .reminder-common-controls { justify-content: flex-start; gap: 12px 20px; }
+.main-dilmeter-app.modern-ui .reminder-common-controls > strong { font-size: 12px; font-weight: 600; }
+.main-dilmeter-app.modern-ui .reminder-settings-page input[type=number] { width: 76px; min-width: 76px; padding-inline: 10px; font-variant-numeric: tabular-nums; }
+.main-dilmeter-app.modern-ui .reminder-settings-page :is(.reminder-coordinate-setting, .boss-mechanic-rule-coordinate, .buff-stack-alert-coordinates, .skill-cooldown-coordinates, .aim-reminder-coordinates) input[type=number] { width: 84px !important; min-width: 84px; }
+.main-dilmeter-app.modern-ui .boss-reminder-editor { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: start; gap: 10px 14px; padding: 12px; }
+.main-dilmeter-app.modern-ui .boss-reminder-editor .boss-mechanic-identity { grid-template-columns: 25px minmax(0, 1fr) auto; min-height: 34px; }
+.main-dilmeter-app.modern-ui .boss-reminder-editor .boss-mechanic-identity > small { grid-column: 2 / -1; }
+.main-dilmeter-app.modern-ui .boss-reminder-editor .reminder-help { grid-column: 3; grid-row: 1 / 3; }
+.main-dilmeter-app.modern-ui .boss-reminder-editor > .buff-alert-runtime-status { grid-column: 2; margin: 0; padding: 0; border: 0; background: transparent !important; }
+.main-dilmeter-app.modern-ui .boss-reminder-editor .miel-shard-phase-options { display: grid; grid-template-columns: repeat(2, max-content); gap: 8px 20px; flex: 1 0 100%; margin: 0; }
+.main-dilmeter-app.modern-ui .boss-reminder-editor .miel-shard-phase-options label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.main-dilmeter-app.modern-ui .skillbar-embedded .skill-bar-title { flex-wrap: wrap; gap: 10px 16px; padding-block: 10px; }
+.main-dilmeter-app.modern-ui .skill-bar-save-actions > span { font-weight: 400; }
+.main-dilmeter-app.modern-ui .skill-bar-save-actions { flex-wrap: wrap; }
+.main-dilmeter-app.modern-ui .skill-bar-reset { min-height: 34px; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+@media (max-width: 1100px) {
+    .main-dilmeter-app.modern-ui .boss-reminder-editor { grid-template-columns: minmax(0, 1fr); }
+    .main-dilmeter-app.modern-ui .boss-reminder-editor .boss-mechanic-identity { max-width: 300px; }
+    .main-dilmeter-app.modern-ui .boss-reminder-editor > .buff-alert-runtime-status { grid-column: 1; }
+}
+@container (max-width: 800px) { .main-dilmeter-app.modern-ui .teammate-basics-row { min-height: 80px; align-content: flex-start; } }
+@media (forced-colors: active) { .main-dilmeter-app.modern-ui input:is([type=checkbox], [type=radio]) { appearance: auto; } .main-dilmeter-app.modern-ui input:is([type=checkbox], [type=radio])::after { display: none; } }
+@media (max-width: 1100px) {
+    .modern-ui .app-toolbar .v-spacer { display: none; }
+    .modern-ui .app-toolbar .v-toolbar-title { flex: 0 0 auto; }
+    .modern-ui .app-toolbar-controls { flex: 1 1 100%; }
+    .modern-ui .report-actions { margin-left: 0; }
+    .modern-ui :where(.reminder-layout, .team-reminders-layout) { grid-template-columns: 180px minmax(0, 1fr); }
+    .modern-ui .reminder-settings-page { padding: 14px; }
+}
+@media (max-width: 700px) {
+    .modern-ui .report-page, .modern-ui .report-page.design-preview { padding-inline: 10px; }
+    .modern-ui .combat-tab { font-size: 12px; flex-direction: column; gap: 4px; padding: 8px 2px; }
+    .modern-ui :where(.reminder-layout, .team-reminders-layout) { grid-template-columns: 1fr; }
+    .modern-ui .reminder-sidebar { background: var(--ui-theme-raised); border-right: 0; border-bottom: 1px solid var(--ui-theme-border); padding: 12px; }
+    .modern-ui .reminder-sidebar nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+    .modern-ui .reminder-sidebar h2 { margin-bottom: 8px; }
+    .modern-ui .reminder-sidebar button { font-size: 12px; }
+    .modern-ui .top-stat-grid { gap: 6px; }
+    .modern-ui .top-stat-value { font-size: 15px; }
+    .modern-ui :where(.team-reminders-page, .extra-skillbar-page) { padding: 14px; }
+}

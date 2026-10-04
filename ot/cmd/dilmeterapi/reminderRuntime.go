@@ -35,6 +35,7 @@ const (
 )
 
 type nativeReminderSettings struct {
+	Burst             nativeBurstSettings         `json:"burst"`
 	Buff              nativeBuffSettings          `json:"buff"`
 	Debuff            nativeDebuffSettings        `json:"debuff"`
 	SkillCooldowns    nativeSkillCooldownSettings `json:"skillCooldowns"`
@@ -129,6 +130,7 @@ type nativeSkillCooldownRule struct {
 	ShortCooldownSeconds      float64 `json:"shortCooldownSeconds"`
 	CumulativeCooldownSeconds float64 `json:"cumulativeCooldownSeconds"`
 	AlwaysVisible             bool    `json:"alwaysVisible"`
+	ShowEnergyPercent         *bool   `json:"showEnergyPercent,omitempty"`
 	OwnerMode                 string  `json:"ownerMode"`
 	SoundMode                 string  `json:"soundMode"`
 	CustomSoundID             string  `json:"customSoundId"`
@@ -201,6 +203,8 @@ type nativeBossMechanicRule struct {
 }
 
 type nativeReminderCondition struct {
+	Snapshot    bool
+	AttackerID  string
 	CCID        uint32
 	At          int64
 	DisableAt   int64
@@ -288,6 +292,8 @@ type nativeEffectTimerRuntime struct {
 }
 
 type nativeReminderRuntime struct {
+	partyLocalID     string
+	partySkills      map[string]map[uint16]*partySkillObservation
 	ctx              context.Context
 	settingsCh       chan nativeReminderSettings
 	positionCh       chan nativeReminderPositionUpdate
@@ -423,6 +429,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	if runtime.healer != nil {
 		runtime.healer.onEvent(current, runtime)
 	}
+	defer runtime.observePartyEvent(current)
 	switch value := current.(type) {
 	case *event.EventLocalEntity:
 		if value.Reset || value.Id != runtime.localID {
@@ -528,7 +535,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		entity.Conditions[value.CCId] = nativeReminderCondition{
 			CCID: value.CCId, At: value.At, DisableAt: value.DisableAt,
 			DisableAtMs: value.DisableAtMs, DurationMs: value.DurationMs,
-			Metadata: value.Metadata,
+			Metadata: value.Metadata, AttackerID: value.AttackerId, Snapshot: value.Snapshot,
 		}
 		runtime.observeEffectTimerCondition(value.Id, value.CCId, nativeEventAtMs(value.At, 0), true)
 	case *event.EventCharacterConditionDisable:
@@ -554,6 +561,13 @@ func (runtime *nativeReminderRuntime) observeEffectTimerSkill(action *event.Even
 	}
 	targetMode := "self"
 	if !action.IsLocal {
+		sourceID := action.SourceId
+		if sourceID == "" {
+			sourceID = action.Id
+		}
+		if source := runtime.entities[sourceID]; source != nil && source.Known && battleRecordPCRace(source.RaceID) {
+			return
+		}
 		targetMode = "monster"
 	}
 	for key, rule := range runtime.settings.EffectTimers.Rules {
@@ -1673,7 +1687,7 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 		}
 		item := nativeSkillOverlayItem{
 			SkillID: skillID, Name: name, IconURL: rule.IconURL,
-			AlwaysVisible: rule.AlwaysVisible, BarOnly: rule.BarOnly, X: rule.X, Y: rule.Y,
+			AlwaysVisible: rule.AlwaysVisible, BarOnly: rule.BarOnly, X: rule.X, Y: rule.Y, ShowEnergyPercent: rule.ShowEnergyPercent,
 			UsedAtMs: cooldown.UsedAtMs, ReadyAtMs: cooldown.ReadyAtMs,
 			ShortReadyAtMs:             cooldown.ShortReadyAtMs,
 			AccumulatedReadyAtMs:       cooldown.AccumulatedReadyAtMs,
@@ -1767,6 +1781,9 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 			X: rule.X, Y: rule.Y, ScalePercent: runtime.settings.BossMechanics.ScalePercent,
 		})
 	}
+	burstPopups, burstBars := runtime.burstOverlay(now)
+	mechanics = append(mechanics, burstPopups...)
+	effectTimers = append(effectTimers, burstBars...)
 	sort.Slice(mechanics, func(i, j int) bool { return mechanics[i].Key < mechanics[j].Key })
 
 	stackAlerts := make([]nativeBuffStackOverlayItem, 0, len(runtime.buffStackAlerts))
@@ -1938,6 +1955,7 @@ type nativeSkillOverlayItem struct {
 	CumulativeCooldownSeconds  *float64 `json:"cumulativeCooldownSeconds,omitempty"`
 	Generation                 uint64   `json:"generation"`
 	PetSkill                   bool     `json:"petSkill,omitempty"`
+	ShowEnergyPercent          *bool    `json:"showEnergyPercent,omitempty"`
 	EnergyGate                 bool     `json:"energyGate,omitempty"`
 	EnergyActive               bool     `json:"energyActive,omitempty"`
 	EnergyReady                bool     `json:"energyReady,omitempty"`
@@ -1964,15 +1982,25 @@ type nativeAimReminderOverlayItem struct {
 }
 
 type nativeBossMechanicOverlayItem struct {
-	Key          string `json:"key"`
-	Name         string `json:"name"`
-	Icon         string `json:"icon"`
-	StartedAtMs  int64  `json:"startedAtMs"`
-	EndsAtMs     int64  `json:"endsAtMs"`
-	Generation   uint64 `json:"generation"`
-	X            int    `json:"x"`
-	Y            int    `json:"y"`
-	ScalePercent int    `json:"scalePercent"`
+	TimingUnknown bool   `json:"timingUnknown,omitempty"`
+	TargetID      string `json:"targetId,omitempty"`
+	Orientation   string `json:"orientation,omitempty"`
+	ActorID       string `json:"actorId,omitempty"`
+	ActorName     string `json:"actorName,omitempty"`
+	SkillID       uint16 `json:"skillId,omitempty"`
+	SkillName     string `json:"skillName,omitempty"`
+	Phase         string `json:"phase,omitempty"`
+	Label         string `json:"label,omitempty"`
+	HideCountdown bool   `json:"hideCountdown,omitempty"`
+	Key           string `json:"key"`
+	Name          string `json:"name"`
+	Icon          string `json:"icon"`
+	StartedAtMs   int64  `json:"startedAtMs"`
+	EndsAtMs      int64  `json:"endsAtMs"`
+	Generation    uint64 `json:"generation"`
+	X             int    `json:"x"`
+	Y             int    `json:"y"`
+	ScalePercent  int    `json:"scalePercent"`
 }
 
 type nativeBuffStackOverlayItem struct {
@@ -2117,6 +2145,7 @@ func sortedNativeDebuffRules(rules map[uint32]nativeDebuffRule) []nativeDebuffRu
 }
 
 func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeReminderSettings {
+	settings.Burst = normalizeNativeBurstSettings(settings.Burst)
 	legacyVisualSettings := settings.Buff.Opacity == 0
 	locked := true
 	if settings.Buff.Locked != nil {
@@ -2180,6 +2209,10 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 		settings.SkillCooldowns.Rules = make(map[uint16]nativeSkillCooldownRule)
 	}
 	for id, rule := range settings.SkillCooldowns.Rules {
+		if rule.ShowEnergyPercent == nil {
+			show := true
+			rule.ShowEnergyPercent = &show
+		}
 		rule.SkillID = id
 		rule.CooldownSeconds = clampNativeReminderFloat(rule.CooldownSeconds, 0.1, 86400, 30)
 		rule.ShortCooldownSeconds = clampNativeReminderFloat(rule.ShortCooldownSeconds, 0.1, 86400, 1)
@@ -2247,7 +2280,7 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 	}
 	for storedKey, rule := range settings.EffectTimers.Rules {
 		key := strings.TrimSpace(storedKey)
-		if key == "" || rule.SourceID == 0 {
+		if key == "" || (rule.SourceType == "skill" && rule.SourceID == 0) {
 			delete(settings.EffectTimers.Rules, storedKey)
 			continue
 		}
