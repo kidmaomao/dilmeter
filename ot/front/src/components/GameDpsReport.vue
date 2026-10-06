@@ -5233,6 +5233,7 @@ const arcanaKpiReport = computed(() => {
         skillCooldowns: manager.skillCooldowns,
         statUpdates: manager.statUpdates,
         arcanaSignals: manager.arcanaSignals,
+        musicPerformances: manager.musicPerformances,
         aimSamples: manager.kpiAimSamples,
         dorchaMinimum: 0.5,
     });

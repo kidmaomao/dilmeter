@@ -100,6 +100,7 @@ export function buildEventSnapshot(ndjson: string, onProgress: (message: WorkerO
         skillCooldowns: actorMgr.skillCooldowns,
         statUpdates: actorMgr.statUpdates,
         arcanaSignals: actorMgr.arcanaSignals,
+        musicPerformances: actorMgr.musicPerformances,
         effectiveDamages: actorMgr.effectiveDamages,
         healthLosses: actorMgr.healthLosses,
         collectorDamages: dcMgr.damages,

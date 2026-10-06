@@ -1,3 +1,4 @@
+import { musicPerformanceInSession } from "./musicPerformance";
 import { clipVitalHistory } from "./battleChartHistory";
 import type { DamageCollectorManager } from "@/actionCollector";
 import type {
@@ -138,6 +139,10 @@ export function createBattleRecord(
         skillCooldowns: (actorManager.skillCooldowns ?? [])
             .filter((event) => playerIds.includes(event.Id) && inSession(event))
             .map((event) => ({ ...event })),
+        musicPerformances: (actorManager.musicPerformances ?? [])
+            .filter((performance) => playerIds.includes(performance.AttackerId)
+                && musicPerformanceInSession(performance, session.startAt, session.endAt))
+            .map((performance) => ({ ...performance })),
         arcanaSignals: clipArcanaSignals(actorManager.arcanaSignals ?? [], playerIds, bossEntityId, session.startAt, session.endAt),
         kpiAimSamples: (actorManager.kpiAimSamples ?? [])
             .filter((sample) => playerIds.includes(sample.entityId) && sample.atMs >= session.startAt * 1000 && sample.atMs < (session.endAt + 1) * 1000)

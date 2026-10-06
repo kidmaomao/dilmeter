@@ -4,6 +4,7 @@ import type { BossFightSession, TimeInterval } from "./summaryCollector";
 import { holyEnergyState } from "./skillEnergy";
 import { parseConditionStack, resolveBuffExpiresAt } from "./buffAlert";
 import { estimateFighterIdle } from "./fighterEnergyBounds";
+import { musicPerformanceExpiry, musicPerformanceInSession, type MusicPerformance } from "./musicPerformance";
 
 export type KpiAimSample = { entityId: string; atMs: number; rate: number; targetId?: string };
 export type KpiStatus = "measured" | "estimated" | "no-samples" | "missing-data" | "pending";
@@ -24,6 +25,7 @@ export type ArcanaKpiInput = {
     statUpdates?: readonly eventStatUpdate[];
     arcanaSignals?: readonly eventArcanaSignal[];
     aimSamples?: readonly KpiAimSample[];
+    musicPerformances?: readonly MusicPerformance[];
     dorchaMinimum?: number;
 };
 type ConditionSlice = TimeInterval & { condition: EntityCondition };
@@ -231,6 +233,31 @@ export function buildArcanaKpi(input: ArcanaKpiInput): ArcanaKpiReport {
             ? `${detail} 当前统计区间未观察到符合归属条件的记录。` : detail,
             value === null ? (observed || !actor.conditionHistory.length ? "missing-data" : "no-samples") : "measured", samples);
     };
+    const musicMaximum = (id: string, label: string, ccId: number, key: string,
+        transform: (value: number) => number = (value) => value) => {
+        // Fallback for older callers/records. The normal path also includes
+        // performances received by teammates, independently of current Buffs.
+        const performances = input.musicPerformances ?? player.conditionHistory.flatMap((state) => state.List);
+        let value: number | null = null, samples = 0, observed = 0;
+        const seen = new Set<string>();
+        for (const performance of performances) {
+            if (performance.CCId !== ccId || performance.AttackerId !== player.id
+                || !musicPerformanceInSession(performance, session.startAt, session.endAt)) continue;
+            if (performance.At >= session.startAt ? !valid(performance.At)
+                : !windows.some((window) => window.start < (musicPerformanceExpiry(performance) ?? -Infinity))) continue;
+            // One cast may apply to several recipients or be repeated in a
+            // checkpoint. Preserve distinct values, not duplicate recipients.
+            const identity = `${performance.At}:${performance.Metadata}`;
+            if (seen.has(identity)) continue;
+            seen.add(identity); observed++;
+            const recorded = kpiMetadataNumber(performance.Metadata, key);
+            if (recorded === null) continue;
+            samples++;
+            value = Math.max(value ?? -Infinity, transform(recorded));
+        }
+        return row(id, label, value, "%", "统计本人为自己或队友演奏的最高值，含持续时间覆盖开战的开场演奏；切换歌曲保留记录，战斗中排除首领无敌期间的演奏。",
+            value === null ? (observed ? "missing-data" : "no-samples") : "measured", samples);
+    };
     const fury = () => {
         if (!boss.conditionHistory.length) return missing("fury", "愤怒狂暴覆盖率", "%", "缺少首领状态时间轴。");
         const slices = bossSlices([323]);
@@ -324,10 +351,10 @@ export function buildArcanaKpi(input: ArcanaKpiInput): ArcanaKpiReport {
         case "圣光颂唱者":
             rows = [maximum("sonic-protection", "音波洗礼最高保护／魔法保护减少（取整记录）", boss, 1176, "SBPD", "", "本人对当前首领同时造成的保护、魔法保护减少，合并显示。日志提供已取整的总减益值，无需再乘层数；未提供技能说明中的每层精确小数。", true),
                 maximum("sonic-curtain", "自身生命帷幕最高减伤率", player, 999, "SBBDDR", "%", "显示本人生命帷幕的伤害减免百分比；帷幕吸收量与自身追加吸收量不作为减伤率。", false, (value) => value * 100),
-                maximum("music-war", "战争序曲演奏最高值（最大伤害）", player, 680, "MCMBAMAX", "%", "本人演奏带来的最大伤害增益；仅统计当前场次可输出期间生效的记录。", true),
-                maximum("music-active-magic", "活跃进行曲演奏最高值（魔法攻击力提升）", player, 192, "LSMA", "%", "本人演奏带来的魔法攻击力提升百分比；与吟唱速度分别取最高值，仅统计当前场次可输出期间生效的记录。", true),
-                maximum("music-active", "活跃进行曲演奏最高值（魔法吟唱速度）", player, 192, "MFCP", "%", "本人演奏带来的魔法吟唱速度增幅；与魔法攻击力分别取最高值，仅统计当前场次可输出期间生效的记录。", true),
-                maximum("music-march", "行进曲演奏最高值（角色移动速度）", player, 193, "SPDPC", "%", "本人演奏带来的角色移动速度增益；仅统计当前场次可输出期间生效的记录。", true, (value) => (value - 1) * 100)];
+                musicMaximum("music-war", "战争序曲演奏最高值（最大伤害）", 680, "MCMBAMAX"),
+                musicMaximum("music-active-magic", "活跃进行曲演奏最高值（魔法攻击力提升）", 192, "LSMA"),
+                musicMaximum("music-active", "活跃进行曲演奏最高值（魔法吟唱速度）", 192, "MFCP"),
+                musicMaximum("music-march", "行进曲演奏最高值（角色移动速度）", 193, "SPDPC", (value) => (value - 1) * 100)];
             break;
         case "黑魔导士": {
             const dragons = casts([59040]);

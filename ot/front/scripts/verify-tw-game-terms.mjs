@@ -46,7 +46,25 @@ try {
             rows++;
         }
     }
+    const musicInput = { jobName: '圣光颂唱者', player: { id: 'self', conditionHistory: [] },
+        boss: { id: 'boss', conditionHistory: [] },
+        session: { bossEntityId: 'boss', startAt: 10, endAt: 30, totalDuration: 20,
+            effectiveDuration: 20, inactiveDuration: 0, invincibleIntervals: [] }, actions: [],
+        musicPerformances: [
+            { Id: 'teammate', AttackerId: 'self', At: 5, DisableAt: 60, CCId: 680, Metadata: 'MCMBAMAX:f:96.7;' },
+            { Id: 'self', AttackerId: 'self', At: 7, DisableAt: 60, CCId: 192, Metadata: 'MFCP:f:80;LSMA:f:90;' },
+            { Id: 'self', AttackerId: 'self', At: 8, DisableAt: 60, CCId: 193, Metadata: 'SPDPC:f:1.6;' },
+        ] };
+    const twMusic = build(musicInput).rows.filter(row => row.id.startsWith('music-'));
+    assert.deepEqual(twMusic.slice(0, 3).map(row => row.value), [96.7, 90, 80],
+        'TW resources retain opening and teammate-received performance values after songs change');
+    assert.ok(Math.abs(twMusic[3].value - 60) < 1e-8);
+    assert.ok(twMusic.every(row => row.status === 'measured' && row.samples === 1));
+    for (const row of twMusic) assert.ok(!/战争|活跃|行进/.test(text(row.label)),
+        'music KPI labels use TW terminology and traditional script');
     resourceRegion.value = 'cn'; uiLocale.value = 'zh-CN';
+    assert.deepEqual(build(musicInput).rows.filter(row => row.id.startsWith('music-')), twMusic,
+        'changing resource region and UI language must not change music KPI calculations');
     assert.equal(text('万钧之力'), '万钧之力', 'CN presentation and persistence vocabulary remain unchanged');
     assert.equal(text('重炮炮火时的领域平均覆盖个数'), '重炮炮火时的领域平均覆盖个数');
     console.log(`TW terminology passed: ${terms.length} verified IDs, ${jobs.length} jobs, ${rows} KPI rows, offline fallback and region/language separation.`);

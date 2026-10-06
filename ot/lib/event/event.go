@@ -12,14 +12,15 @@ const (
 	EventIdEntityEquipItem
 	EventIdEntityUnequipItem
 	EventIdEntityUpdateBody
-	EventIdSkillAction   EventId = 10
-	EventIdLocalEntity   EventId = 11
-	EventIdStatUpdate    EventId = 17
-	EventIdSkillState    EventId = 18
-	EventIdCombatTarget  EventId = 19
-	EventIdSkillCooldown EventId = 20
-	EventIdSkillEnergy   EventId = 21
-	EventIdArcanaSignal  EventId = 22
+	EventIdSkillAction      EventId = 10
+	EventIdLocalEntity      EventId = 11
+	EventIdStatUpdate       EventId = 17
+	EventIdSkillState       EventId = 18
+	EventIdCombatTarget     EventId = 19
+	EventIdSkillCooldown    EventId = 20
+	EventIdSkillEnergy      EventId = 21
+	EventIdArcanaSignal     EventId = 22
+	EventIdMusicPerformance EventId = 23
 )
 
 const (
@@ -85,6 +86,12 @@ type EventCharacterConditionEnable struct {
 type EventCharacterConditionDisable struct {
 	EventBase
 	CCId uint32
+}
+
+// Checkpoint-only performance evidence. It preserves an overwritten opening
+// song without resurrecting the recipient's active condition.
+type EventMusicPerformance struct {
+	EventCharacterConditionEnable
 }
 
 type EventFinish struct {

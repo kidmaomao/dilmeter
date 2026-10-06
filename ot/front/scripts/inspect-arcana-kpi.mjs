@@ -36,7 +36,7 @@ try {
             if (!player.jobName) continue;
             const report = buildArcanaKpi({ player: manager.entityMap[player.entityId], boss,
                 session: summary.session, jobName: player.jobName, actions: manager.skillActions, localEntityId: manager.localEntityId,
-                statUpdates: manager.statUpdates, skillCooldowns: manager.skillCooldowns, arcanaSignals: manager.arcanaSignals, dorchaMinimum: .5 });
+                statUpdates: manager.statUpdates, skillCooldowns: manager.skillCooldowns, arcanaSignals: manager.arcanaSignals, musicPerformances: manager.musicPerformances, dorchaMinimum: .5 });
             reports.push({ bossEntityId: boss.id, bossRaceId: boss.raceId, playerEntityId: player.entityId,
                 totalDamage: player.totalDamage, ...report });
         }
@@ -58,7 +58,7 @@ try {
             const replay = buildArcanaKpi({ player: replayManager.entityMap[original.playerEntityId],
                 boss: replayManager.entityMap[original.bossEntityId], session: replaySummary.session,
                 jobName: original.jobName, actions: replayManager.skillActions, statUpdates: replayManager.statUpdates, localEntityId: replayManager.localEntityId,
-                arcanaSignals: replayManager.arcanaSignals, skillCooldowns: replayManager.skillCooldowns, dorchaMinimum: .5 });
+                arcanaSignals: replayManager.arcanaSignals, musicPerformances: replayManager.musicPerformances, skillCooldowns: replayManager.skillCooldowns, dorchaMinimum: .5 });
             assert.deepEqual(replay.rows.map(({ id, value, upperValue, status, samples }) => ({ id, value, upperValue, status, samples })),
                 original.rows.map(({ id, value, upperValue, status, samples }) => ({ id, value, upperValue, status, samples })), "KPI values and uncertainty bounds survive the exported capture record");
         }

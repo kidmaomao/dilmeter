@@ -58,6 +58,7 @@ type liveBattleActorState struct {
 	fighterSpend    *event.EventArcanaSignal
 	chainState      *event.EventArcanaSignal
 	recentKpi       []event.IEvent
+	music           map[string]*event.EventMusicPerformance
 }
 
 type liveBattleIndex struct {
@@ -130,6 +131,15 @@ func (s *liveBattleIndex) checkpoint(at int64) ([]byte, error) {
 	}
 	for _, id := range ids {
 		a := s.actors[id]
+		for key, performance := range a.music {
+			if musicPerformanceExpiresAt(&performance.EventCharacterConditionEnable) <= at {
+				delete(a.music, key)
+				continue
+			}
+			if err := write(performance); err != nil {
+				return nil, err
+			}
+		}
 		if a.chainState != nil {
 			if err := write(a.chainState); err != nil {
 				return nil, err
@@ -340,6 +350,7 @@ func (s *liveBattleIndex) observe(e event.IEvent) {
 			for _, actor := range s.actors {
 				actor.fighterEnergy, actor.fighterSpend = nil, nil
 				actor.chainState, actor.recentKpi = nil, nil
+				actor.music = nil
 			}
 		}
 		if v.Reset {
@@ -383,6 +394,7 @@ func (s *liveBattleIndex) observe(e event.IEvent) {
 			a.stats[stat.StatId] = stat.Value
 		}
 	case *event.EventCharacterConditionEnable:
+		s.retainMusicPerformance(v)
 		a := s.actor(v.Id)
 		previous := a.conditions[v.CCId]
 		if previous != nil && previous.At == v.At && previous.DisableAt == v.DisableAt && previous.DisableAtMs == v.DisableAtMs && previous.AttackerId == v.AttackerId && previous.Metadata == v.Metadata && previous.DurationMs == v.DurationMs {
