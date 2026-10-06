@@ -154,13 +154,17 @@ export interface TargetHealthBarOverlayItem {
 }
 
 export interface BossMechanicOverlayItem {
+    readyActors?: { actorId: string; actorName: string }[];
+    nextReadySoon?: boolean;
+    previewExpiresAtMs?: number;
     label?: string;
     hideCountdown?: boolean;
     actorId?: string;
     actorName?: string;
     skillId?: number;
     skillName?: string;
-    phase?: "cast" | "ready" | "effect";
+    phase?: "cast" | "ready" | "effect" | "cooldown";
+    compact?: boolean;
     timingUnknown?: boolean;
     orientation?: "horizontal" | "vertical";
     targetId?: string;

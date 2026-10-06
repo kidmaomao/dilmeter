@@ -162,6 +162,7 @@
 </template>
 
 <script setup lang="ts">
+import { burstPopupDimensions } from "@/burstReminderView";
 import BurstReminderPopup from "./BurstReminderPopup.vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { loadBuffOverlaySettings, resolveOverlayDpiPercent } from "@/buffAlert";
@@ -278,8 +279,8 @@ const layoutBounds = computed(() => {
     const skillMaxY = visibleItems.value.map((item) => item.y + scaledIconSize);
     const mechanicMinX = visibleMechanics.value.map((item) => item.x);
     const mechanicMinY = visibleMechanics.value.map((item) => item.y);
-    const mechanicMaxX = visibleMechanics.value.map((item) => item.x + (item.label ? 112 : 118) * mechanicScale(item) * scale);
-    const mechanicMaxY = visibleMechanics.value.map((item) => item.y + (item.label ? 112 : 118) * mechanicScale(item) * scale);
+    const mechanicMaxX = visibleMechanics.value.map((item) => item.x + burstPopupDimensions(item).width * mechanicScale(item) * scale);
+    const mechanicMaxY = visibleMechanics.value.map((item) => item.y + burstPopupDimensions(item).height * mechanicScale(item) * scale);
     const stackMinX = visibleStackAlerts.value.map((item) => item.x);
     const stackMinY = visibleStackAlerts.value.map((item) => item.y);
     const stackMaxX = visibleStackAlerts.value.map((item) => item.x + 220 * mechanicScale(item) * scale);
@@ -603,7 +604,7 @@ async function pollState(atMs = Date.now(), force = false) {
 
 function syncNativeVisibility() {
     const regularActive = overlayAppearance.enabled && (Boolean(visibleAimReminder.value) || visibleEffectTimers.value.length > 0 || visibleItems.value.length > 0 || visibleMechanics.value.length > 0 || visibleStackAlerts.value.length > 0);
-    const active = regularActive || Boolean(visibleTargetHealth.value);
+    const active = regularActive || visibleMechanics.value.some(item => (item.previewExpiresAtMs || 0) > nowMs.value) || Boolean(visibleTargetHealth.value);
     const bounds = layoutBounds.value;
     const stateKey = `${active}:${settings.iconSize}:${effectiveScalePercent.value}:${bounds.x}:${bounds.y}:${bounds.width}:${bounds.height}`;
     if (nativeStateKey === stateKey) return;

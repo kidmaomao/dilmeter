@@ -56,12 +56,7 @@ type gamePacketPayload struct {
 	data            []byte
 	at              time.Time
 	connectionEpoch uint64
-}
-
-// pendingTcpLayer buffers a TCP segment that arrived out of order.
-type pendingTcpLayer struct {
-	tcpLayer layers.TCP
-	ci       gopacket.CaptureInfo
+	gapBefore       bool
 }
 
 const pcapQueueSize = 100
@@ -352,7 +347,7 @@ func (t *GameServerPacketReader) packetLoop(payloadCh <-chan gamePacketPayload) 
 			if payloadData.connectionEpoch < currentEpoch {
 				continue
 			}
-			if payloadData.connectionEpoch > currentEpoch {
+			if payloadData.connectionEpoch > currentEpoch || payloadData.gapBefore {
 				currentEpoch = payloadData.connectionEpoch
 				buffer.Reset()
 				payloads = payloads[:0]
@@ -413,8 +408,15 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 	packetLayers := []gopacket.LayerType(nil)
 
 	baseSeq := uint32(0)
-	nextSeq, prevDstPort := uint32(0), layers.TCPPort(0)
-	pendingTcpLayers := make([]pendingTcpLayer, 0, packetQueueSize)
+	stream := tcpStreamBuffer{}
+	flow := ""
+	forward := func(parts []gamePacketPayload) {
+		for _, p := range parts {
+			p.relSeq -= baseSeq
+			p.connectionEpoch = connectionEpoch
+			ch <- p
+		}
+	}
 	clientIPSeen := make(map[string]struct{})
 
 	lastDropped := 0
@@ -475,130 +477,22 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 				logger.Printf("detected client ip %v", dstIP)
 			}
 
-			if nextSeq != 0 && tcp.Seq != nextSeq {
-				// Connection switch (different dst port = different channel/session).
-				if prevDstPort != tcp.DstPort {
+			packetFlow := fmt.Sprintf("%s:%d>%s:%d", ip4.SrcIP, tcp.SrcPort, ip4.DstIP, tcp.DstPort)
+			if flow != packetFlow {
+				switchingConnection := flow != ""
+				if flow != "" {
 					connectionEpoch = t.connectionEpoch.Add(1)
-					// Discard pending segments from the old connection — they are no
-					// longer relevant and may contain retransmissions that would
-					// produce duplicate events.
-					pendingTcpLayers = pendingTcpLayers[:0]
-					prevDstPort = tcp.DstPort
-					baseSeq = tcp.Seq
-					nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-					if len(tcp.Payload) == 4 {
-						// Encryption key packet on a new connection; skip.
-						continue
-					}
-					ch <- gamePacketPayload{
-						relSeq:          tcp.Seq - baseSeq,
-						data:            tcp.Payload,
-						at:              ci.Timestamp,
-						connectionEpoch: connectionEpoch,
-					}
+				}
+				flow = packetFlow
+				stream = tcpStreamBuffer{}
+				baseSeq = tcp.Seq
+				if switchingConnection && len(tcp.Payload) == 4 {
+					stream.initialized = true
+					stream.next = tcp.Seq + 4
 					continue
 				}
-
-				if tcp.Seq < nextSeq {
-					// Retransmission or overlap.
-					if tcp.Seq+uint32(len(tcp.Payload)) > nextSeq {
-						// Partial overlap: only the bytes past nextSeq are new.
-						p := tcp.Payload[nextSeq-tcp.Seq:]
-						if len(p) > 0 {
-							ch <- gamePacketPayload{
-								relSeq:          nextSeq - baseSeq,
-								data:            p,
-								at:              ci.Timestamp,
-								connectionEpoch: connectionEpoch,
-							}
-						}
-						nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-					}
-					// Pure retransmission (Seq+len <= nextSeq): all bytes already
-					// seen — discard silently to prevent duplicate events.
-					continue
-				}
-
-				// tcp.Seq > nextSeq: true out-of-order packet, buffer it.
-				logger.Println("packet out of order", i, nextSeq, tcp.Seq)
-
-				if len(pendingTcpLayers) >= packetQueueSize {
-					// Buffer full: flush and reset to current packet as new base.
-					for _, v := range pendingTcpLayers {
-						ch <- gamePacketPayload{
-							relSeq:          v.tcpLayer.Seq - baseSeq,
-							data:            v.tcpLayer.Payload,
-							at:              v.ci.Timestamp,
-							connectionEpoch: connectionEpoch,
-						}
-					}
-					pendingTcpLayers = pendingTcpLayers[:0]
-					ch <- gamePacketPayload{
-						relSeq:          tcp.Seq - baseSeq,
-						data:            tcp.Payload,
-						at:              ci.Timestamp,
-						connectionEpoch: connectionEpoch,
-					}
-					nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-					continue
-				}
-
-				// Out of order: buffer (must copy payload since tcp is reused).
-				payloadCopy := make([]byte, len(tcp.Payload))
-				copy(payloadCopy, tcp.Payload)
-				tcpCopy := tcp
-				tcpCopy.Payload = payloadCopy
-				pendingTcpLayers = append(pendingTcpLayers, pendingTcpLayer{
-					tcpLayer: tcpCopy,
-					ci:       ci,
-				})
-				continue
 			}
-
-			// In-order: forward immediately.
-			ch <- gamePacketPayload{
-				relSeq:          tcp.Seq - baseSeq,
-				data:            tcp.Payload,
-				at:              ci.Timestamp,
-				connectionEpoch: connectionEpoch,
-			}
-			nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-			prevDstPort = tcp.DstPort
-
-			// Drain buffered out-of-order segments now contiguous with nextSeq.
-			for len(pendingTcpLayers) > 0 {
-				v := pendingTcpLayers[0]
-				if v.tcpLayer.Seq == nextSeq {
-					ch <- gamePacketPayload{
-						relSeq:          v.tcpLayer.Seq - baseSeq,
-						data:            v.tcpLayer.Payload,
-						at:              v.ci.Timestamp,
-						connectionEpoch: connectionEpoch,
-					}
-					nextSeq = v.tcpLayer.Seq + uint32(len(v.tcpLayer.Payload))
-					pendingTcpLayers = pendingTcpLayers[1:]
-					continue
-				}
-				if v.tcpLayer.Seq < nextSeq {
-					if v.tcpLayer.Seq+uint32(len(v.tcpLayer.Payload)) < nextSeq {
-						pendingTcpLayers = pendingTcpLayers[1:]
-						continue
-					}
-					p := v.tcpLayer.Payload[nextSeq-v.tcpLayer.Seq:]
-					if len(p) > 0 {
-						ch <- gamePacketPayload{
-							relSeq:          nextSeq - baseSeq,
-							data:            p,
-							at:              v.ci.Timestamp,
-							connectionEpoch: connectionEpoch,
-						}
-					}
-					nextSeq = v.tcpLayer.Seq + uint32(len(v.tcpLayer.Payload))
-					pendingTcpLayers = pendingTcpLayers[1:]
-					continue
-				}
-				break
-			}
+			forward(stream.push(tcp.Seq, tcp.Payload, ci.Timestamp))
 		}
 
 		if i&((1<<10)-1) == 0 {
@@ -606,15 +500,8 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 		}
 	}
 
-	// Flush remaining pending segments.
-	for _, v := range pendingTcpLayers {
-		ch <- gamePacketPayload{
-			relSeq:          v.tcpLayer.Seq - baseSeq,
-			data:            v.tcpLayer.Payload,
-			at:              v.ci.Timestamp,
-			connectionEpoch: connectionEpoch,
-		}
-	}
+	// Offline EOF: recover remaining complete regions, preserving gap boundaries.
+	forward(stream.finish())
 }
 
 func (t *GameServerPacketReader) Close() {

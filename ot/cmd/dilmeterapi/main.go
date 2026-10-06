@@ -38,8 +38,8 @@ var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterOT"
 
-var AppVersion = "1.6.0"
-var AppDisplayVersion = "1.6.0"
+var AppVersion = "1.6.1"
+var AppDisplayVersion = "1.6.1"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {
@@ -219,6 +219,7 @@ func startWebsocketServer(ctx context.Context, cfg config, newClientCb func(*web
 	mux.HandleFunc("/api/skill_overlay", handleSkillOverlay)
 	mux.HandleFunc("/api/skill_overlay/position", handleSkillOverlayPosition)
 	mux.HandleFunc("/api/skill_overlay/state", handleSkillOverlayState)
+	mux.HandleFunc("/api/burst_preview", handleBurstReminderPreview)
 	mux.HandleFunc("/api/skill_bar", handleSkillBar)
 	mux.HandleFunc("/api/buff_sound", handleBuffSound)
 	mux.HandleFunc("/api/reminder_runtime/settings", handleNativeReminderSettings)

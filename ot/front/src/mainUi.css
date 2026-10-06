@@ -326,9 +326,9 @@
 .main-dilmeter-app.modern-ui :is(.buff-alert-file-picker, .healer-file-picker) > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .main-dilmeter-app.modern-ui .healer-member-compact { margin: 8px 0; border-radius: 9px; overflow: hidden; }
 .main-dilmeter-app.modern-ui .healer-member-compact .healer-member-heading { display: flex; flex-wrap: wrap; min-height: 54px; gap: 10px 16px; padding: 9px 12px; }
-.main-dilmeter-app.modern-ui .healer-member-compact .healer-member-name { flex: 1 1 120px; }
+.main-dilmeter-app.modern-ui .healer-member-compact .healer-member-name { flex: 0 1 auto; min-width: 120px; max-width: 220px; }
 .main-dilmeter-app.modern-ui .healer-member-compact .healer-member-name strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.main-dilmeter-app.modern-ui .healer-quick-toggles { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px; }
+.main-dilmeter-app.modern-ui .healer-quick-toggles { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px; }
 .main-dilmeter-app.modern-ui .healer-quick-toggles label { white-space: nowrap; }
 .main-dilmeter-app.modern-ui .healer-expand-member { display: inline-flex; align-items: center; gap: 5px; }
 .main-dilmeter-app.modern-ui .healer-member-management { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--ui-theme-border); }

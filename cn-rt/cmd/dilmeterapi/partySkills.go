@@ -76,7 +76,17 @@ func partyReadyAt(state *partySkillObservation, seconds float64) int64 {
 }
 
 func (runtime *nativeReminderRuntime) partyPlayerActive(id string) bool {
+	if id == "" || id == "0" {
+		return false
+	}
 	entity := runtime.entities[id]
+	if entity != nil && entity.Defeated {
+		return false
+	}
+	if id == runtime.localID {
+		// Private identity and skill packets can precede the player's appearance.
+		return entity == nil || !entity.Defeated && (!entity.Known || entity.OwnerID == "" && battleRecordPCRace(entity.RaceID))
+	}
 	if entity == nil || !entity.Known || entity.OwnerID != "" || !battleRecordPCRace(entity.RaceID) {
 		return false
 	}
@@ -92,6 +102,7 @@ func (runtime *nativeReminderRuntime) partyPlayerActive(id string) bool {
 }
 
 func (runtime *nativeReminderRuntime) partyObservation(actor string, skill uint16) *partySkillObservation {
+	runtime.ensureEntity(actor)
 	if runtime.partySkills == nil {
 		runtime.partySkills = map[string]map[uint16]*partySkillObservation{}
 	}
@@ -268,6 +279,9 @@ func (runtime *nativeReminderRuntime) partyCooldownSeconds(actor string, skill u
 			if member.ID == actor && member.SkillSettings != nil {
 				for _, rule := range member.SkillSettings.Rules {
 					if rule.SkillID == skill {
+						if skill == 59005 {
+							return partySeconds(rule.CooldownSeconds, seconds)
+						}
 						seconds = max(seconds, rule.CooldownSeconds)
 					}
 				}
@@ -285,15 +299,19 @@ type nativeBurstDisplay struct {
 	SoundEnabled bool `json:"soundEnabled"`
 }
 type nativeBurstRule struct {
-	SkillID         uint16             `json:"skillId"`
-	CCID            uint32             `json:"ccId"`
-	Name            string             `json:"name"`
-	CooldownSeconds float64            `json:"cooldownSeconds"`
-	CastSeconds     float64            `json:"castSeconds"`
-	Ready           nativeBurstDisplay `json:"ready"`
-	Cast            nativeBurstDisplay `json:"cast"`
-	Effect          nativeBurstDisplay `json:"effect"`
-	Orientation     string             `json:"orientation"`
+	CooldownMode          string             `json:"cooldownMode,omitempty"`
+	CooldownAlwaysVisible *bool              `json:"cooldownAlwaysVisible,omitempty"`
+	CooldownAlertEnabled  *bool              `json:"cooldownAlertEnabled,omitempty"`
+	CooldownLeadSeconds   float64            `json:"cooldownLeadSeconds"`
+	SkillID               uint16             `json:"skillId"`
+	CCID                  uint32             `json:"ccId"`
+	Name                  string             `json:"name"`
+	CooldownSeconds       float64            `json:"cooldownSeconds"`
+	CastSeconds           float64            `json:"castSeconds"`
+	Ready                 nativeBurstDisplay `json:"ready"`
+	Cast                  nativeBurstDisplay `json:"cast"`
+	Effect                nativeBurstDisplay `json:"effect"`
+	Orientation           string             `json:"orientation"`
 }
 type nativeBurstSettings struct {
 	Enabled          bool                       `json:"enabled"`
@@ -323,6 +341,13 @@ func normalizeNativeBurstSettings(settings nativeBurstSettings) nativeBurstSetti
 		if skill == 58014 {
 			rule.CooldownSeconds, rule.Ready.Enabled = 0, false
 		}
+		always, alert := burstCooldownAlwaysVisible(rule), burstCooldownAlertEnabled(rule)
+		rule.CooldownAlwaysVisible, rule.CooldownAlertEnabled = &always, &alert
+		rule.CooldownMode = "" // Migrate the old radio choice once; explicit false must remain false.
+		if math.IsNaN(rule.CooldownLeadSeconds) || math.IsInf(rule.CooldownLeadSeconds, 0) {
+			rule.CooldownLeadSeconds = 0
+		}
+		rule.CooldownLeadSeconds = math.Max(0, math.Min(86400, rule.CooldownLeadSeconds))
 		if rule.Orientation != "vertical" {
 			rule.Orientation = "horizontal"
 		}

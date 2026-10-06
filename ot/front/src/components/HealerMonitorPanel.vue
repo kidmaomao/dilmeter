@@ -33,7 +33,7 @@
       <p v-if="!candidates.length" class="healer-empty">{{ $ui("暂未识别到可选角色，请让队友切换地图后重试。") }}</p>
      </div>
      <fieldset :disabled="saving || isRecordReplay">
-      <HealerMemberEditor v-for="(member, index) in draft.members" :key="member.key" :member="member" :live="memberState(member)" :index="index" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :templates="draft.templates" :disabled="saving || audioBusy" @change="changed" @favorite-change="saveFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
+      <HealerMemberEditor v-for="(member, index) in draft.members" :key="member.key" :expanded="expandedMember === member.key" @expand="expandedMember = member.key" :member="member" :live="memberState(member)" :index="index" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :templates="draft.templates" :disabled="saving || audioBusy" @change="changed" @favorite-change="saveFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
      </fieldset>
      <div v-if="!draft.members.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>{{ $ui("先添加需要关注的队友") }}</strong><span>{{ $ui("然后分别设置血量、Buff 和技能提醒。") }}</span></div>
     </section>
@@ -71,6 +71,7 @@ const props = defineProps<{ open: boolean; isRecordReplay: boolean; embedded?: b
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const state = ref<HealerMonitorState | null>(null), draft = ref(makeHealerSettings());
 const dirty = ref(false), saving = ref(false), audioBusy = ref(false), error = ref(''), notice = ref('');
+const expandedMember = ref('');
 const manageOpen = ref(false), memberSearch = ref(''), previewing = ref(false), addTemplateId = ref('');
 const templateEdit = ref<{ id: string; member: HealerMemberChoice } | null>(null);
 const removeTarget = ref<{ kind: 'member' | 'template'; key: string; name: string } | null>(null);
@@ -180,7 +181,7 @@ async function preview(member: HealerMemberChoice, kind: 'health' | 'buff' | 'sk
   const response = await fetch('/api/healer_monitor/text_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: draft.value.text, iconSize: draft.value.iconSize, opacityPercent: draft.value.opacityPercent, member, kind }), signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw new Error((await response.text()).trim());
   previewing.value = true; clearTimeout(previewTimer); previewTimer = setTimeout(() => { previewing.value = false; }, 8000);
-  showNotice(`${member.name} 的${kind === 'health' ? '血量' : 'Buff'}悬浮窗已按当前坐标预览 8 秒；预览不触发声音。`);
+  showNotice(`${member.name} 的${kind === 'health' ? '血量' : 'Buff / 技能'}悬浮窗已按当前坐标预览 8 秒；预览不触发声音。`);
  } catch (reason) { error.value = `预览失败：${String(reason)}`; }
 }
 async function stopPreview() {

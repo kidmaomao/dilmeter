@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -105,7 +106,7 @@ func TestSimultaneousBurstPopupsDoNotOverlap(t *testing.T) {
 		t.Fatal("simultaneous collapse and power cards overlap")
 	}
 	separate := nativeBossMechanicOverlayItem{X: 100, Y: 440, ScalePercent: 100}
-	if separateBurstPopup([]nativeBossMechanicOverlayItem{first}, separate) != separate {
+	if !reflect.DeepEqual(separateBurstPopup([]nativeBossMechanicOverlayItem{first}, separate), separate) {
 		t.Fatal("non-overlapping user position was changed")
 	}
 }

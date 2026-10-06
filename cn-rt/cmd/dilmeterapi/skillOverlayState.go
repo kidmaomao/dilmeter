@@ -12,25 +12,38 @@ const emptySkillOverlayState = `{"type":"skill-state","at":0,"items":[]}`
 
 var skillOverlayState = struct {
 	sync.RWMutex
-	data []byte
+	data         []byte
+	burstPreview *nativeBossMechanicOverlayItem
 }{data: []byte(emptySkillOverlayState)}
 
 func setSkillOverlayState(data []byte) bool {
+	return setSkillOverlayStateAt(data, time.Now().UnixMilli())
+}
+
+func setSkillOverlayStateAt(data []byte, nowMs int64) bool {
 	if len(data) == 0 || !json.Valid(data) {
 		return false
 	}
+	var message nativeSkillOverlayMessage
+	if json.Unmarshal(data, &message) != nil {
+		return false
+	}
 	skillOverlayState.Lock()
+	message = mergeBurstPreviewLocked(message, nowMs)
+	data, _ = json.Marshal(message)
 	skillOverlayState.data = append(skillOverlayState.data[:0], data...)
 	skillOverlayState.Unlock()
-	var message nativeSkillOverlayMessage
-	if json.Unmarshal(data, &message) == nil {
-		setNativeSkillOverlayActive(nativeSkillOverlayMessageVisible(message, time.Now().UnixMilli()))
-		refreshWebViewReminderHitRegions()
-	}
+	setNativeSkillOverlayActive(nativeSkillOverlayMessageVisible(message, nowMs))
+	refreshWebViewReminderHitRegions()
 	return true
 }
 
 func nativeSkillOverlayMessageVisible(message nativeSkillOverlayMessage, nowMs int64) bool {
+	for _, item := range message.Mechanics {
+		if item.PreviewExpiresAtMs > nowMs {
+			return true
+		}
+	}
 	if target := message.TargetHealth; target != nil && target.MaximumHealth > 0 && target.CurrentHealth >= 0 &&
 		(target.PreviewEndsAt == 0 || target.PreviewEndsAt > nowMs) {
 		return true

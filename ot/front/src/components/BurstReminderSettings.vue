@@ -14,7 +14,14 @@
    <div v-for="phase in phases.filter(phase => id === 59005 || phase.key !== 'ready')" :key="phase.key" class="burst-line burst-phase">
     <label><input v-model="settings.rules[id][phase.key].enabled" type="checkbox" @change="emit('change')" />{{ t(phase.name) }}</label>
 
-    <label v-if="phase.key !== 'effect'"><input v-model="settings.rules[id][phase.key].soundEnabled" type="checkbox" @change="emit('change')" />{{ t('音效') }}</label><button @click="emit('preview', settings.rules[id], phase.key)">{{ t('预览') }}</button>
+    <label v-if="phase.key !== 'effect'"><input v-model="settings.rules[id][phase.key].soundEnabled" type="checkbox" @change="emit('change')" />{{ t('音效') }}</label><button @click="emit('preview', settings.rules[id], phase.key)">{{ t('预览 8 秒') }}</button>
+   <div v-if="phase.key === 'ready' && settings.rules[id].ready.enabled" class="burst-line cooldown-options">
+    <label><input v-model="settings.rules[id].cooldownAlwaysVisible" type="checkbox" @change="emit('change')" />{{ t('一直显示') }}</label>
+    <label><input v-model="settings.rules[id].cooldownAlertEnabled" type="checkbox" @change="emit('change')" />{{ t('提前') }}<input v-model.number="settings.rules[id].cooldownLeadSeconds" type="number" min="0" max="86400" step="0.1" :disabled="!settings.rules[id].cooldownAlertEnabled" :aria-label="t('崩坏冷却提前提醒秒数')" @input="emit('change')" />{{ t('秒放大提醒') }}</label>
+    <button type="button" @click="emit('preview', settings.rules[id], 'cooldown')">{{ t('小窗预览 8 秒') }}</button><button type="button" @click="emit('preview', settings.rules[id], 'alert')">{{ t('放大提醒预览 8 秒') }}</button>
+    <small>{{ t('两项可同时开启：图标下保留已就绪队友，同时显示下一位的冷却秒数；进入提前秒数后放大提醒。再次释放后从已就绪名单移除，音效在就绪时播放一次。') }}</small>
+    <small>{{ t('个别队友在技能提醒中填写了崩坏冷却时，优先使用该秒数；未填写时使用上方冷却秒数。') }}</small>
+   </div>
    </div>
   </article>
   <p>{{ t('同一张卡片依次显示吟唱与生效状态。万钧觉醒从生效起计时 10 秒，举着或放下技能不会延长或缩短计时；收到明确的觉醒移除时结束。崩坏读取实际状态期限。多人提示自动错开。') }}</p>
@@ -26,8 +33,8 @@ import { gameUiText, skillResourceName } from '@/gameTerms';
 import type { BurstRule, BurstSettings } from '@/burstReminder';
 const props = withDefaults(defineProps<{ settings: BurstSettings; dirty: boolean; saving: boolean; translate?: (value: string) => string }>(), { translate: (value: string) => value });
 const t = gameUiText;
-const phases: { key: 'ready' | 'cast' | 'effect'; name: string }[] = [{ key: 'ready', name: '冷却结束提示' }, { key: 'cast', name: '吟唱倒计时' }, { key: 'effect', name: '生效状态与倒计时' }];
-const emit = defineEmits<{ change: []; save: []; preview: [rule: BurstRule, phase: 'ready' | 'cast' | 'effect'] }>();
+const phases: { key: 'ready' | 'cast' | 'effect'; name: string }[] = [{ key: 'ready', name: '冷却提醒' }, { key: 'cast', name: '吟唱倒计时' }, { key: 'effect', name: '生效状态与倒计时' }];
+const emit = defineEmits<{ change: []; save: []; preview: [rule: BurstRule, phase: 'ready' | 'cast' | 'effect' | 'cooldown' | 'alert'] }>();
 </script>
 <style scoped>
 .burst-settings { margin: 8px 0; padding: 8px; border: 1px solid var(--ui-theme-border); color: var(--ui-theme-text); background: var(--ui-theme-raised); font-size: 10px; }
@@ -40,4 +47,6 @@ label { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; }
 input[type=number] { width: 62px; } input[type=checkbox] { accent-color: var(--ui-color-accent); }
 input, select, button { height: 25px; padding: 0 6px; border: 1px solid var(--ui-theme-border); color: var(--ui-theme-text); background: var(--ui-theme-control); font: inherit; font-size: 10px; }
 button { cursor: pointer; } button:disabled { opacity: .5; } p, small { font-size: 9px; color: var(--ui-theme-muted); line-height: 1.6; }
+.cooldown-options { flex-basis: 100%; padding: 4px 0 4px 12px; border-left: 2px solid var(--ui-theme-border); }
+.cooldown-options small { flex-basis: 100%; }
 </style>

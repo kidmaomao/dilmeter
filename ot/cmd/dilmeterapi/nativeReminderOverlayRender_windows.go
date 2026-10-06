@@ -355,7 +355,11 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 	}
 	for _, item := range mechanics {
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
-		addBounds(image.Rect(item.X-48, item.Y-48, item.X+int(math.Ceil(118*factor))+48, item.Y+int(math.Ceil(118*factor))+48))
+		width, height := 118, 118
+		if item.Label != "" || item.Compact {
+			width, height = burstPopupDimensions(item)
+		}
+		addBounds(image.Rect(item.X-48, item.Y-48, item.X+int(math.Ceil(float64(width)*factor))+48, item.Y+int(math.Ceil(float64(height)*factor))+48))
 	}
 	for _, item := range stacks {
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
@@ -387,6 +391,9 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 	}
 	for _, item := range mechanics {
 		texts = append(texts, drawNativeMechanicReminder(canvas, item, offset, dpiScale, nowMs)...)
+		if item.Compact {
+			continue
+		} // Burst coordinates are configured together in settings.
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 		size := max(59, int(math.Ceil(118*factor)))
 		hitRegions = append(hitRegions, nativeReminderHitRegion{Kind: "mechanic", ID: item.Key, X: item.X, Y: item.Y,
@@ -592,6 +599,9 @@ func drawNativeAimReminder(canvas *image.RGBA, item nativeAimReminderOverlayItem
 }
 
 func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverlayItem, offset image.Point, dpiScale float64, nowMs int64) []nativeReminderText {
+	if item.Compact || (item.SkillID == 59005 || item.Label != "") && (item.Phase == "cooldown" || item.Phase == "ready") {
+		return drawNativeBurstCooldown(canvas, item, offset, dpiScale, nowMs)
+	}
 	factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 	size := max(59, int(math.Ceil(118*factor)))
 	left, top := item.X+offset.X, item.Y+offset.Y
@@ -619,6 +629,56 @@ func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverl
 		drawNativeUnlockedFrame(canvas, rect)
 	}
 	return []nativeReminderText{{text: item.Name, rect: imageRectToNative(image.Rect(left+4, top+4, rect.Max.X-4, top+max(22, int(30*factor)))), color: nativeColorRef(255, 248, 225), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(9, int(11*factor)), fontWeight: nativeFontBold}, {text: fmt.Sprintf("%.1f", remaining), rect: imageRectToNative(image.Rect(left+4, top+max(20, int(26*factor)), rect.Max.X-4, rect.Max.Y-10)), color: nativeColorRef(255, 255, 255), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(20, int(46*factor)), fontWeight: 900}}
+}
+
+// Match the compact WebView card when the system uses the native fallback.
+func drawNativeBurstCooldown(canvas *image.RGBA, item nativeBossMechanicOverlayItem, offset image.Point, dpiScale float64, nowMs int64) []nativeReminderText {
+	factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
+	left, top := item.X+offset.X, item.Y+offset.Y
+	w, h := burstPopupDimensions(item)
+	rect := image.Rect(left, top, left+int(math.Ceil(float64(w)*factor)), top+int(math.Ceil(float64(h)*factor)))
+	// Both sizes share the dark gold surface and border.
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		ratio := float64(y-rect.Min.Y) / float64(max(1, rect.Dy()-1))
+		fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X, y, rect.Max.X, y+1), color.RGBA{R: uint8(41 - 24*ratio), G: uint8(39 - 15*ratio), B: uint8(30 - 3*ratio), A: 245})
+	}
+	drawNativeSkillBarBorder(canvas, rect, color.RGBA{R: 158, G: 128, B: 80, A: 255}, max(1, int(factor)))
+	icon := max(16, int(32*factor))
+	iconLeft := left + (rect.Dx()-icon)/2
+	drawNativeReminderIcon(canvas, image.Rect(iconLeft, top+int(8*factor), iconLeft+icon, top+int(8*factor)+icon), "skill-icons", uint64(item.SkillID), color.RGBA{R: 237, G: 185, B: 101, A: 255})
+	texts := []nativeReminderText{}
+	rowY := 44
+	addRow := func(text string, rgb uint32) {
+		texts = append(texts, nativeReminderText{text: text, rect: imageRectToNative(image.Rect(left+int(5*factor), top+int(float64(rowY)*factor), rect.Max.X-int(5*factor), top+int(float64(rowY+16)*factor))), color: rgb, flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(8, int(12*factor)), fontWeight: nativeFontBold})
+		rowY += 16
+	}
+	ready := item.ReadyActors
+	if item.Phase == "ready" && len(ready) == 0 {
+		ready = []nativeBurstReadyActor{{ActorName: item.ActorName}}
+	}
+	for _, actor := range ready {
+		addRow(actor.ActorName+" 已就绪", nativeColorRef(166, 215, 151))
+	}
+	if item.Phase != "ready" {
+		seconds := max(0.0, float64(item.EndsAtMs-nowMs)/1000)
+		value := fmt.Sprintf("%.1fs", math.Ceil(seconds*10)/10)
+		if seconds >= 10 {
+			value = fmt.Sprintf("%.0fs", math.Ceil(seconds))
+		}
+		if item.TimingUnknown {
+			addRow(item.ActorName+" 未观测", nativeColorRef(237, 185, 101))
+		} else if item.Compact {
+			addRow(item.ActorName+" "+value, nativeColorRef(237, 185, 101))
+		} else {
+			label := "冷却中"
+			if item.NextReadySoon {
+				label = "即将就绪"
+			}
+			addRow(item.ActorName+" "+label, nativeColorRef(237, 185, 101))
+			texts = append(texts, nativeReminderText{text: value, rect: imageRectToNative(image.Rect(left+5, top+int(float64(rowY)*factor), rect.Max.X-5, top+int(float64(rowY+24)*factor))), color: nativeColorRef(237, 185, 101), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(11, int(22*factor)), fontWeight: nativeFontBold})
+		}
+	}
+	return texts
 }
 
 func drawNativeStackReminder(canvas *image.RGBA, item nativeBuffStackOverlayItem, offset image.Point, dpiScale float64, nowMs int64) []nativeReminderText {

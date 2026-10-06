@@ -214,6 +214,8 @@ type nativeReminderCondition struct {
 }
 
 type nativeReminderEntity struct {
+	HealthKnown    bool
+	Defeated       bool
 	ID             string
 	Name           string
 	OwnerID        string
@@ -442,6 +444,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		if value.Reset {
 			for _, entity := range runtime.entities {
 				entity.Active = false
+				entity.HealthKnown, entity.Defeated = false, false
 				entity.Conditions = make(map[uint32]nativeReminderCondition)
 				entity.RefreshGuard = make(map[uint32]int64)
 			}
@@ -464,6 +467,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		entity.RaceID = value.RaceId
 		entity.Known = true
 		entity.Active = true
+		entity.Defeated = false
 		entity.AppearedAt = value.At
 	case *event.EventEntityDisappear:
 		entity := runtime.ensureEntity(value.Id)
@@ -477,6 +481,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		}
 	case *event.EventFinish:
 		runtime.ensureEntity(value.Id).Active = false
+		runtime.ensureEntity(value.Id).Defeated = true
 		if value.Id == runtime.selectedTargetID {
 			runtime.selectedTargetID = ""
 		}
@@ -498,6 +503,8 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 			switch stat.StatId {
 			case 28:
 				entity.CurrentHealth = stat.Value
+				entity.HealthKnown = true
+				entity.Defeated = stat.Value <= 0
 			case 30:
 				entity.MaximumHealth = stat.Value
 			case 198:
@@ -1842,7 +1849,6 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 		return
 	}
 	runtime.lastSkillStateKey = key
-	setNativeSkillOverlayActive(visible)
 	data, _ := json.Marshal(nativeSkillOverlayMessage{
 		Type: "skill-cooldown-state", AtMs: nowMs, Items: items,
 		AimReminder: aimReminder, TargetHealth: targetHealth, EffectTimers: effectTimers, Mechanics: mechanics, StackAlerts: stackAlerts, Settings: settings,
@@ -1981,26 +1987,35 @@ type nativeAimReminderOverlayItem struct {
 	Generation         uint64   `json:"generation"`
 }
 
+type nativeBurstReadyActor struct {
+	ActorID   string `json:"actorId"`
+	ActorName string `json:"actorName"`
+}
+
 type nativeBossMechanicOverlayItem struct {
-	TimingUnknown bool   `json:"timingUnknown,omitempty"`
-	TargetID      string `json:"targetId,omitempty"`
-	Orientation   string `json:"orientation,omitempty"`
-	ActorID       string `json:"actorId,omitempty"`
-	ActorName     string `json:"actorName,omitempty"`
-	SkillID       uint16 `json:"skillId,omitempty"`
-	SkillName     string `json:"skillName,omitempty"`
-	Phase         string `json:"phase,omitempty"`
-	Label         string `json:"label,omitempty"`
-	HideCountdown bool   `json:"hideCountdown,omitempty"`
-	Key           string `json:"key"`
-	Name          string `json:"name"`
-	Icon          string `json:"icon"`
-	StartedAtMs   int64  `json:"startedAtMs"`
-	EndsAtMs      int64  `json:"endsAtMs"`
-	Generation    uint64 `json:"generation"`
-	X             int    `json:"x"`
-	Y             int    `json:"y"`
-	ScalePercent  int    `json:"scalePercent"`
+	ReadyActors        []nativeBurstReadyActor `json:"readyActors,omitempty"`
+	NextReadySoon      bool                    `json:"nextReadySoon"`
+	PreviewExpiresAtMs int64                   `json:"previewExpiresAtMs,omitempty"`
+	Compact            bool                    `json:"compact,omitempty"`
+	TimingUnknown      bool                    `json:"timingUnknown,omitempty"`
+	TargetID           string                  `json:"targetId,omitempty"`
+	Orientation        string                  `json:"orientation,omitempty"`
+	ActorID            string                  `json:"actorId,omitempty"`
+	ActorName          string                  `json:"actorName,omitempty"`
+	SkillID            uint16                  `json:"skillId,omitempty"`
+	SkillName          string                  `json:"skillName,omitempty"`
+	Phase              string                  `json:"phase,omitempty"`
+	Label              string                  `json:"label,omitempty"`
+	HideCountdown      bool                    `json:"hideCountdown,omitempty"`
+	Key                string                  `json:"key"`
+	Name               string                  `json:"name"`
+	Icon               string                  `json:"icon"`
+	StartedAtMs        int64                   `json:"startedAtMs"`
+	EndsAtMs           int64                   `json:"endsAtMs"`
+	Generation         uint64                  `json:"generation"`
+	X                  int                     `json:"x"`
+	Y                  int                     `json:"y"`
+	ScalePercent       int                     `json:"scalePercent"`
 }
 
 type nativeBuffStackOverlayItem struct {

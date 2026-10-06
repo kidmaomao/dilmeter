@@ -42,7 +42,11 @@ func (t *GameServerPacketReader) OpenWinDivert(dllPath string, filter string) er
 	return nil
 }
 
-func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handle, ch chan<- gamePacketPayload, connectionEpoch uint64) {
+type winDivertReceiver interface {
+	Recv([]byte) (int, error)
+}
+
+func (t *GameServerPacketReader) readWinDivertPacketLoop(handle winDivertReceiver, ch chan<- gamePacketPayload, connectionEpoch uint64) {
 	defer close(ch)
 
 	ip4 := layers.IPv4{}
@@ -53,17 +57,15 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handl
 	packetBuffer := make([]byte, winDivertPacketBufferSize)
 
 	baseSeq := uint32(0)
-	nextSeq, prevDstPort := uint32(0), layers.TCPPort(0)
-	pendingTcpLayers := make([]pendingTcpLayer, 0, packetQueueSize)
+	stream := tcpStreamBuffer{}
+	flow := ""
 	clientIPSeen := make(map[string]struct{})
 
-	emit := func(seq uint32, data []byte, at time.Time) {
-		dataCopy := append([]byte(nil), data...)
-		ch <- gamePacketPayload{
-			relSeq:          seq - baseSeq,
-			data:            dataCopy,
-			at:              at,
-			connectionEpoch: connectionEpoch,
+	forward := func(parts []gamePacketPayload) {
+		for _, p := range parts {
+			p.relSeq -= baseSeq
+			p.connectionEpoch = connectionEpoch
+			ch <- p
 		}
 	}
 
@@ -108,10 +110,6 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handl
 			continue
 		}
 
-		if i == 0 {
-			baseSeq = tcp.Seq
-		}
-
 		dstIP := ip4.DstIP.String()
 		if _, seen := clientIPSeen[dstIP]; !seen {
 			clientIPSeen[dstIP] = struct{}{}
@@ -119,83 +117,25 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handl
 			logger.Printf("WinDivert detected client ip %v", dstIP)
 		}
 
-		if nextSeq != 0 && tcp.Seq != nextSeq {
-			if prevDstPort != tcp.DstPort {
+		packetFlow := fmt.Sprintf("%s:%d>%s:%d", ip4.SrcIP, tcp.SrcPort, ip4.DstIP, tcp.DstPort)
+		if flow != packetFlow {
+			switchingConnection := flow != ""
+			if flow != "" {
 				connectionEpoch = t.connectionEpoch.Add(1)
-				pendingTcpLayers = pendingTcpLayers[:0]
-				prevDstPort = tcp.DstPort
-				baseSeq = tcp.Seq
-				nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-				if len(tcp.Payload) == 4 {
-					continue
-				}
-				emit(tcp.Seq, tcp.Payload, capturedAt)
+			}
+			flow = packetFlow
+			stream = tcpStreamBuffer{}
+			baseSeq = tcp.Seq
+			if switchingConnection && len(tcp.Payload) == 4 {
+				stream.initialized = true
+				stream.next = tcp.Seq + 4
 				continue
 			}
-
-			if tcp.Seq < nextSeq {
-				if tcp.Seq+uint32(len(tcp.Payload)) > nextSeq {
-					newData := tcp.Payload[nextSeq-tcp.Seq:]
-					if len(newData) > 0 {
-						emit(nextSeq, newData, capturedAt)
-					}
-					nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-				}
-				continue
-			}
-
-			logger.Println("WinDivert packet out of order", i, nextSeq, tcp.Seq)
-			if len(pendingTcpLayers) >= packetQueueSize {
-				for _, pending := range pendingTcpLayers {
-					emit(pending.tcpLayer.Seq, pending.tcpLayer.Payload, pending.ci.Timestamp)
-				}
-				pendingTcpLayers = pendingTcpLayers[:0]
-				emit(tcp.Seq, tcp.Payload, capturedAt)
-				nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-				continue
-			}
-
-			payloadCopy := append([]byte(nil), tcp.Payload...)
-			tcpCopy := tcp
-			tcpCopy.Payload = payloadCopy
-			pendingTcpLayers = append(pendingTcpLayers, pendingTcpLayer{
-				tcpLayer: tcpCopy,
-				ci:       captureInfo,
-			})
-			continue
 		}
-
-		emit(tcp.Seq, tcp.Payload, capturedAt)
-		nextSeq = tcp.Seq + uint32(len(tcp.Payload))
-		prevDstPort = tcp.DstPort
-
-		for len(pendingTcpLayers) > 0 {
-			pending := pendingTcpLayers[0]
-			if pending.tcpLayer.Seq == nextSeq {
-				emit(pending.tcpLayer.Seq, pending.tcpLayer.Payload, pending.ci.Timestamp)
-				nextSeq = pending.tcpLayer.Seq + uint32(len(pending.tcpLayer.Payload))
-				pendingTcpLayers = pendingTcpLayers[1:]
-				continue
-			}
-			if pending.tcpLayer.Seq < nextSeq {
-				if pending.tcpLayer.Seq+uint32(len(pending.tcpLayer.Payload)) <= nextSeq {
-					pendingTcpLayers = pendingTcpLayers[1:]
-					continue
-				}
-				newData := pending.tcpLayer.Payload[nextSeq-pending.tcpLayer.Seq:]
-				if len(newData) > 0 {
-					emit(nextSeq, newData, pending.ci.Timestamp)
-				}
-				nextSeq = pending.tcpLayer.Seq + uint32(len(pending.tcpLayer.Payload))
-				pendingTcpLayers = pendingTcpLayers[1:]
-				continue
-			}
-			break
-		}
+		forward(stream.push(tcp.Seq, tcp.Payload, capturedAt))
 	}
 
-	for _, pending := range pendingTcpLayers {
-		emit(pending.tcpLayer.Seq, pending.tcpLayer.Payload, pending.ci.Timestamp)
-	}
+	// Preserve real gap boundaries when the capture source stops.
+	forward(stream.finish())
 	logger.Println("WinDivert receive loop exited")
 }

@@ -61,10 +61,10 @@
                 <v-icon icon="mdi-delete-sweep" size="15" />{{ $game("清空数据\n            ") }}</button>
         </div>
 
-        <div v-if="notice && (!isDesignPreview || showPreviewControls)" class="notice-line" :class="`notice-${noticeType}`">
+        <v-snackbar :model-value="!!notice" :timeout="7000" location="bottom end" :color="noticeType === 'error' ? 'error' : 'warning'" @update:model-value="!$event && (notice = '')">
             {{ $game(notice) }}
-            <button :aria-label="$game('关闭提示')" @click="notice = ''"><v-icon icon="mdi-close" size="14" /></button>
-        </div>
+            <template #actions><button aria-label="关闭错误提示" @click="notice = ''"><v-icon icon="mdi-close" size="18" /></button></template>
+        </v-snackbar>
 
         <section class="combat-window" :aria-label="$game('详细战斗统计')">
             <header class="window-titlebar">
@@ -1214,6 +1214,7 @@
 </template>
 
 <script setup lang="ts">
+import { createBurstPreview, type BurstPreviewPhase } from "@/burstReminderView";
 import { resourceRegion, uiLocale, uiText, normalizeNameSearch } from "@/uiLocale";
 import type { BossMechanicOverlayItem } from "@/skillCooldown";
 import BurstReminderSettings from "./BurstReminderSettings.vue";
@@ -3017,15 +3018,21 @@ async function persistBurstSettings() {
  } finally { burstSettingsSaving.value = false; }
 }
 
-function previewBurstRule(raw: BurstRule, phase: 'cast' | 'ready' | 'effect') {
+async function previewBurstRule(raw: BurstRule, phase: BurstPreviewPhase) {
  if (raw.skillId === 58014 && phase === 'ready') return;
  const rule = normalizeBurstSettings({ ...burstSettings.value, rules: { [raw.skillId]: raw } }).rules[raw.skillId];
- const display = rule.cast, startedAtMs = Date.now(), endsAtMs = startedAtMs + (phase === 'cast' ? rule.castSeconds * 1000 : phase === 'ready' ? 3000 : rule.skillId === 58014 ? 10000 : 8000);
- burstPreviewBars.value = [];
- const label = `${uiText('预览')} · ${skillResourceName(rule.skillId, rule.name)}`;
- burstPreviewPopups.value = [{ key: 'burst-preview', name: label, label, actorId: '4500000000000000', actorName: '预览队友', skillId: rule.skillId, skillName: skillResourceName(rule.skillId, rule.name), phase, orientation: rule.orientation, hideCountdown: phase === 'ready', icon: 'mdi-alert-decagram', x: display.x, y: display.y, scalePercent: display.scalePercent, startedAtMs, endsAtMs, generation: startedAtMs }];
- if (phase !== 'effect' && rule[phase].soundEnabled) void fetch('/api/buff_sound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'skill-ready', volume: burstSettings.value.volume }) }).catch(() => undefined);
- publishSkillCooldownOverlayState(true);
+ const item = createBurstPreview(rule, phase);
+ if (isStandalone.value) {
+  burstPreviewBars.value = [];
+  burstPreviewPopups.value = [item];
+  publishSkillCooldownOverlayState(true);
+ } else {
+  try {
+   const response = await fetch('/api/burst_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item), signal: AbortSignal.timeout(5000) });
+   if (!response.ok) throw new Error(await response.text());
+  } catch (error) { showNotice(`爆发预览失败：${String(error)}`, 'error'); return; }
+ }
+ if ((phase === 'cast' || phase === 'ready') && rule[phase].soundEnabled) void fetch('/api/buff_sound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'skill-ready', volume: burstSettings.value.volume }) }).catch(() => undefined);
 }
 
 function persistEffectTimerSettings() {
@@ -5702,6 +5709,8 @@ function safeFilename(value: string) {
 }
 
 function showNotice(message: string, type: NoticeType) {
+    // Save state is already shown by the settings controls. Keep actionable failures visible.
+    if (type === 'success' || type === 'info') return;
     notice.value = message;
     noticeType.value = type;
 }
@@ -6055,30 +6064,6 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
     cursor: default;
 }
 
-.notice-line {
-    display: flex;
-    align-items: center;
-    min-height: 34px;
-    padding: 0 9px;
-    margin-bottom: 7px;
-    border: 1px solid #646464;
-    background: #1b1b1b;
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.notice-line button {
-    margin-left: auto;
-    color: inherit;
-    background: transparent;
-    border: 0;
-    cursor: pointer;
-}
-
-.notice-success { color: #a8e878; }
-.notice-warning { color: #f4d17a; }
-.notice-error { color: #ff8d8d; }
-.notice-info { color: #bfcbd2; }
 
 .combat-window {
     box-sizing: border-box;

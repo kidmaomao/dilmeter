@@ -89,6 +89,8 @@ func TestBurstCastCancelReadyAndSelectedTeammates(t *testing.T) {
 	runtime.settings.Burst.Volume = 80
 	rule := runtime.settings.Burst.Rules[59005]
 	rule.CooldownSeconds = 2
+	// Exercise the shared cooldown when no personal override is configured.
+	runtime.healer.settings.Members[0].SkillSettings.Rules = nil
 	runtime.settings.Burst.Rules[59005] = rule
 	runtime.onEvent(liveTestAppear("other", "路人", 10001, 100))
 	runtime.onEvent(partyUse("other", 59005, 100000, false, 1))
