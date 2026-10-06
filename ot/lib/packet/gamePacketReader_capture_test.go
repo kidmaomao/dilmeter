@@ -6,6 +6,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,6 +51,11 @@ func TestPcapInitialFourByteSegmentIsNotDiscarded(t *testing.T) {
 	}
 	handle, err := pcap.OpenOffline(path)
 	if err != nil {
+		// This integration test uses the native capture driver. Hosted Windows
+		// runners do not ship Npcap; driver-independent stream tests still run.
+		if runtime.GOOS == "windows" && strings.Contains(err.Error(), "couldn't load wpcap.dll") {
+			t.Skipf("Npcap is not installed: %v", err)
+		}
 		t.Fatal(err)
 	}
 	defer handle.Close()
