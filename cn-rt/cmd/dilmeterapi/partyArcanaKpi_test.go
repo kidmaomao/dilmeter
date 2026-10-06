@@ -282,3 +282,46 @@ func TestPartyArcanaIsolationAndSniperLifecycle(t *testing.T) {
 		t.Fatal("sniper crossed connection reset")
 	}
 }
+
+func TestPartySniperObserverStart(t *testing.T) {
+	p := newPartyStingerTestPublisher()
+	send := func(at int64, fields ...packet.IMessageElem) {
+		p.publishPartyArcanaPacket(&packet.GamePacket{Id: 101, Op: 37011, At: time.UnixMilli(at), Msg: fields})
+	}
+	start := func(at int64) {
+		send(at, packet.NewMessageElemInt(920), packet.NewMessageElemByte(7), packet.NewMessageElemLong(200), packet.NewMessageElemFloat(96550), packet.NewMessageElemFloat(136254))
+	}
+	shot := func(at int64, phase uint32, target uint64) {
+		send(at, packet.NewMessageElemInt(920), packet.NewMessageElemByte(5), packet.NewMessageElemInt(phase), packet.NewMessageElemLong(target), packet.NewMessageElemFloat(96550), packet.NewMessageElemFloat(136254), packet.NewMessageElemFloat(50))
+	}
+	shot(900, 7, 200) // a terminal without an observed start is incomplete
+	start(1000)
+	start(1000)        // duplicate start
+	shot(1010, 6, 201) // another target cannot contribute
+	for n := 0; n < 6; n++ {
+		phase := uint32(6)
+		if n == 5 {
+			phase = 7
+		}
+		shot(1100+int64(n)*100, phase, 200)
+	}
+	shot(1800, 7, 200) // terminal retransmission after completion
+	start(2000)        // an interrupted cast has no complete sample
+	p.publishPartyArcanaPacket(&packet.GamePacket{Id: 101, Op: 28006, At: time.UnixMilli(2100), Msg: packet.Message{packet.NewMessageElemByte(0)}})
+	shot(2200, 7, 200)
+	var counts []uint32
+	starts := 0
+	for _, raw := range p.pendingEvents {
+		if signal, ok := raw.(*event.EventArcanaSignal); ok && signal.Signal == "sniper-counter" {
+			if signal.Complete {
+				counts = append(counts, signal.Count)
+			}
+			if signal.Phase == 2 {
+				starts++
+			}
+		}
+	}
+	if !reflect.DeepEqual(counts, []uint32{6}) || starts != 2 {
+		t.Fatalf("observer sniper: completed=%v starts=%d", counts, starts)
+	}
+}

@@ -97,7 +97,13 @@ func (t *eventPublisher) publishPartyArcanaPacket(p *packet.GamePacket) {
 		}
 	}
 	if p.Op == 37011 {
-		if arcanaShape(m, i, b, l, f, f, i, i, i, b) && m[0].Data().(uint32) == 920 && m[1].Data().(uint8) == 4 && m[2].Data().(uint64) != 0 {
+		// The observer receives a compact phase-7 aiming start; the caster's
+		// broadcast can instead use the extended phase-4 layout. Both precede
+		// the same phase-5 shot feedback. Do not confuse aiming phase 7 with
+		// the terminal shot (which is field 2 of a phase-5 message).
+		longStart := arcanaShape(m, i, b, l, f, f, i, i, i, b) && m[0].Data().(uint32) == 920 && m[1].Data().(uint8) == 4
+		shortStart := arcanaShape(m, i, b, l, f, f) && m[0].Data().(uint32) == 920 && m[1].Data().(uint8) == 7
+		if (longStart || shortStart) && m[2].Data().(uint64) != 0 {
 			if t.partyArcanaRelease(p, s, 59123) {
 				s.sniper = &gunnerSniperCast{atMs: at, targetID: m[2].Data().(uint64), executed: true}
 				t.partyArcanaSignal(p, &event.EventArcanaSignal{Signal: "sniper-counter", SkillId: 59123, CastAtMs: at, TargetId: strconv.FormatUint(s.sniper.targetID, 10), Phase: 2})

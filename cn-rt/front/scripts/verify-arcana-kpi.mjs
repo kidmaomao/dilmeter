@@ -415,8 +415,8 @@ try {
         stat(-1, .5), stat(0, .25), damage(1), stat(6, 1), damage(30), stat(31, 10)].map(JSON.stringify).join("\n"));
     const collector = new DamageCollectorManager(), manager = new ActorManager(collector);
     hydrateFromSnapshot(replay, manager, collector);
-    const originalSaint = build({ ...input, session: { ...session, startAt: 1 }, player: manager.entityMap.player, jobName: "圣光颂唱者" });
-    assert.equal(metric(originalSaint, "music-active-magic").value, 90.298561, "a replaced pre-fight peak is excluded from the original fight");
+    const originalSaint = build({ ...input, session: { ...session, startAt: 1 }, player: manager.entityMap.player, musicPerformances: manager.musicPerformances, jobName: "圣光颂唱者" });
+    assert.equal(metric(originalSaint, "music-active-magic").value, 150, "an opening performance survives replacement before the first hit");
     manager.kpiAimSamples.push({ entityId: "player", targetId: "boss", atMs: 2500, rate: .8 });
     const record = parseBattleRecord(JSON.stringify(createBattleRecord(manager, collector, "boss", "player", { bossName: "test" })));
     assert.deepEqual(record.snapshot.statUpdates.map((event) => event.At), [0, 6], "export preserves the latest pre-fight quantity and excludes later observations");
@@ -434,10 +434,10 @@ try {
     assert.equal(metric(puppeteerReport(manager.arcanaSignals), "puppets").value, 2);
     assert.ok(Math.abs(metric(fighterReport(manager.arcanaSignals), "reverse-saved").value + .08) < 1e-8);
     assert.equal(metric(fighterReport(manager.arcanaSignals), "energy-idle").value, 12);
-    const replaySaint = build({ ...input, session: { ...session, startAt: 1 }, player: manager.entityMap.player, jobName: "圣光颂唱者" });
-    assert.equal(metric(replaySaint, "music-active-magic").value, 90.298561, "magic attack survives worker import and battle-record export/reimport");
-    assert.equal(metric(replaySaint, "music-active").value, 88.528008, "casting speed remains independent after replay");
-    assert.deepEqual(replaySaint.rows, originalSaint.rows, "export does not resurrect a replaced pre-fight state or add peak samples");
+    const replaySaint = build({ ...input, session: { ...session, startAt: 1 }, player: manager.entityMap.player, musicPerformances: manager.musicPerformances, jobName: "圣光颂唱者" });
+    assert.equal(metric(replaySaint, "music-active-magic").value, 150, "magic attack survives worker import and battle-record export/reimport");
+    assert.equal(metric(replaySaint, "music-active").value, 160, "casting speed remains independent after replay");
+    assert.deepEqual(replaySaint.rows, originalSaint.rows, "performance peaks survive export without restoring replaced active Buffs");
     manager.clear();
     assert.equal(manager.statUpdates.length, 0); assert.equal(manager.kpiAimSamples.length, 0);
     assert.equal(manager.arcanaSignals.length, 0);
@@ -531,5 +531,45 @@ try {
     assert.equal(boundsRecord.snapshot.arcanaSignals[0].UpperValue, 200, "pre-fight checkpoint range survives export");
     hydrateFromSnapshot(boundsRecord.snapshot, manager, collector);
     assert.deepEqual(metric(fighterReport(manager.arcanaSignals, { session: { ...session, startAt: 1 } }), "energy-idle"), originalBounds);
-    console.log("Arcana KPI verified: ten professions, immunity/expiry, ownership, resources, Saint peaks, Gunner counters, Chemical extras, puppet/interlude counts, Fighter natural energy/animation cancels and battle-record replay.");
+    const openingMusic = [
+        appearance("player", 8001), appearance("boss", 7601),
+        { EventId: 4, ...condition(680, -90, "MCMBAMAX:f:999;", { DisableAt: -1 }) },
+        { EventId: 4, ...condition(680, -70, "MCMBAMAX:f:998;") }, // unknown duration
+        { EventId: 4, ...condition(680, -5, "MCMBAMAX:f:96.7;", { Id: "non-attacker", DisableAt: 50 }) },
+        { EventId: 4, ...condition(680, -5, "MCMBAMAX:f:96.7;", { DisableAt: 50 }) },
+        { EventId: 5, Id: "player", At: -4, CCId: 680 },
+        { EventId: 5, Id: "non-attacker", At: -4, CCId: 680 },
+        { EventId: 4, ...condition(192, -3, "MFCP:f:80;LSMA:f:90;", { DisableAt: 50 }) },
+        { EventId: 4, ...condition(193, -2, "SPDPC:f:1.6;", { DisableAt: 50 }) },
+        { EventId: 4, ...condition(680, 2, "MCMBAMAX:f:997;", { AttackerId: "other-performer", DisableAt: 50 }) },
+        { EventId: 4, ...condition(277, 10, "", { Id: "boss" }) },
+        { EventId: 4, ...condition(680, 15, "MCMBAMAX:f:996;", { DisableAt: 50 }) },
+        { EventId: 5, Id: "boss", At: 20, CCId: 277 },
+        damage(1), damage(30),
+    ];
+    const musicReport = (m) => build({ ...input, session: { ...session, startAt: 1 },
+        player: m.entityMap.player, boss: m.entityMap.boss, jobName: "圣光颂唱者", musicPerformances: m.musicPerformances });
+    hydrateFromSnapshot(buildEventSnapshot(openingMusic.map(JSON.stringify).join("\n")), manager, collector);
+    const openingReport = musicReport(manager);
+    assert.equal(metric(openingReport, "music-war").value, 96.7, "opening War cast on others remains after both recipients switch songs");
+    assert.equal(metric(openingReport, "music-war").samples, 1, "group recipients are one performance; expired, unknown-duration, other casters and immune casts are excluded");
+    assert.equal(metric(openingReport, "music-active-magic").value, 90);
+    assert.equal(metric(openingReport, "music-active").value, 80);
+    assert.ok(Math.abs(metric(openingReport, "music-march").value - 60) < 1e-8);
+    const liveMusic = new ActorManager(new DamageCollectorManager());
+    for (const event of openingMusic) liveMusic.onEvent(event);
+    assert.deepEqual(musicReport(liveMusic).rows, openingReport.rows, "live and worker performance evidence agree");
+    const openingRecord = createBattleRecord(manager, collector, "boss", "player", { bossName: "music" });
+    assert.equal(openingRecord.snapshot.entities["non-attacker"], undefined);
+    hydrateFromSnapshot(parseBattleRecord(JSON.stringify(openingRecord)).snapshot, manager, collector);
+    assert.deepEqual(musicReport(manager).rows, openingReport.rows, "recipient need not attack or remain in the saved actor roster");
+    const checkpointMusic = new ActorManager(new DamageCollectorManager());
+    checkpointMusic.onEvent(appearance("player", 8001));
+    checkpointMusic.onEvent({ EventId: 23, ...condition(680, -5, "MCMBAMAX:f:96.7;", { DisableAt: 50 }) });
+    assert.equal(checkpointMusic.entityMap.player.conditionMap[680], undefined, "checkpoint evidence never restores an active song");
+    assert.equal(metric(build({ ...input, player: checkpointMusic.entityMap.player, jobName: "圣光颂唱者", musicPerformances: checkpointMusic.musicPerformances }), "music-war").value, 96.7);
+    manager.onEvent({ EventId: 11, At: 31, Id: "player", Reliable: true, Reset: true });
+    assert.equal(metric(build({ ...input, session: { ...session, startAt: 32, endAt: 40 }, player: manager.entityMap.player,
+        jobName: "圣光颂唱者", musicPerformances: manager.musicPerformances }), "music-war").value, null, "opening songs do not cross a connection reset");
+    console.log("Arcana KPI verified: ten professions, immunity/expiry, ownership, resources, opening/team Saint performances, Gunner counters, Chemical extras, puppet/interlude counts, Fighter natural energy/animation cancels and battle-record replay.");
 } finally { await server.close(); }

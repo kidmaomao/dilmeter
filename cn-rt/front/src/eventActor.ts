@@ -1,3 +1,4 @@
+import { recordMusicPerformance, endMusicPerformances, eventIdMusicPerformance, type MusicPerformance } from "./musicPerformance";
 import { recordVital, type BattleVitalPoint } from "./battleChartHistory";
 import { CustomReactive, IUpdateCallback } from "@/lib/util";
 import { shallowReactive } from "vue";
@@ -55,6 +56,7 @@ export class ActorManager {
     /** Historical resource observations; a final statMap cannot describe a fight. */
     public statUpdates: protocols.eventStatUpdate[] = [];
     public arcanaSignals: protocols.eventArcanaSignal[] = [];
+    public musicPerformances: MusicPerformance[] = [];
     public kpiAimSamples: import("./arcanaKpi").KpiAimSample[] = [];
     /** Health-bar reconciled damage; raw packets remain in damages. */
     public effectiveDamages: protocols.eventDamage[] = [];
@@ -82,6 +84,8 @@ export class ActorManager {
     ]);
 
     public onEvent(event: protocols.eventBase) {
+        recordMusicPerformance(event, this.musicPerformances);
+        if (event.EventId === eventIdMusicPerformance) return;
         this.eventVersion += 1;
         if (event.EventId === protocols.eventIdSkillCooldown) {
             this.skillCooldowns.push(event as protocols.eventSkillCooldown);
@@ -102,6 +106,7 @@ export class ActorManager {
         }
         if (event.EventId === protocols.eventIdLocalEntity) {
             const local = event as protocols.eventLocalEntity;
+            if (local.Reset || (this.localEntityId && local.Id !== this.localEntityId)) endMusicPerformances(this.musicPerformances, local.At);
             if (local.Reset || local.Id !== this.localEntityId) {
                 for (const id of new Set([...Object.keys(this.entityMap), this.localEntityId])) {
                     if (id && id !== "0") this.resetKpiActor(id, local.At);
@@ -129,6 +134,7 @@ export class ActorManager {
 
         switch (event.EventId) {
             case protocols.eventIdEntityDisappear:
+                if (event.Id !== this.localEntityId) endMusicPerformances(this.musicPerformances, event.At, event.Id);
                 this.resetKpiActor(event.Id, event.At);
                 this.activeEntityMap[event.Id] = false;
                 if (event.Id === this.selectedTargetId) this.selectedTargetId = "";
@@ -503,6 +509,7 @@ export class ActorManager {
         this.skillCooldowns.length = 0;
         this.statUpdates.length = 0;
         this.arcanaSignals.length = 0;
+        this.musicPerformances.length = 0;
         this.kpiAimSamples.length = 0;
         this.effectiveDamages.length = 0;
         this.healthLosses.length = 0;

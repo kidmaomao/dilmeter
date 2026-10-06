@@ -1,3 +1,4 @@
+import { recordMusicPerformance, endMusicPerformances, eventIdMusicPerformance, type MusicPerformance } from "../musicPerformance";
 import { recordVital, type BattleVitalPoint } from "../battleChartHistory";
 // Vue-free 版本的 eventActor.ts + 最小化的 DamageCollectorManager
 // 用於 Web Worker 內部，無任何 Vue / DOM 依賴
@@ -78,6 +79,7 @@ export class PureActorManager {
     public skillCooldowns: protocols.eventSkillCooldown[] = [];
     public statUpdates: protocols.eventStatUpdate[] = [];
     public arcanaSignals: protocols.eventArcanaSignal[] = [];
+    public musicPerformances: MusicPerformance[] = [];
     public effectiveDamages: protocols.eventDamage[] = [];
     public healthLosses: EntityHealthLoss[] = [];
     private pendingHealthDamages: Record<string, protocols.eventDamage[]> = {};
@@ -110,6 +112,8 @@ export class PureActorManager {
     }
 
     public onEvent(event: protocols.eventBase): void {
+        recordMusicPerformance(event, this.musicPerformances);
+        if (event.EventId === eventIdMusicPerformance) return;
         if (event.EventId === protocols.eventIdSkillCooldown) {
             this.skillCooldowns.push(event as protocols.eventSkillCooldown);
             return;
@@ -129,6 +133,7 @@ export class PureActorManager {
         }
         if (event.EventId === protocols.eventIdLocalEntity) {
             const local = event as protocols.eventLocalEntity;
+            if (local.Reset || (this.localEntityId && local.Id !== this.localEntityId)) endMusicPerformances(this.musicPerformances, local.At);
             if (local.Reset || local.Id !== this.localEntityId) {
                 for (const id of new Set([...Object.keys(this.entityMap), this.localEntityId])) {
                     if (id && id !== "0") this.resetKpiActor(id, local.At);
@@ -165,6 +170,7 @@ export class PureActorManager {
 
         switch (event.EventId) {
             case protocols.eventIdEntityDisappear:
+                if (event.Id !== this.localEntityId) endMusicPerformances(this.musicPerformances, event.At, event.Id);
                 this.resetKpiActor(event.Id, event.At);
                 this.activeEntityMap[event.Id] = false;
                 if (event.Id !== this.localEntityId) delete this.pendingConditionEvents[event.Id];

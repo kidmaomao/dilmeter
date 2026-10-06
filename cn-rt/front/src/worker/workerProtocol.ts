@@ -104,6 +104,7 @@ export type WorkerSnapshot = {
     skillActions?: any[]; // protocols.eventSkillAction[]
     skillCooldowns?: import("../protocols").eventSkillCooldown[];
     statUpdates?: import("../protocols").eventStatUpdate[];
+    musicPerformances?: import("../musicPerformance").MusicPerformance[];
     arcanaSignals?: import("../protocols").eventArcanaSignal[];
     kpiAimSamples?: import("../arcanaKpi").KpiAimSample[];
     /** Health-bar reconciled damage; absent in legacy records. */

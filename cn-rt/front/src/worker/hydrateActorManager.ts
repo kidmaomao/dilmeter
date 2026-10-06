@@ -1,3 +1,4 @@
+import { recordMusicPerformance } from "../musicPerformance";
 // 主線程：將 Worker snapshot 還原到 reactive actorManager / dcManager
 import { CustomReactive } from "@/lib/util";
 import { ActorManager, EntityActor, GroupActor } from "@/eventActor";
@@ -33,6 +34,7 @@ export function hydrateFromSnapshot(
         actorMgr.skillCooldowns.length = 0;
         actorMgr.statUpdates.length = 0;
         actorMgr.arcanaSignals.length = 0;
+        actorMgr.musicPerformances.length = 0;
         actorMgr.kpiAimSamples.length = 0;
         actorMgr.effectiveDamages.length = 0;
         actorMgr.healthLosses.length = 0;
@@ -79,6 +81,15 @@ export function hydrateFromSnapshot(
         appendSnapshotRows(actorMgr.skillCooldowns, snapshot.skillCooldowns ?? []);
         appendSnapshotRows(actorMgr.statUpdates, snapshot.statUpdates ?? []);
         appendSnapshotRows(actorMgr.arcanaSignals, snapshot.arcanaSignals ?? []);
+        if (snapshot.musicPerformances) appendSnapshotRows(actorMgr.musicPerformances, snapshot.musicPerformances);
+        else {
+            // Legacy records can recover only the condition history they kept.
+            for (const entity of Object.values(snapshot.entities)) {
+                for (const state of entity.conditionHistory) {
+                    for (const condition of state.List) recordMusicPerformance({ ...condition, EventId: 4 }, actorMgr.musicPerformances);
+                }
+            }
+        }
         appendSnapshotRows(actorMgr.kpiAimSamples, snapshot.kpiAimSamples ?? []);
         appendSnapshotRows(actorMgr.effectiveDamages, snapshot.effectiveDamages ?? []);
         appendSnapshotRows(actorMgr.healthLosses, snapshot.healthLosses ?? []);
