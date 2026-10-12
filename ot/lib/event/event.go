@@ -130,6 +130,8 @@ type EventEntityUpdateBody struct {
 // readers.
 type EventSkillAction struct {
 	EventBase
+	// Preserve condition 975 at release, including an observed false.
+	LanceMounted   *bool `json:"LanceMounted,omitempty"`
 	SkillId        uint16
 	SubSkillId     uint16
 	CombatActionId uint32

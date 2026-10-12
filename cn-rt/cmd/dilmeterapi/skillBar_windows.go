@@ -2407,8 +2407,19 @@ func nativeSkillBarCooldowns() map[uint16]nativeSkillOverlayItem {
 }
 
 func nativeSkillBarCooldownText(item nativeSkillOverlayItem, nowMs int64) (string, float64) {
+	if item.SkillID == darkEnergySkillID {
+		if !item.EnergyActive {
+			return "未开启", 1
+		}
+		if !item.CooldownObserved {
+			return "CD待观测", 1
+		}
+	}
 	readyAt := max(item.ReadyAtMs, item.AccumulatedReadyAtMs)
 	if readyAt <= nowMs {
+		if item.SkillID == darkEnergySkillID && !item.EnergyReady {
+			return "能量未满", 1
+		}
 		return "", 0
 	}
 	remaining := readyAt - nowMs
@@ -2422,5 +2433,9 @@ func nativeSkillBarCooldownText(item nativeSkillOverlayItem, nowMs int64) (strin
 		tenths := min(int64(9), max(int64(1), (remaining+99)/100))
 		text = "0." + strconv.FormatInt(tenths, 10)
 	}
-	return text, min(1, max(0, float64(remaining)/float64(duration)))
+	fraction := min(1, max(0, float64(remaining)/float64(duration)))
+	if item.SkillID == darkEnergySkillID {
+		fraction = 1
+	}
+	return text, fraction
 }

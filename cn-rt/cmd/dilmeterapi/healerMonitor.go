@@ -216,6 +216,7 @@ type healerMonitor struct {
 	lastEventMs           int64
 	lastTickMs            int64
 	settingsPath          string
+	obsFavorites          *obsFavoriteStore
 	previewUntilMs        int64
 	previewText           healerTextSettings
 	previewCards          []healerCard
@@ -377,7 +378,7 @@ func newHealerMonitor(path string) *healerMonitor {
 	}
 	// Restore only named favorites; reconnect using fresh appearance data.
 	s.Members = healerFavoriteMembers(s.Members)
-	return &healerMonitor{settings: normalizeHealerSettings(s), observed: map[string]*healerObservation{}, alerts: map[string]healerAlertLatch{}, settingsPath: path,
+	return &healerMonitor{settings: normalizeHealerSettings(s), observed: map[string]*healerObservation{}, alerts: map[string]healerAlertLatch{}, settingsPath: path, obsFavorites: newObsFavoriteStore(filepath.Join(filepath.Dir(path), "obs-favorite-identities.json")),
 		state: healerMonitorState{Members: []healerMemberState{}, Alerts: []healerAlert{}},
 	}
 }
@@ -394,6 +395,9 @@ func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRun
 	defer h.mu.Unlock()
 	if base, ok := current.(interface{ GetEventBase() *event.EventBase }); ok {
 		h.lastEventMs = max(h.lastEventMs, base.GetEventBase().At*1000)
+	}
+	if h.obsFavorites != nil {
+		h.obsFavorites.onEvent(current)
 	}
 	switch v := current.(type) {
 	case *event.EventLocalEntity:

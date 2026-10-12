@@ -114,7 +114,7 @@
                         </div>
                     </dl>
 
-                    <ArcanaKpiPanel v-if="arcanaKpiReport" :report="arcanaKpiReport" :sample="isDesignPreview && !summary" />
+                    <ArcanaKpiPanel v-if="arcanaKpiReport" :report="arcanaKpiReport" v-model:lance-heat-bonus="lanceHeatBonus" :sample="isDesignPreview && !summary" />
 
                     <section class="condition-panel" aria-label="状态效果">
                         <header class="condition-panel-header">
@@ -742,6 +742,7 @@
                                     <input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
                                     <span>点时弹框</span>
                                 </label>
+                                <span v-else-if="rule.skillId === 59047">能量满 100% 且 CD 完成后提示</span>
                                 <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">
                                     提示进度
                                     <input
@@ -818,7 +819,7 @@
                                     <input v-model="rule.alwaysVisible" type="checkbox" @change="markSkillCooldownSettingsDirty" />
                                     {{ rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : (rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)) ? "能量槽一直显示" : "技能图标一直显示" }}
                                 </label>
-                                <label v-if="rule.skillId === 59047"><input v-model="rule.showEnergyPercent" type="checkbox" @change="markSkillCooldownSettingsDirty" />显示能量百分比数字</label>
+                                <label v-if="rule.skillId === 59047" title="只控制数字显示；未勾选时仍需能量满 100% 且 CD 完成才提示"><input v-model="rule.showEnergyPercent" type="checkbox" @change="markSkillCooldownSettingsDirty" />显示能量百分比数字</label>
                                 <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">预览位置与动画</button>
                                 </div>
                                 <button type="button" class="buff-alert-remove" @click="removeSkillCooldownRule(rule.skillId)">
@@ -1211,6 +1212,10 @@
                         <div v-show="teamReminderCategory === 'burst'">
                             <BurstReminderSettings :settings="burstSettings" :dirty="burstSettingsDirty" :saving="burstSettingsSaving" @change="burstSettingsDirty = true; reminderProfileSettingsDirty = true" @save="persistBurstSettings" @preview="previewBurstRule" />
                         </div>
+                        <!-- Keep the controller mounted so changing pages does not release an enabled effect session. -->
+                        <div v-show="teamReminderCategory === 'obs'">
+                            <slot name="obs-effects" />
+                        </div>
                     </div>
                 </div>
                 <div v-show="activeTab === 'skillbar'" class="extra-skillbar-page">
@@ -1601,6 +1606,7 @@ const CONDITION_DISPLAY_NAME_OVERRIDES: Record<number, string> = {
     913: "喵咪的奔袭",
     1080: "米耶尔的羽毛",
     1098: "湛蓝内伤",
+    1121: "魔法攻击力强化（魔法攻击药水）",
     1153: "分裂的能量",
 };
 const STACK_ALERT_CC_IDS = new Set([1080, 1098, 1153]);
@@ -1701,10 +1707,11 @@ const selectedPlayerId = ref("");
 const activeTab = ref<CombatTab>("summary");
 const reminderCategory = ref("buff");
 const teamReminderCategory = ref("healer");
-const teamReminderCategories = [
+const teamReminderCategories = computed(() => [
     { id: "healer", label: "圣歌监控", icon: "mdi-heart-pulse" },
     { id: "burst", label: "爆发提醒", icon: "mdi-lightning-bolt-outline" },
-];
+    ...(!isStandalone.value ? [{ id: "obs", label: "OBS特效(测试)", icon: "mdi-movie-open-outline" }] : []),
+]);
 const reminderCategories = [
     { id: "buff", label: "Buff 提醒", icon: "mdi-bell-outline" },
     { id: "cooldown", label: "技能 CD 提醒", icon: "mdi-clock-outline" },
@@ -2352,7 +2359,9 @@ const allConditionDefinitions = computed<PlayerBuffDefinition[]>(() => {
         const name = toSimplified(cleanName(rawName)) || `状态 ${id}`;
         if (!defaultPlayerBuffDefinitionMap.value.has(id)) definitions.set(id, { id, name });
     }
-    return [...definitions.values()].sort((a, b) => a.id - b.id);
+    return [...definitions.values()]
+        .map((item) => item.id === 1121 ? { ...item, name: conditionDisplayName(item.id) } : item)
+        .sort((a, b) => a.id - b.id);
 });
 // Timer triggers use the full condition library, including conditions hidden
 // only from the player Buff panel (for example enhanced dual-gun shooting).
@@ -5340,6 +5349,21 @@ const combatSummaryRows = computed(() => {
     return rows;
 });
 
+const lanceHeatBonuses = ref<Record<string, string>>((() => {
+    try {
+        const value = JSON.parse(localStorage.getItem("lancer-heat-bonuses") ?? "{}");
+        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    } catch { return {}; }
+})());
+const lanceHeatBonus = computed({
+    get: () => lanceHeatBonuses.value[selectedPlayerId.value] ?? "unknown",
+    set: (value: string) => {
+        if (!["base", "link", "unknown"].includes(value)) return;
+        lanceHeatBonuses.value[selectedPlayerId.value] = value;
+        try { localStorage.setItem("lancer-heat-bonuses", JSON.stringify(lanceHeatBonuses.value)); } catch { /* optional preference */ }
+    },
+});
+
 const arcanaKpiReport = computed(() => {
     const player = reportPlayer.value;
     const session = reportSession.value;
@@ -5361,6 +5385,7 @@ const arcanaKpiReport = computed(() => {
         musicPerformances: manager.musicPerformances,
         aimSamples: manager.kpiAimSamples,
         dorchaMinimum: 0.5,
+        lanceHeatGainMultiplier: lanceHeatBonus.value === "link" ? 1.5 : lanceHeatBonus.value === "base" ? 1 : undefined,
     });
 });
 

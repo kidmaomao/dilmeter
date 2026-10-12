@@ -10,7 +10,7 @@ Dilmeter 是面向《洛奇》的 Windows 桌面伤害统计与战斗提醒工�
 
 CN 与 RT 固定使用随程序提供的 CN 名称和图标数据，可离线启动。OT 默认同样携带 CN 数据，顶部可切换简体／繁体界面，并选择载入 Prilus 的 TW 资料；首次下载后保留本地缓存。OT 保留外置资源包覆盖能力。详见[台服支持说明](docs/tw-support.md)。资料选择不改变 OT 的抓包网络设置。
 
-CN、RT、OT 当前版本统一为 **1.6.1**。公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
+CN、RT、OT 当前版本统一为 **1.6.2**。公开下载见 [软件下载页](https://gear.noginogi.sbs/downloads/)。
 
 ## 仓库结构
 
@@ -58,6 +58,8 @@ cmd /c build_backend.bat
 `build.bat` 会生成页面资源，并同步到 Go 的嵌入目录。首次构建前请分别在两个 `front` 目录运行 `npm ci`。
 
 ## 发布与更新
+
+每次正式发布均需同步 **GitHub Release、下载页和蓝奏云**；下载页为三个版本分别提供蓝奏云备用入口。完整步骤见[正式发布流程](docs/releasing.md)。
 
 GitHub Actions 的 `Release Dilmeter` 流程会构建三个版本并创建或更新 GitHub Release。发布资源名保持固定：
 

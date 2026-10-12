@@ -96,6 +96,7 @@
                     'progress-tracked': isProgressItem(item),
                     'progress-observed': item.progressObserved,
                     'progress-full': item.energyGate ? item.energyReady : Number(item.progressPercent) >= 100,
+                    'energy-waiting': item.skillId === 59047 && item.energyGate && !item.energyReady,
                 }"
                 :style="itemPositionStyle(item)"
                 :title="`${item.name}（技能 ${item.skillId}）`"
@@ -406,11 +407,12 @@ function itemPositionStyle(item: SkillCooldownOverlayItem) {
 function mechanicPositionStyle(item: BossMechanicOverlayItem) {
     const scale = effectiveScale.value;
     const sizeScale = mechanicScale(item);
+    const dimensions = burstPopupDimensions(item);
     return {
         left: `${(item.x - layoutBounds.value.x) / scale}px`,
         top: `${(item.y - layoutBounds.value.y) / scale}px`,
-        width: `${(item.label ? 112 : 118) * sizeScale}px`,
-        height: `${(item.label ? 112 : 118) * sizeScale}px`,
+        width: `${dimensions.width * sizeScale}px`,
+        height: `${dimensions.height * sizeScale}px`,
         "--boss-mechanic-scale": String(sizeScale),
         "--boss-mechanic-warning-scale": String(sizeScale * 1.045),
     };
@@ -514,7 +516,9 @@ function aimReminderBuffText(item: AimReminderOverlayItem) {
 function toahProgressText(item: SkillCooldownOverlayItem) {
     if (item.energyGate) {
         if (!item.energyActive) return "未开启 / 待数据";
-        const progress = item.skillId === 59047 && item.showEnergyPercent === false ? "" : `${toahSpiritDisplayPercent(item.progressPercent)}%`;
+        const progress = item.skillId === 59047 && item.showEnergyPercent === false
+            ? (Number(item.progressPercent) >= 100 ? "能量已满" : "能量未满")
+            : `${toahSpiritDisplayPercent(item.progressPercent)}%`;
         if (item.skillId !== 59047) return progress;
         return [progress, !item.cooldownObserved ? 'CD 待观测' : isCooling(item) ? remainingText(item) : 'CD 已好'].filter(Boolean).join('\n');
     }
@@ -1043,6 +1047,10 @@ html.skill-overlay-page .v-application,
 }
 
 .progress-tracked:not(.progress-observed) .skill-icon-shell img {
+    filter: grayscale(1) brightness(.42);
+}
+
+.skill-overlay-item.energy-waiting .skill-icon-shell img {
     filter: grayscale(1) brightness(.42);
 }
 

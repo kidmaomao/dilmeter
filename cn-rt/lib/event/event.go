@@ -35,7 +35,15 @@ type EventBase struct {
 	EventId  EventId
 	At       int64
 	Id       string
-	Sequence uint64 `json:"Sequence,omitempty"`
+	Sequence uint64         `json:"Sequence,omitempty"`
+	ObsClock *ObsClockStamp `json:"ObsClock,omitempty"`
+}
+
+// Live observation time only. Capture At/AtMs remain unchanged for statistics.
+// Session changes on process restart; offline imports never receive this stamp.
+type ObsClockStamp struct {
+	Session string
+	AtMs    int64
 }
 
 func (t *EventBase) GetEventBase() *EventBase { return t }
@@ -130,10 +138,17 @@ type EventEntityUpdateBody struct {
 // readers.
 type EventSkillAction struct {
 	EventBase
-	SkillId        uint16
-	SubSkillId     uint16
-	CombatActionId uint32
-	AtMs           int64
+	// Optional public-action evidence for the nine OBS ultimate skills only.
+	// These fields do not upgrade fallback records into confirmed casts.
+	ObservedActionType uint8  `json:",omitempty"`
+	ObservedTargetId   string `json:",omitempty"`
+	SkillId            uint16
+	SubSkillId         uint16
+	CombatActionId     uint32
+	AtMs               int64
+	// Preserve the caster's condition 975 at release, before later snapshots
+	// or live-battle checkpoints can change the observed state.
+	LanceMounted *bool `json:"LanceMounted,omitempty"`
 	// MechanicSignal identifies a derived monster-mechanic event without
 	// borrowing a real in-game SkillId. It is omitted for normal skill actions.
 	MechanicSignal string `json:"MechanicSignal,omitempty"`
@@ -156,7 +171,8 @@ type EventSkillAction struct {
 // an owned creature's player owner.
 type EventLocalEntity struct {
 	EventBase
-	Reliable bool
+	Reliable    bool
+	ServerScope string `json:"ServerScope,omitempty"`
 	// Reset marks a new game-server connection/channel. Consumers should clear
 	// only transient identity and active-condition state while keeping damage
 	// history intact.

@@ -102,7 +102,7 @@
                         </div>
                     </dl>
 
-                    <ArcanaKpiPanel v-if="arcanaKpiReport" :report="arcanaKpiReport" :sample="isDesignPreview && !summary" />
+                    <ArcanaKpiPanel v-if="arcanaKpiReport" :report="arcanaKpiReport" v-model:lance-heat-bonus="lanceHeatBonus" :sample="isDesignPreview && !summary" />
 
                     <section class="condition-panel" :aria-label="$game('状态效果')">
                         <header class="condition-panel-header">
@@ -682,6 +682,7 @@
                                 <label v-if="rule.skillId === DORCHA_MASTERY_SKILL_ID">{{ $game("\n                                    多尔卡少于\n                                    ") }}<input v-model.number="rule.quantityThreshold" type="number" min="1" max="15" step="1" @change="markSkillCooldownSettingsDirty" />
                                     <span>{{ $game("点时弹框") }}</span>
                                 </label>
+                                <span v-else-if="rule.skillId === 59047">{{ $game("能量满 100% 且 CD 完成后提示") }}</span>
                                 <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">{{ $game("\n                                    提示进度\n                                    ") }}<input
                                         v-model.number="rule.progressThresholdPercent"
                                         type="number"
@@ -748,7 +749,7 @@
                                     <input v-model="rule.alwaysVisible" type="checkbox" @change="markSkillCooldownSettingsDirty" />
                                     {{ $game(rule.skillId === DORCHA_MASTERY_SKILL_ID ? "数量一直显示" : (rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)) ? "能量槽一直显示" : "技能图标一直显示") }}
                                 </label>
-                                <label v-if="rule.skillId === 59047"><input v-model="rule.showEnergyPercent" type="checkbox" @change="markSkillCooldownSettingsDirty" />{{ $game("显示能量百分比数字") }}</label>
+                                <label v-if="rule.skillId === 59047" :title="$game('只控制数字显示；未勾选时仍需能量满 100% 且 CD 完成才提示')"><input v-model="rule.showEnergyPercent" type="checkbox" @change="markSkillCooldownSettingsDirty" />{{ $game("显示能量百分比数字") }}</label>
                                 <button type="button" class="buff-alert-preview" @click="previewSkillCooldown(rule.skillId)">{{ $game("预览位置与动画") }}</button>
                                 </div>
                                 <button type="button" class="buff-alert-remove" @click="removeSkillCooldownRule(rule.skillId)">
@@ -1479,6 +1480,7 @@ const CONDITION_DISPLAY_NAME_OVERRIDES: Record<number, string> = {
     913: "喵咪的奔袭",
     1080: "米耶尔的羽毛",
     1098: "湛蓝内伤",
+    1121: "魔法攻击力强化（魔法攻击药水）",
     1153: "分裂的能量",
 };
 const STACK_ALERT_CC_IDS = new Set([1080, 1098, 1153]);
@@ -2220,7 +2222,8 @@ const allConditionDefinitions = computed<PlayerBuffDefinition[]>(() => {
     const clean = (names: Record<string, string>) => Object.fromEntries(Object.entries(names)
         .map(([id, name]) => [id, toSimplified(cleanName(name)) || `状态 ${id}`]));
     return conditionDefinitions(playerBuffGroups.value.flatMap(group => group.items),
-        clean(fallbackConditionNames), clean(condNameMap.value), resourceRegion.value, HIDDEN_PLAYER_BUFF_IDS);
+        clean(fallbackConditionNames), clean(condNameMap.value), resourceRegion.value, HIDDEN_PLAYER_BUFF_IDS)
+        .map((item) => item.id === 1121 ? { ...item, name: conditionDisplayName(item.id) } : item);
 });
 // Timer triggers use the full condition library, including conditions hidden
 // only from the player Buff panel (for example enhanced dual-gun shooting).
@@ -2547,6 +2550,12 @@ function previewConditionRows(): ConditionCoverageRow[] {
 }
 
 function conditionDisplayName(ccId: number) {
+    if (ccId === 1121) {
+        const name = resourceRegion.value === 'tw'
+            ? conditionResourceName(ccId, cleanName(FALLBACK_CONDITION_NAME_MAP[String(ccId)])) || "魔法攻擊力強化"
+            : "魔法攻击力强化";
+        return uiText(`${name}（魔法攻击药水）`);
+    }
     if (resourceRegion.value === 'tw') {
         return conditionResourceName(ccId, cleanName(FALLBACK_CONDITION_NAME_MAP[String(ccId)])) || `状态 ${ccId}`;
     }
@@ -5215,6 +5224,21 @@ const combatSummaryRows = computed(() => {
     return rows;
 });
 
+const lanceHeatBonuses = ref<Record<string, string>>((() => {
+    try {
+        const value = JSON.parse(localStorage.getItem("lancer-heat-bonuses") ?? "{}");
+        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    } catch { return {}; }
+})());
+const lanceHeatBonus = computed({
+    get: () => lanceHeatBonuses.value[selectedPlayerId.value] ?? "unknown",
+    set: (value: string) => {
+        if (!["base", "link", "unknown"].includes(value)) return;
+        lanceHeatBonuses.value[selectedPlayerId.value] = value;
+        try { localStorage.setItem("lancer-heat-bonuses", JSON.stringify(lanceHeatBonuses.value)); } catch { /* optional preference */ }
+    },
+});
+
 const arcanaKpiReport = computed(() => {
     const player = reportPlayer.value;
     const session = reportSession.value;
@@ -5236,6 +5260,7 @@ const arcanaKpiReport = computed(() => {
         musicPerformances: manager.musicPerformances,
         aimSamples: manager.kpiAimSamples,
         dorchaMinimum: 0.5,
+        lanceHeatGainMultiplier: lanceHeatBonus.value === "link" ? 1.5 : lanceHeatBonus.value === "base" ? 1 : undefined,
     });
 });
 

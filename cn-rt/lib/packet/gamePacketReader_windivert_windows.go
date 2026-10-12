@@ -59,12 +59,14 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle winDivertReceive
 	baseSeq := uint32(0)
 	stream := tcpStreamBuffer{}
 	flow := ""
+	serverScope := ""
 	clientIPSeen := make(map[string]struct{})
 
 	forward := func(parts []gamePacketPayload) {
 		for _, p := range parts {
 			p.relSeq -= baseSeq
 			p.connectionEpoch = connectionEpoch
+			p.serverScope = serverScope
 			ch <- p
 		}
 	}
@@ -117,6 +119,7 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle winDivertReceive
 			logger.Printf("WinDivert detected client ip %v", dstIP)
 		}
 
+		serverScope = ip4.SrcIP.String()
 		packetFlow := fmt.Sprintf("%s:%d>%s:%d", ip4.SrcIP, tcp.SrcPort, ip4.DstIP, tcp.DstPort)
 		if flow != packetFlow {
 			switchingConnection := flow != ""
@@ -132,7 +135,7 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle winDivertReceive
 				continue
 			}
 		}
-		forward(stream.push(tcp.Seq, tcp.Payload, capturedAt))
+		forward(stream.pushObserved(tcp.Seq, tcp.Payload, capturedAt, capturedAt))
 	}
 
 	// Preserve real gap boundaries when the capture source stops.

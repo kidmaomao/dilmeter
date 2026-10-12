@@ -102,6 +102,7 @@ func (runtime *nativeReminderRuntime) burstOverlay(now time.Time) ([]nativeBossM
 				items = append(items, separateBurstPopup(items, *cooldown))
 			}
 		}
+		var powerEffect *nativeBossMechanicOverlayItem
 		for index, id := range actors {
 			state := runtime.partySkills[id][skill]
 			phase := ""
@@ -136,7 +137,21 @@ func (runtime *nativeReminderRuntime) burstOverlay(now time.Time) ([]nativeBossM
 			}
 			item := nativeBossMechanicOverlayItem{Key: fmt.Sprintf("burst:%d:%s", skill, id), Name: label, Label: label, ActorID: id, ActorName: name, SkillID: skill, SkillName: rule.Name, Phase: phase, TimingUnknown: unknown, TargetID: target, Orientation: rule.Orientation,
 				Icon: "mdi-alert-decagram", StartedAtMs: started, EndsAtMs: ends, Generation: uint64(generation), X: rule.Cast.X, Y: rule.Cast.Y + index*(burstCardSize+8)*rule.Cast.ScalePercent/100, ScalePercent: rule.Cast.ScalePercent}
-			items = append(items, separateBurstPopup(items, item))
+			if skill == 58014 && phase == "effect" {
+				if powerEffect == nil {
+					group := item
+					group.Key = "burst:effect:58014"
+					group.Name, group.Label = rule.Name+"生效", rule.Name+"生效"
+					group.X, group.Y = rule.Cast.X, rule.Cast.Y
+					powerEffect = &group
+				}
+				powerEffect.EffectActors = append(powerEffect.EffectActors, nativeBurstEffectActor{ActorID: id, ActorName: name, StartedAtMs: started, EndsAtMs: ends})
+				// The frame lasts until the final recipient expires; every row keeps its own deadline.
+				powerEffect.StartedAtMs = min(powerEffect.StartedAtMs, started)
+				powerEffect.EndsAtMs = max(powerEffect.EndsAtMs, ends)
+			} else {
+				items = append(items, separateBurstPopup(items, item))
+			}
 			if state == nil {
 				continue
 			}
@@ -145,6 +160,9 @@ func (runtime *nativeReminderRuntime) burstOverlay(now time.Time) ([]nativeBossM
 			if phase == "cast" && !announced && display.SoundEnabled && runtime.settings.Burst.Volume > 0 && runtime.playSound != nil && runtime.playSound(nativeReminderSoundRequest{Kind: "skill-ready", Volume: runtime.settings.Burst.Volume}) {
 				state.SoundCastAtMs = started
 			}
+		}
+		if powerEffect != nil {
+			items = append(items, separateBurstPopup(items, *powerEffect))
 		}
 	}
 	return items, nil
@@ -268,7 +286,14 @@ func (runtime *nativeReminderRuntime) burstActorName(id string) string {
 	return "未知使用者"
 }
 
+func burstPowerEffectGroup(item nativeBossMechanicOverlayItem) bool {
+	return item.SkillID == 58014 && item.Phase == "effect" && len(item.EffectActors) > 0
+}
+
 func burstPopupDimensions(item nativeBossMechanicOverlayItem) (int, int) {
+	if burstPowerEffectGroup(item) {
+		return 128, max(112, 80+18*len(item.EffectActors))
+	}
 	if item.SkillID == 59005 && (item.Phase == "cooldown" || item.Phase == "ready") || item.Compact {
 		rows := len(item.ReadyActors)
 		if item.Phase != "ready" || rows == 0 {

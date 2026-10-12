@@ -55,6 +55,8 @@ type eventPublisher struct {
 	partyArcana            map[uint64]*partyArcanaState
 	statCache              map[uint64]map[uint32]float64
 	connectionEpoch        uint64
+	serverScope            string
+	obsObservedAt          time.Time
 	lastSentEventAt        time.Time
 	pendingEvents          []event.IEvent
 	eventSequence          uint64
@@ -100,6 +102,10 @@ func (t *eventPublisher) loop() {
 		case <-t.ctx.Done():
 			return
 		case p := <-t.r.PacketCh():
+			t.Lock()
+			t.serverScope = p.ServerScope
+			t.obsObservedAt = p.ObservedAt
+			t.Unlock()
 			if p.ConnectionEpoch != 0 && p.ConnectionEpoch != t.connectionEpoch {
 				t.beginConnectionEpoch(p.ConnectionEpoch, p.At)
 			}
@@ -424,6 +430,7 @@ func (t *eventPublisher) loop() {
 				continue
 
 			case packet.OpcodeSkillExecute:
+				t.publishObsExecute(p)
 				if err := t.publishSkillExecutePacket(p); err != nil {
 					logger.Println("ParseSkillExecutePacket failed:", err)
 				}
@@ -545,6 +552,7 @@ func (t *eventPublisher) loop() {
 					logger.Println("ParseCombatActionPackPacket failed:", err)
 					continue
 				}
+				t.publishObsCombat(p, pack)
 				t.publishAlchemistHitCounts(p, pack)
 				t.observePuppeteerCombat(p, pack)
 				t.observePartyArcanaCombat(p, pack)
@@ -600,7 +608,7 @@ func (t *eventPublisher) loop() {
 							actionID = pack.CombatActionId
 						}
 						if t.acceptSkillAction(actionID) {
-							t.publish(&event.EventSkillAction{
+							t.publish(obsActionEvidence(&event.EventSkillAction{
 								EventBase: event.EventBase{
 									EventId: event.EventIdSkillAction,
 									At:      p.At.Unix(),
@@ -613,7 +621,7 @@ func (t *eventPublisher) loop() {
 								SourceId:       strconv.FormatUint(action.EntityId, 10),
 								IsFallback:     isFallbackSkillAction(pack, action, ownedSource),
 								IsLocal:        true,
-							})
+							}, action))
 						}
 					}
 				}
@@ -814,8 +822,17 @@ func (t *eventPublisher) publish(e event.IEvent) {
 	// blocking이 되면 안된다
 
 	t.Lock()
+	if local, ok := e.(*event.EventLocalEntity); ok {
+		local.ServerScope = t.serverScope
+	}
+	if action, ok := e.(*event.EventSkillAction); ok {
+		t.captureLanceMount(action)
+	}
 	if value, ok := e.(interface{ GetEventBase() *event.EventBase }); ok {
 		base := value.GetEventBase()
+		// Stamp at the original live receive point, before TCP/parser/output
+		// queues, never when a delayed batch is finally sent to a client.
+		base.ObsClock = obsEventClock(base.EventId, t.serverScope, t.obsObservedAt)
 		if base.EventId == event.EventIdEntityDisappear || base.EventId == event.EventIdFinish {
 			// A fresh visibility/life interval must publish its HP snapshot even
 			// when the values happen to match the previous interval.
@@ -894,6 +911,7 @@ func (t *eventPublisher) addClient(ctx context.Context, ch chan<- []event.IEvent
 		t.localEntityReliable,
 		false,
 	))
+	events[len(events)-1].(*event.EventLocalEntity).ServerScope = t.serverScope
 	for _, entity := range t.entityCache {
 		e := toEventEntityAppear(entity.appearAt, entity.EntityInfo)
 
@@ -1866,6 +1884,11 @@ func (t *eventPublisher) publishPartyCombatAction(p *packet.GamePacket, pack *pa
 		if confirmed && !t.acceptSkillAction(actionID) {
 			continue
 		}
-		t.publish(&event.EventSkillAction{EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: p.At.Unix(), Id: id}, SkillId: action.SkillId, CombatActionId: actionID, AtMs: p.At.UnixMilli(), SourceId: id, IsFallback: !confirmed, IsLocal: false})
+		published := &event.EventSkillAction{EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: p.At.Unix(), Id: id}, SkillId: action.SkillId, SubSkillId: action.SubSkillId, CombatActionId: actionID, AtMs: p.At.UnixMilli(), SourceId: id, IsFallback: !confirmed, IsLocal: false}
+		if obsUltimateSkill(action.SkillId) {
+			published.ObservedActionType = uint8(action.Type)
+			published.ObservedTargetId = strconv.FormatUint(action.Attacker.TargetId, 10)
+		}
+		t.publish(published)
 	}
 }

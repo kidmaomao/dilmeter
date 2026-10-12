@@ -100,6 +100,8 @@ export type eventEntityUpdateBody = eventBase & {
 }
 
 export type eventSkillAction = eventBase & {
+    /** CC 975 observed at release, before later same-second condition changes. */
+    LanceMounted?: boolean;
     EventId: 10;
     SkillId: number;
     SubSkillId: number;
@@ -171,7 +173,7 @@ export type eventArcanaSignal = eventBase & {
     Signal: "sniper-counter" | "domain-created" | "gunner-hit-extra" | "domain-linked" | "domain-sample" | "domain-remove-signal"
         | "chemical-effect-count" | "chemical-hit-count" | "chemical-sample" | "act7-sample" | "interlude-sample"
         | "fighter-combo" | "fighter-energy-baseline" | "fighter-energy-bounds" | "fighter-energy-delta" | "fighter-energy-reset" | "fighter-spend-start" | "fighter-spend-end"
-        | "hydro-charge-sample" | "lightning-chain-state" | "lightning-chain-reset";
+        | "lance-heat-reset" | "hydro-charge-sample" | "lightning-chain-state" | "lightning-chain-reset";
     CastAtMs?: number; FirstHitAtMs?: number; TargetId?: string; Count: number; Phase?: number; Complete: boolean;
     ReverseAtMs?: number; ReverseEndAtMs?: number; ReadyAtMs?: number;
     Kind?: number; DurationMs?: number; Range?: number; X?: number; Y?: number;

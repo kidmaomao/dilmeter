@@ -6,13 +6,25 @@ globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (k
 const server = await createServer({ configFile: false, root: fileURLToPath(new URL('..', import.meta.url)), logLevel: 'error', server: { middlewareMode: true, hmr: false, ws: false }, optimizeDeps: { noDiscovery: true, include: [] } });
 try {
  const { normalizeBurstSettings, loadBurstSettings, saveBurstSettings } = await server.ssrLoadModule('/src/burstReminder.ts');
- const { createBurstPreview, burstPopupDimensions } = await server.ssrLoadModule('/src/burstReminderView.ts');
+ const { createBurstPreview, burstPopupDimensions, isBurstPowerEffectGroup, visibleBurstEffectActors, burstRemainingText } = await server.ssrLoadModule('/src/burstReminderView.ts');
  const defaults = loadBurstSettings();
  for (const id of [59005,58014]) for (const phase of ['cast','effect','ready','cooldown','alert']) {
   const preview=createBurstPreview(defaults.rules[id],phase,100000);
   assert.equal(preview.endsAtMs,108000); assert.equal(preview.previewExpiresAtMs,108000);
  }
  const mixed=createBurstPreview(defaults.rules[59005],'alert',100000);
+ const power=createBurstPreview(defaults.rules[58014],'effect',100000);
+ assert.equal(isBurstPowerEffectGroup(power),true);
+ assert.equal(power.effectActors.length,3,'power preview shows multiple recipients in one card');
+ assert.equal(visibleBurstEffectActors(power,107999).length,3);
+ assert.equal(visibleBurstEffectActors(power,108000).length,0,'preview recipients expire at eight seconds');
+ power.effectActors[0].endsAtMs=105000;
+ assert.equal(visibleBurstEffectActors(power,105000).length,2,'one expiry keeps the other recipients');
+ assert.equal(burstRemainingText(power.effectActors[1].endsAtMs,105000),'3.0');
+ assert.equal(isBurstPowerEffectGroup(createBurstPreview(defaults.rules[58014],'cast',100000)),false,'casting is not effect coverage');
+ assert.equal(isBurstPowerEffectGroup(createBurstPreview(defaults.rules[59005],'effect',100000)),false);
+ power.effectActors=Array.from({length:8},(_,i)=>({actorId:String(i),actorName:'队友'+i,startedAtMs:100000,endsAtMs:108000}));
+ assert.deepEqual(burstPopupDimensions(power),{width:128,height:224},'all recipients fit inside the growing frame');
  assert.equal(mixed.readyActors[0].actorName,'队友 A'); assert.equal(mixed.actorName,'队友 B'); assert.equal(mixed.nextReadySoon,true);
  mixed.readyActors=Array.from({length:8},(_,i)=>({actorId:String(i),actorName:'队友'+i}));
  assert.ok(burstPopupDimensions(mixed).height>=80+16*9,'all ready rows fit without clipping');

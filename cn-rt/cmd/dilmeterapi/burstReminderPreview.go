@@ -32,6 +32,9 @@ func setBurstReminderPreview(item nativeBossMechanicOverlayItem, nowMs int64) {
 	item.Key = "burst-preview-" + item.Phase
 	item.StartedAtMs, item.EndsAtMs = nowMs, nowMs+burstPreviewDurationMs
 	item.PreviewExpiresAtMs, item.Generation = item.EndsAtMs, uint64(nowMs)
+	for index := range item.EffectActors {
+		item.EffectActors[index].StartedAtMs, item.EffectActors[index].EndsAtMs = item.StartedAtMs, item.EndsAtMs
+	}
 	item.X, item.Y = max(-32000, min(32000, item.X)), max(-32000, min(32000, item.Y))
 	item.ScalePercent = max(50, min(200, item.ScalePercent))
 	skillOverlayState.Lock()

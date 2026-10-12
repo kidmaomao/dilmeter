@@ -501,7 +501,10 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 	}
 	if item.EnergyGate {
 		if item.SkillID == darkEnergySkillID && item.ShowEnergyPercent != nil && !*item.ShowEnergyPercent {
-			label = ""
+			label = "能量未满"
+			if item.ProgressPercent != nil && *item.ProgressPercent >= 100 {
+				label = "能量已满"
+			}
 		}
 		if !item.EnergyActive {
 			label = "未开启"
@@ -514,6 +517,10 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 				label += "\nCD已好"
 			}
 		}
+	}
+	// A full gauge alone must not look usable while CD is running or unknown.
+	if item.EnergyGate && item.SkillID == darkEnergySkillID && !item.EnergyReady {
+		fillNativeSkillBarRect(canvas, renderRect.Inset(1), color.RGBA{A: 165})
 	}
 	label = strings.TrimSpace(label)
 	if item.PetSkill {
@@ -599,6 +606,9 @@ func drawNativeAimReminder(canvas *image.RGBA, item nativeAimReminderOverlayItem
 }
 
 func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverlayItem, offset image.Point, dpiScale float64, nowMs int64) []nativeReminderText {
+	if burstPowerEffectGroup(item) {
+		return drawNativeBurstPowerEffect(canvas, item, offset, dpiScale, nowMs)
+	}
 	if item.Compact || (item.SkillID == 59005 || item.Label != "") && (item.Phase == "cooldown" || item.Phase == "ready") {
 		return drawNativeBurstCooldown(canvas, item, offset, dpiScale, nowMs)
 	}
@@ -629,6 +639,49 @@ func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverl
 		drawNativeUnlockedFrame(canvas, rect)
 	}
 	return []nativeReminderText{{text: item.Name, rect: imageRectToNative(image.Rect(left+4, top+4, rect.Max.X-4, top+max(22, int(30*factor)))), color: nativeColorRef(255, 248, 225), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(9, int(11*factor)), fontWeight: nativeFontBold}, {text: fmt.Sprintf("%.1f", remaining), rect: imageRectToNative(image.Rect(left+4, top+max(20, int(26*factor)), rect.Max.X-4, rect.Max.Y-10)), color: nativeColorRef(255, 255, 255), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(20, int(46*factor)), fontWeight: 900}}
+}
+
+// Keep the native fallback and WebView roster at the same size and row positions.
+func drawNativeBurstPowerEffect(canvas *image.RGBA, item nativeBossMechanicOverlayItem, offset image.Point, dpiScale float64, nowMs int64) []nativeReminderText {
+	factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
+	left, top := item.X+offset.X, item.Y+offset.Y
+	w, h := burstPopupDimensions(item)
+	rect := image.Rect(left, top, left+int(math.Ceil(float64(w)*factor)), top+int(math.Ceil(float64(h)*factor)))
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		ratio := float64(y-rect.Min.Y) / float64(max(1, rect.Dy()-1))
+		fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X, y, rect.Max.X, y+1), color.RGBA{R: uint8(41 - 24*ratio), G: uint8(39 - 15*ratio), B: uint8(30 - 3*ratio), A: 245})
+	}
+	drawNativeSkillBarBorder(canvas, rect, color.RGBA{R: 86, G: 127, B: 137, A: 255}, max(1, int(factor)))
+	icon := max(20, int(40*factor))
+	iconLeft := left + (rect.Dx()-icon)/2
+	drawNativeReminderIcon(canvas, image.Rect(iconLeft, top+int(8*factor), iconLeft+icon, top+int(8*factor)+icon), "skill-icons", uint64(item.SkillID), color.RGBA{R: 137, G: 209, B: 220, A: 255})
+	textRect := func(x1, y1, x2, y2 int) nativeRect {
+		return imageRectToNative(image.Rect(left+int(float64(x1)*factor), top+int(float64(y1)*factor), left+int(float64(x2)*factor), top+int(float64(y2)*factor)))
+	}
+	texts := []nativeReminderText{{text: "正在生效", rect: textRect(5, 51, w-5, 66), color: nativeColorRef(137, 209, 220), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(8, int(11*factor)), fontWeight: nativeFontBold}}
+	rowY := 70
+	for _, actor := range item.EffectActors {
+		if actor.StartedAtMs > nowMs || actor.EndsAtMs <= nowMs {
+			continue
+		}
+		name := actor.ActorName
+		if name == "" {
+			name = actor.ActorID
+		}
+		seconds := float64(actor.EndsAtMs-nowMs) / 1000
+		value := fmt.Sprintf("%.1fs", math.Ceil(seconds*10)/10)
+		if seconds >= 10 {
+			value = fmt.Sprintf("%.0fs", math.Ceil(seconds))
+		}
+		texts = append(texts,
+			nativeReminderText{text: name, rect: textRect(8, rowY, w-43, rowY+18), color: nativeColorRef(248, 244, 233), flags: dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(8, int(12*factor)), fontWeight: nativeFontBold},
+			nativeReminderText{text: value, rect: textRect(w-39, rowY, w-8, rowY+18), color: nativeColorRef(137, 209, 220), flags: dtRight | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(8, int(11*factor)), fontWeight: nativeFontBold})
+		rowY += 18
+	}
+	if !nativeReminderOverlaysAreLocked() {
+		drawNativeUnlockedFrame(canvas, rect)
+	}
+	return texts
 }
 
 // Match the compact WebView card when the system uses the native fallback.

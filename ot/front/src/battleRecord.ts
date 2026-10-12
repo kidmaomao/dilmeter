@@ -1,4 +1,5 @@
 import { musicPerformanceInSession } from "./musicPerformance";
+import { lanceActionTime } from "./lancerKpi";
 import { clipVitalHistory } from "./battleChartHistory";
 import type { DamageCollectorManager } from "@/actionCollector";
 import type {
@@ -132,9 +133,7 @@ export function createBattleRecord(
         damages: actorManager.damages
             .filter(hitsBoss)
             .map((damage) => ({ ...damage })),
-        skillActions: (actorManager.skillActions ?? [])
-            .filter((action) => action.At >= session.startAt && action.At <= session.endAt)
-            .map((action) => ({ ...action })),
+        skillActions: clipLanceHeatActions(actorManager.skillActions ?? [], playerIds, session.startAt, session.endAt),
         statUpdates: clipKpiStatUpdates(actorManager.statUpdates ?? [], playerIds, session.startAt, session.endAt),
         skillCooldowns: (actorManager.skillCooldowns ?? [])
             .filter((event) => playerIds.includes(event.Id) && inSession(event))
@@ -221,7 +220,7 @@ function clipArcanaSignals(signals: readonly import("./protocols").eventArcanaSi
         .map((signal) => [`${signal.Id}:${signal.CastAtMs}`, signal.At]));
     const spendCasts = new Set(selected.filter((signal) => signal.Signal === "fighter-spend-start" && signal.At <= end
         && (spendEnds.get(`${signal.Id}:${signal.CastAtMs}`) ?? end) >= start).map((signal) => `${signal.Id}:${signal.CastAtMs}`));
-    return selected.filter((signal, index) => signal.At <= end && (signal.Signal.startsWith("fighter-energy-")
+    return selected.filter((signal, index) => signal.At <= end && (signal.Signal === "lance-heat-reset" ? true : signal.Signal.startsWith("fighter-energy-")
         ? index >= (energyFrom.get(signal.Id) ?? 0) || signal.At >= start
         : signal.Signal.startsWith("lightning-chain-") ? index === chainBaseline.get(signal.Id) || signal.At >= start
         : signal.Signal.startsWith("fighter-spend-") ? spendCasts.has(`${signal.Id}:${signal.CastAtMs}`)
@@ -229,6 +228,20 @@ function clipArcanaSignals(signals: readonly import("./protocols").eventArcanaSi
         ? casts.has(`${signal.Id}:${signal.CastAtMs}`)
         : signal.Signal === "domain-created" ? signal.At + (signal.DurationMs ?? 0) / 1000 >= start
         : signal.At >= start)).map((signal) => ({ ...signal, ...(signal.ObjectIds ? { ObjectIds: [...signal.ObjectIds] } : {}) }));
+}
+
+function clipLanceHeatActions(actions: readonly import("./protocols").eventSkillAction[], playerIds: readonly string[], start: number, end: number) {
+    const baseline = new Map<string, number>();
+    for (const action of actions) {
+        if (playerIds.includes(action.Id) && action.SkillId === 59106 && !action.IsFallback
+            && !action.MechanicSignal && (action.SubSkillId ?? 0) <= 1
+            && (!action.SourceId || action.SourceId === action.Id) && action.At < start) {
+            baseline.set(action.Id, Math.max(baseline.get(action.Id) ?? -Infinity, lanceActionTime(action)));
+        }
+    }
+    return actions.filter((action) => action.At <= end && (action.At >= start
+        || (action.SkillId >= 59101 && action.SkillId <= 59106 && lanceActionTime(action) >= (baseline.get(action.Id) ?? Infinity))))
+        .map((action) => ({ ...action }));
 }
 
 function clipKpiStatUpdates(events: readonly import("./protocols").eventStatUpdate[], playerIds: string[], start: number, end: number) {

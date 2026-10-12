@@ -18,6 +18,10 @@ type tcpStreamBuffer struct {
 const maxPendingTCPSegments = 4096
 
 func (b *tcpStreamBuffer) push(seq uint32, data []byte, at time.Time) []gamePacketPayload {
+	return b.pushObserved(seq, data, at, time.Time{})
+}
+
+func (b *tcpStreamBuffer) pushObserved(seq uint32, data []byte, at, observedAt time.Time) []gamePacketPayload {
 	if len(data) == 0 {
 		return nil
 	}
@@ -42,7 +46,7 @@ func (b *tcpStreamBuffer) push(seq uint32, data []byte, at time.Time) []gamePack
 		}
 	}
 	owned := append([]byte(nil), data...)
-	b.pending = append(b.pending, gamePacketPayload{relSeq: seq, data: owned, at: at})
+	b.pending = append(b.pending, gamePacketPayload{relSeq: seq, data: owned, at: at, observedAt: observedAt})
 	sort.SliceStable(b.pending, func(i, j int) bool { return int32(b.pending[i].relSeq-b.next) < int32(b.pending[j].relSeq-b.next) })
 	output := b.drain()
 	if len(b.pending) > maxPendingTCPSegments {

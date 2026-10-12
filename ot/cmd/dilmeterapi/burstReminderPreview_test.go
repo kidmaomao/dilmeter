@@ -83,3 +83,20 @@ func TestBurstPreviewNextClickReplacesInsteadOfExtendingOldPreview(t *testing.T)
 		}
 	}
 }
+
+func TestBurstPowerPreviewRosterUsesServerPreviewLifetime(t *testing.T) {
+	preserveBurstPreviewState(t)
+	setBurstReminderPreview(nativeBossMechanicOverlayItem{SkillID: 58014, Phase: "effect", ScalePercent: 100, EffectActors: []nativeBurstEffectActor{
+		{ActorID: "a", ActorName: "队友 A", StartedAtMs: 1, EndsAtMs: 10},
+		{ActorID: "b", ActorName: "队友 B", StartedAtMs: 2, EndsAtMs: 20},
+	}}, 100000)
+	message := readBurstPreviewState(t)
+	if len(message.Mechanics) != 1 || len(message.Mechanics[0].EffectActors) != 2 {
+		t.Fatalf("lost preview recipients: %+v", message.Mechanics)
+	}
+	for _, actor := range message.Mechanics[0].EffectActors {
+		if actor.StartedAtMs != 100000 || actor.EndsAtMs != 108000 {
+			t.Fatalf("client clock shortened preview row: %+v", actor)
+		}
+	}
+}

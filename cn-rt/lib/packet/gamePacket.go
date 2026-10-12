@@ -9,16 +9,20 @@ import (
 var logger = util.NewLogger("packet")
 
 type GamePacket struct {
-	At     time.Time
-	Sign   uint8
-	Length uint32
-	Flag   uint8
+	At time.Time
+	// Monotonic live receive time, independent of pcap timestamps. Zero for replay.
+	ObservedAt time.Time `json:"-"`
+	Sign       uint8
+	Length     uint32
+	Flag       uint8
 
 	// ConnectionEpoch identifies the capture/TCP session that produced this
 	// packet. It changes when the game reconnects or switches channel, allowing
 	// consumers to discard live state from the previous server connection
 	// without clearing accumulated combat history.
 	ConnectionEpoch uint64
+	// Existing live connection endpoint; empty for offline replay.
+	ServerScope string
 
 	// raw packet
 	IsShortPacket bool

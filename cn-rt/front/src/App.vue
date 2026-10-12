@@ -106,6 +106,9 @@
                 <template #team-reminders="{ active }">
                     <HealerMonitorPanel v-if="!isStandalone" embedded :open="active" :is-record-replay="isRecordReplay" />
                 </template>
+                <template #obs-effects>
+                    <ObsEffectsSwitch v-if="!isStandalone" />
+                </template>
                 <template #extra-skillbar="{ active }">
                     <SkillBarSettingsDialog v-if="!isStandalone" embedded :model-value="active" />
                 </template>
@@ -258,6 +261,7 @@ import {
     parseBattleRecord,
 } from "@/battleRecord";
 import GameDpsReport from "@/components/GameDpsReport.vue";
+import ObsEffectsSwitch from "@/components/ObsEffectsSwitch.vue";
 import BuffOverlay from "@/components/BuffOverlay.vue";
 import DebuffOverlay from "@/components/DebuffOverlay.vue";
 import SkillCooldownOverlay from "@/components/SkillCooldownOverlay.vue";
@@ -330,7 +334,7 @@ interface GameServerSettings {
 
 export default defineComponent({
     name: "App",
-    components: { ReminderHelpTooltip, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
+    components: { ObsEffectsSwitch, ReminderHelpTooltip, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
     setup() {
         const db = inject("db") as any;
         const region = inject("region") as any;

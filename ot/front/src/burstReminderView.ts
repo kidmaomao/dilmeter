@@ -8,7 +8,21 @@ export function isBurstCooldownGroup(item: BossMechanicOverlayItem): boolean {
  return item.skillId === 59005 && (item.phase === 'cooldown' || item.phase === 'ready');
 }
 
+export function isBurstPowerEffectGroup(item: BossMechanicOverlayItem): boolean {
+ return item.skillId === 58014 && item.phase === 'effect' && !!item.effectActors?.length;
+}
+
+export function visibleBurstEffectActors(item: BossMechanicOverlayItem, nowMs: number) {
+ return (item.effectActors || []).filter(actor => actor.startedAtMs <= nowMs && actor.endsAtMs > nowMs);
+}
+
+export function burstRemainingText(endsAtMs: number, nowMs: number): string {
+ const remaining = Math.max(0, endsAtMs - nowMs) / 1000;
+ return remaining >= 10 ? String(Math.ceil(remaining)) : (Math.ceil(remaining * 10) / 10).toFixed(1);
+}
+
 export function burstPopupDimensions(item: BossMechanicOverlayItem): { width: number; height: number } {
+ if (isBurstPowerEffectGroup(item)) return { width: 128, height: Math.max(112, 80 + 18 * item.effectActors!.length) };
  if (isBurstCooldownGroup(item) || item.compact) {
   let rows = item.readyActors?.length || 0;
   if (item.phase !== 'ready' || rows === 0) rows++;
@@ -23,6 +37,7 @@ export function createBurstPreview(rule: BurstRule, phase: BurstPreviewPhase, no
  const label = `预览 · ${rule.name}`;
  return {
   key: `burst-preview-${phase}`, name: label, label, actorId: 'preview-b', actorName: cooldown ? '队友 B' : '预览队友',
+  effectActors: rule.skillId === 58014 && phase === 'effect' ? ['队友 A', '队友 B', '队友 C'].map((actorName, index) => ({ actorId: `preview-${index}`, actorName, startedAtMs: nowMs, endsAtMs: nowMs + BURST_PREVIEW_MS })) : undefined,
   readyActors: cooldown ? [{ actorId: 'preview-a', actorName: '队友 A' }, ...(phase === 'ready' ? [{ actorId: 'preview-b', actorName: '队友 B' }] : [])] : undefined,
   nextReadySoon: phase === 'alert', skillId: rule.skillId, skillName: rule.name, phase: phase === 'alert' ? 'cooldown' : phase,
   compact: phase === 'cooldown', orientation: rule.orientation, hideCountdown: phase === 'ready', icon: 'mdi-alert-decagram',

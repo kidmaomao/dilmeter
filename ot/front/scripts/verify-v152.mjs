@@ -15,6 +15,33 @@ try {
     assert.equal(energyReminderReady(59047,full,100,cd,31000),true);
     assert.equal(energyReminderReady(59047,{Percent:95,Active:true},100,cd,32000),false);
     assert.equal(energyReminderReady(59085,full,100,undefined,32000),true);
+    const { SKILL_COOLDOWN_STORAGE_KEY, loadSkillCooldownSettings, saveSkillCooldownSettings } = await server.ssrLoadModule('/src/skillCooldown.ts');
+    const values = new Map();
+    globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+    globalThis.window = { dispatchEvent() {} };
+    // Old thresholds and the digits toggle must not bypass either usability gate.
+    const darkCooldown = { usedAtMs: 100_000, readyAtMs: 130_000 };
+    for (const showEnergyPercent of [true, false]) {
+        localStorage.setItem(SKILL_COOLDOWN_STORAGE_KEY, JSON.stringify({
+            coordinateVersion: 2,
+            rules: { 59047: { skillId: 59047, progressThresholdPercent: 80, showEnergyPercent } },
+        }));
+        const migrated = loadSkillCooldownSettings();
+        assert.equal(migrated.rules[59047].progressThresholdPercent, 100, 'old dark-energy thresholds migrate to full charge');
+        migrated.rules[59047].progressThresholdPercent = 50;
+        saveSkillCooldownSettings(migrated);
+        assert.equal(loadSkillCooldownSettings().rules[59047].progressThresholdPercent, 100, 'saving cannot restore an early dark-energy threshold');
+        assert.equal(loadSkillCooldownSettings().rules[59047].showEnergyPercent, showEnergyPercent);
+        for (const threshold of [0, 80, 95, 100]) {
+            assert.equal(energyReminderReady(59047, { Percent: 95, Active: true }, threshold, darkCooldown, 130_000), false, 'ready CD cannot bypass partial energy');
+            assert.equal(energyReminderReady(59047, { Percent: 100, Active: true }, threshold, darkCooldown, 129_999), false, 'full energy cannot bypass CD');
+            assert.equal(energyReminderReady(59047, { Percent: 100, Active: true }, threshold, undefined, 130_000), false, 'unobserved CD is not ready');
+            assert.equal(energyReminderReady(59047, { Percent: 100, Active: false }, threshold, darkCooldown, 130_000), false, 'inactive gauge is not ready');
+            assert.equal(energyReminderReady(59047, { Percent: 100, Active: true }, threshold, darkCooldown, 130_000), true, 'both gates ready at the exact CD boundary');
+        }
+    }
+    assert.equal(energyReminderReady(59085, { Percent: 95, Active: true }, 95, undefined, 130_000), true, 'holy-energy warning threshold stays configurable');
+    console.log('dark energy requires full charge and observed CD regardless of digits or legacy threshold');
     const { buildEventSnapshot } = await server.ssrLoadModule('/src/worker/buildEventSnapshot.ts');
     const { ActorManager } = await server.ssrLoadModule('/src/eventActor.ts');
     const { DamageCollectorManager } = await server.ssrLoadModule('/src/actionCollector.ts');

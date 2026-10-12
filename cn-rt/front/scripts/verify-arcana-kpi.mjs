@@ -114,7 +114,35 @@ try {
     assert.equal(metric(shortage, "piercing").value, 40, ".5 is sufficient, only .49 is insufficient, and expiry is honored");
     assert.equal(metric(shortage, "seal-wait").value, null, "seal debuff is not a release record");
     const reset = build({ ...input, jobName: "黑魔导士", statUpdates: [stat(-1, 0), stat(6, -1), stat(22, 1)] });
-    assert.equal(metric(reset, "piercing").status, "missing-data", "reset must not carry a pre-channel quantity forward");
+    assert.ok(Math.abs(metric(reset, "piercing").value - 6 / 14 * 100) < 1e-8,
+        "reset excludes the unknown segment; observed periods remain usable without carrying the prior quantity forward");
+    assert.ok(metric(reset, "piercing").detail.includes("未观测的 6.00 秒"));
+    const manaPierce = (states, extra = {}) => metric(build({ ...input, jobName: "黑魔导士", localEntityId: "observer",
+        player: actor("player", states), ...extra }), "piercing");
+    const publicPierce = [[0, [condition(938, 0, "MPD:b:false;")]], [4, [condition(938, 4, "MPD:b:true;")]],
+        [8, [condition(938, 8, "MPD:b:false;")]]];
+    assert.equal(manaPierce(publicPierce).value, 20,
+        "CC938 MPD=true is ineffective even though CC938 remains enabled, without any private quantity");
+    assert.equal(manaPierce([[0, [condition(938, 0, "MPD:b:false;")]]]).value, 0,
+        "an observed healthy state is a real zero, not missing teammate data");
+    assert.equal(manaPierce(publicPierce, { statUpdates: [stat(0, 15)] }).value, 20,
+        "explicit effect state takes precedence over an older quantity");
+    assert.equal(manaPierce([[0, [condition(938, 0, "MPD:b:false;")]]], { statUpdates: [stat(0, 0)] }).value, 0);
+    const partialPierce = manaPierce([[5, [condition(938, 5, "MPD:b:false;")]],
+        [8, [condition(938, 8, "MPD:b:true;")]], [12, [condition(938, 12, "MPD:b:false;")]]]);
+    assert.ok(Math.abs(partialPierce.value - 2 / 15 * 100) < 1e-8,
+        "late initial state and immunity are excluded from numerator and denominator");
+    assert.ok(partialPierce.detail.includes("未观测的 5.00 秒"));
+    assert.equal(manaPierce([[0, []]], { statUpdates: [stat(5, 0)] }).value, 100,
+        "legacy quantity tracking can begin after the battle starts");
+    assert.equal(manaPierce([[0, [condition(938, 0, "MPD:b:unknown;")]]]).status, "missing-data");
+    assert.equal(manaPierce([[0, [condition(938, 0, "")]]]).status, "missing-data", "missing MPD is not implicitly false");
+    assert.equal(manaPierce([[0, []]], { actions: [action(59045, 2)] }).status, "missing-data",
+        "Mana Seal grants conditional gains, not a known starting quantity");
+    assert.equal(manaPierce([[0, []]], { statUpdates: [{ ...stat(0, 0), Id: "observer" }] }).status,
+        "missing-data", "observer's private quantity cannot stand in for the teammate");
+    assert.equal(manaPierce([[0, [condition(938, 0, "MPD:b:true;", { DisableAtMs: 5000 })]]]).value, 100,
+        "effect expiry ends the observed period instead of carrying an indefinite disabled state");
     const sacred = actor("player", [[0, [condition(1179, 0, "MCNPGV:f:0;")]], [8, [condition(1179, 8, "MCNPGV:f:50;")]],
         [22, [condition(1179, 22, "MCNPGV:f:100;")]], [23, [condition(1179, 23, "MCNPGV:f:40;")]]]);
     const charge = metric(build({ ...input, player: sacred, jobName: "圣盾骑士" }), "sacrifice");

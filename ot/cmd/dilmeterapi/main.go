@@ -38,8 +38,8 @@ var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterOT"
 
-var AppVersion = "1.6.1"
-var AppDisplayVersion = "1.6.1"
+var AppVersion = "1.6.2"
+var AppDisplayVersion = "1.6.2"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {

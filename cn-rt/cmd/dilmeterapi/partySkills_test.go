@@ -135,12 +135,17 @@ func TestBurstConditionsUseActualExpiryAndIndependentRecipients(t *testing.T) {
 	runtime.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{Id: "self", At: 100}, CCId: 516, DurationMs: 5000})
 	runtime.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{Id: "other", At: 100}, CCId: 516, DurationMs: 5000})
 	bars, _ := runtime.burstOverlay(time.UnixMilli(101000))
-	if len(bars) != 3 {
-		t.Fatalf("lost/combined recipients or displayed stranger: %+v", bars)
+	if len(bars) != 2 || len(bars[1].EffectActors) != 2 {
+		t.Fatalf("lost/grouped recipients incorrectly or displayed stranger: %+v", bars)
 	}
 	ends := map[string]int64{}
 	for _, bar := range bars {
-		ends[bar.TargetID] = bar.EndsAtMs
+		if bar.SkillID == 59005 {
+			ends[bar.TargetID] = bar.EndsAtMs
+		}
+		for _, actor := range bar.EffectActors {
+			ends[actor.ActorID] = actor.EndsAtMs
+		}
 	}
 	if ends["boss"] != 107500 || ends["ally"] != 110000 || ends["self"] != 105000 {
 		t.Fatalf("fabricated durations: %+v", ends)
@@ -150,7 +155,12 @@ func TestBurstConditionsUseActualExpiryAndIndependentRecipients(t *testing.T) {
 	bars, _ = runtime.burstOverlay(time.UnixMilli(103000))
 	ends = map[string]int64{}
 	for _, bar := range bars {
-		ends[bar.TargetID] = bar.EndsAtMs
+		if bar.SkillID == 59005 {
+			ends[bar.TargetID] = bar.EndsAtMs
+		}
+		for _, actor := range bar.EffectActors {
+			ends[actor.ActorID] = actor.EndsAtMs
+		}
 	}
 	if ends["ally"] != 110000 {
 		t.Fatal("refresh replacement/remove destroyed the new condition")
@@ -158,15 +168,19 @@ func TestBurstConditionsUseActualExpiryAndIndependentRecipients(t *testing.T) {
 	runtime.onEvent(&event.EventCharacterConditionDisable{EventBase: event.EventBase{Id: "ally", At: 104}, CCId: 516})
 	bars, _ = runtime.burstOverlay(time.UnixMilli(104000))
 	for _, bar := range bars {
-		if bar.TargetID == "ally" {
-			t.Fatal("removed condition kept counting")
+		for _, actor := range bar.EffectActors {
+			if actor.ActorID == "ally" {
+				t.Fatal("removed condition kept counting")
+			}
 		}
 	}
 	runtime.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{Id: "ally", At: 105}, CCId: 516})
 	bars, _ = runtime.burstOverlay(time.UnixMilli(106000))
 	for _, bar := range bars {
-		if bar.TargetID == "ally" && (bar.TimingUnknown || bar.Phase != "effect" || bar.EndsAtMs != 115000) {
-			t.Fatal("missing live CC516 duration must use Awakening's ten-second limit")
+		for _, actor := range bar.EffectActors {
+			if actor.ActorID == "ally" && (bar.TimingUnknown || bar.Phase != "effect" || actor.EndsAtMs != 115000) {
+				t.Fatal("missing live CC516 duration must use Awakening's ten-second limit")
+			}
 		}
 	}
 }

@@ -185,6 +185,10 @@ func renderNativeSkillBarNow(hwnd uintptr) {
 }
 
 func drawNativeSkillBarSlot(canvas *image.RGBA, rect image.Rectangle, slot nativeSkillBarSlot, cooldown nativeSkillOverlayItem, nowMs int64, feedback nativeSkillBarFeedback, hasFeedback bool) []nativeSkillBarText {
+	// Keep the energy gate even before this slot has received its first state.
+	if slot.SkillID == darkEnergySkillID {
+		cooldown.SkillID = slot.SkillID
+	}
 	border := color.RGBA{R: 167, G: 196, B: 201, A: 225}
 	if slot.SkillID == 0 {
 		border = color.RGBA{R: 91, G: 114, B: 119, A: 155}

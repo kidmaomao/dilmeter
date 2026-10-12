@@ -11,5 +11,8 @@ export function holyEnergyState(condition?: { Metadata?: string; DisableAt?: num
     return Number.isFinite(percent) && percent >= 0 && percent <= 100 ? { Percent: percent, Active: true } : undefined;
 }
 export function energyReminderReady(id: number, state: SkillEnergyState | undefined, threshold: number, cooldown: { usedAtMs: number; readyAtMs: number } | undefined, now: number) {
-    return Boolean(state?.Active && state.Percent >= threshold && (id !== DARK_ENERGY_SKILL_ID || (cooldown && cooldown.usedAtMs > 0 && cooldown.readyAtMs <= now)));
+    // Dark energy is a usability gate, so legacy/custom warning thresholds
+    // must never announce the skill before its gauge is full.
+    const requiredPercent = id === DARK_ENERGY_SKILL_ID ? 100 : threshold;
+    return Boolean(state?.Active && state.Percent >= requiredPercent && (id !== DARK_ENERGY_SKILL_ID || (cooldown && cooldown.usedAtMs > 0 && cooldown.readyAtMs <= now)));
 }

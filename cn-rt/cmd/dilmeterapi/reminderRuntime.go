@@ -1992,30 +1992,38 @@ type nativeBurstReadyActor struct {
 	ActorName string `json:"actorName"`
 }
 
+type nativeBurstEffectActor struct {
+	ActorID     string `json:"actorId"`
+	ActorName   string `json:"actorName"`
+	StartedAtMs int64  `json:"startedAtMs"`
+	EndsAtMs    int64  `json:"endsAtMs"`
+}
+
 type nativeBossMechanicOverlayItem struct {
-	ReadyActors        []nativeBurstReadyActor `json:"readyActors,omitempty"`
-	NextReadySoon      bool                    `json:"nextReadySoon"`
-	PreviewExpiresAtMs int64                   `json:"previewExpiresAtMs,omitempty"`
-	Compact            bool                    `json:"compact,omitempty"`
-	TimingUnknown      bool                    `json:"timingUnknown,omitempty"`
-	TargetID           string                  `json:"targetId,omitempty"`
-	Orientation        string                  `json:"orientation,omitempty"`
-	ActorID            string                  `json:"actorId,omitempty"`
-	ActorName          string                  `json:"actorName,omitempty"`
-	SkillID            uint16                  `json:"skillId,omitempty"`
-	SkillName          string                  `json:"skillName,omitempty"`
-	Phase              string                  `json:"phase,omitempty"`
-	Label              string                  `json:"label,omitempty"`
-	HideCountdown      bool                    `json:"hideCountdown,omitempty"`
-	Key                string                  `json:"key"`
-	Name               string                  `json:"name"`
-	Icon               string                  `json:"icon"`
-	StartedAtMs        int64                   `json:"startedAtMs"`
-	EndsAtMs           int64                   `json:"endsAtMs"`
-	Generation         uint64                  `json:"generation"`
-	X                  int                     `json:"x"`
-	Y                  int                     `json:"y"`
-	ScalePercent       int                     `json:"scalePercent"`
+	EffectActors       []nativeBurstEffectActor `json:"effectActors,omitempty"`
+	ReadyActors        []nativeBurstReadyActor  `json:"readyActors,omitempty"`
+	NextReadySoon      bool                     `json:"nextReadySoon"`
+	PreviewExpiresAtMs int64                    `json:"previewExpiresAtMs,omitempty"`
+	Compact            bool                     `json:"compact,omitempty"`
+	TimingUnknown      bool                     `json:"timingUnknown,omitempty"`
+	TargetID           string                   `json:"targetId,omitempty"`
+	Orientation        string                   `json:"orientation,omitempty"`
+	ActorID            string                   `json:"actorId,omitempty"`
+	ActorName          string                   `json:"actorName,omitempty"`
+	SkillID            uint16                   `json:"skillId,omitempty"`
+	SkillName          string                   `json:"skillName,omitempty"`
+	Phase              string                   `json:"phase,omitempty"`
+	Label              string                   `json:"label,omitempty"`
+	HideCountdown      bool                     `json:"hideCountdown,omitempty"`
+	Key                string                   `json:"key"`
+	Name               string                   `json:"name"`
+	Icon               string                   `json:"icon"`
+	StartedAtMs        int64                    `json:"startedAtMs"`
+	EndsAtMs           int64                    `json:"endsAtMs"`
+	Generation         uint64                   `json:"generation"`
+	X                  int                      `json:"x"`
+	Y                  int                      `json:"y"`
+	ScalePercent       int                      `json:"scalePercent"`
 }
 
 type nativeBuffStackOverlayItem struct {
@@ -2237,6 +2245,9 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 			thresholdDefault = 100
 		}
 		rule.ProgressThresholdPercent = clampNativeReminderFloat(rule.ProgressThresholdPercent, 1, 100, thresholdDefault)
+		if id == darkEnergySkillID {
+			rule.ProgressThresholdPercent = 100
+		}
 		rule.QuantityThreshold = nativeDorchaThreshold(rule.QuantityThreshold)
 		rule.ScalePercent = nativeDorchaScalePercent(rule.ScalePercent)
 		rule.SoundMode = nativeSkillSoundMode(rule.SoundMode)

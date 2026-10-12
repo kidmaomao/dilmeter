@@ -814,6 +814,9 @@ func (t *eventPublisher) publish(e event.IEvent) {
 	// blocking이 되면 안된다
 
 	t.Lock()
+	if action, ok := e.(*event.EventSkillAction); ok {
+		t.captureLanceMount(action)
+	}
 	if value, ok := e.(interface{ GetEventBase() *event.EventBase }); ok {
 		base := value.GetEventBase()
 		if base.EventId == event.EventIdEntityDisappear || base.EventId == event.EventIdFinish {
@@ -1869,6 +1872,6 @@ func (t *eventPublisher) publishPartyCombatAction(p *packet.GamePacket, pack *pa
 		if confirmed && !t.acceptSkillAction(actionID) {
 			continue
 		}
-		t.publish(&event.EventSkillAction{EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: p.At.Unix(), Id: id}, SkillId: action.SkillId, CombatActionId: actionID, AtMs: p.At.UnixMilli(), SourceId: id, IsFallback: !confirmed, IsLocal: false})
+		t.publish(&event.EventSkillAction{EventBase: event.EventBase{EventId: event.EventIdSkillAction, At: p.At.Unix(), Id: id}, SkillId: action.SkillId, SubSkillId: action.SubSkillId, CombatActionId: actionID, AtMs: p.At.UnixMilli(), SourceId: id, IsFallback: !confirmed, IsLocal: false})
 	}
 }

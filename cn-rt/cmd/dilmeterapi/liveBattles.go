@@ -47,18 +47,19 @@ type liveBattleWindow struct {
 }
 
 type liveBattleActorState struct {
-	appear          *event.EventEntityAppear
-	finish          *event.EventFinish
-	body            *event.EventEntityUpdateBody
-	stats           map[uint32]float64
-	conditions      map[uint32]*event.EventCharacterConditionEnable
-	refreshPrevious map[uint32]*event.EventCharacterConditionEnable
-	items           map[uint32]*event.EventEntityEquipItem
-	fighterEnergy   *liveFighterEnergy
-	fighterSpend    *event.EventArcanaSignal
-	chainState      *event.EventArcanaSignal
-	recentKpi       []event.IEvent
-	music           map[string]*event.EventMusicPerformance
+	appear           *event.EventEntityAppear
+	finish           *event.EventFinish
+	body             *event.EventEntityUpdateBody
+	stats            map[uint32]float64
+	conditions       map[uint32]*event.EventCharacterConditionEnable
+	refreshPrevious  map[uint32]*event.EventCharacterConditionEnable
+	items            map[uint32]*event.EventEntityEquipItem
+	fighterEnergy    *liveFighterEnergy
+	fighterSpend     *event.EventArcanaSignal
+	chainState       *event.EventArcanaSignal
+	recentKpi        []event.IEvent
+	music            map[string]*event.EventMusicPerformance
+	lanceHeatActions []*event.EventSkillAction
 }
 
 type liveBattleIndex struct {
@@ -131,6 +132,11 @@ func (s *liveBattleIndex) checkpoint(at int64) ([]byte, error) {
 	}
 	for _, id := range ids {
 		a := s.actors[id]
+		for _, action := range a.lanceHeatActions {
+			if err := write(action); err != nil {
+				return nil, err
+			}
+		}
 		for key, performance := range a.music {
 			if musicPerformanceExpiresAt(&performance.EventCharacterConditionEnable) <= at {
 				delete(a.music, key)
@@ -351,6 +357,7 @@ func (s *liveBattleIndex) observe(e event.IEvent) {
 				actor.fighterEnergy, actor.fighterSpend = nil, nil
 				actor.chainState, actor.recentKpi = nil, nil
 				actor.music = nil
+				actor.lanceHeatActions = nil
 			}
 		}
 		if v.Reset {
@@ -360,6 +367,9 @@ func (s *liveBattleIndex) observe(e event.IEvent) {
 		s.local = v
 	case *event.EventArcanaSignal:
 		s.observeFighterEnergy(v)
+		if v.Signal == "lance-heat-reset" {
+			s.actor(v.Id).lanceHeatActions = nil
+		}
 		if v.Signal == "lightning-chain-reset" {
 			s.actor(v.Id).chainState = nil
 		} else if v.Signal == "lightning-chain-state" && v.Complete && v.Kind == 814 && v.Count <= 1 {
@@ -372,10 +382,24 @@ func (s *liveBattleIndex) observe(e event.IEvent) {
 			s.retainKpi(v.Id, &copy)
 		}
 	case *event.EventSkillAction:
-		if !v.IsFallback && v.MechanicSignal == "" && (v.SourceId == "" || v.SourceId == v.Id) {
+		if v.MechanicSignal == "" && (v.SourceId == "" || v.SourceId == v.Id) {
 			copy := *v
 			copy.Sequence = 0
-			s.retainKpi(v.Id, &copy)
+			if v.SkillId >= 59101 && v.SkillId <= 59106 && ((v.SkillId != 59105 && v.SkillId != 59106) || v.SubSkillId <= 1) {
+				a := s.actor(v.Id)
+				if v.SkillId == 59106 && !v.IsFallback {
+					a.lanceHeatActions = nil
+				}
+				// Energy does not decay: preserve the full cycle, including a
+				// clearing Annihilation older than the normal 90-second buffer.
+				if v.SkillId == 59106 && !v.IsFallback || len(a.lanceHeatActions) > 0 {
+					a.lanceHeatActions = append(a.lanceHeatActions, &copy)
+					return
+				}
+			}
+			if !v.IsFallback {
+				s.retainKpi(v.Id, &copy)
+			}
 		}
 	case *event.EventEntityAppear:
 		s.actor(v.Id).appear = v
@@ -383,6 +407,7 @@ func (s *liveBattleIndex) observe(e event.IEvent) {
 	case *event.EventFinish:
 		s.actor(v.Id).finish = v
 	case *event.EventEntityDisappear:
+		s.actor(v.Id).lanceHeatActions = nil
 		if s.local == nil || v.Id != s.local.Id {
 			delete(s.actors, v.Id)
 		}

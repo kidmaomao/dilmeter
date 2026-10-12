@@ -338,7 +338,7 @@ func publicActiveSuccess(a *packet.CombatActionPacket) bool {
 
 func partyArcanaPublicSkill(skill uint16) bool {
 	switch skill {
-	case 20017, 21002, 30102, 59026, 59028, 59040, 59045, 59060, 59105, 59106, 59121, 59123, 59144, 59165, 59185, 59186, 59187:
+	case 20017, 21002, 30102, 59026, 59028, 59040, 59045, 59060, 59101, 59102, 59103, 59104, 59105, 59106, 59121, 59123, 59144, 59165, 59185, 59186, 59187:
 		return true
 	}
 	return false
@@ -350,8 +350,11 @@ func publicKpiAction(a *packet.CombatActionPacket) bool {
 	if !publicActiveSuccess(a) {
 		return false
 	}
+	if (a.SkillId == 59105 || a.SkillId == 59106) && a.SubSkillId > 1 {
+		return false
+	}
 	switch a.SkillId {
-	case 20017, 21002, 59026, 59028, 59105, 59106:
+	case 20017, 21002, 59026, 59028, 59101, 59102, 59103, 59104, 59105, 59106:
 		return true
 	}
 	return false

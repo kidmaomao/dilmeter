@@ -19,7 +19,7 @@ func TestBurstSquareKeepsCasterAndAnchorThroughPublicPowerState(t *testing.T) {
 	if len(cast) != 1 || len(effect) != 1 || len(bars) != 0 {
 		t.Fatalf("cast/effect = %+v / %+v", cast, effect)
 	}
-	if effect[0].Phase != "effect" || effect[0].TimingUnknown || effect[0].EndsAtMs != 111105 || effect[0].ActorID != "ally" || effect[0].Key != cast[0].Key || effect[0].Generation != cast[0].Generation || effect[0].X != cast[0].X || effect[0].Y != cast[0].Y {
+	if effect[0].Phase != "effect" || effect[0].TimingUnknown || effect[0].EndsAtMs != 111105 || effect[0].ActorID != "ally" || effect[0].Key != "burst:effect:58014" || len(effect[0].EffectActors) != 1 || effect[0].Generation != cast[0].Generation || effect[0].X != cast[0].X || effect[0].Y != cast[0].Y {
 		t.Fatalf("card jumped or fabricated timing: %+v", effect[0])
 	}
 	if r.partySkills["ally"][58014].UsedAtMs != 0 {

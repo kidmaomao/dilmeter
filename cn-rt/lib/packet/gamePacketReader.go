@@ -37,6 +37,7 @@ type GameServerPacketReader struct {
 	linkType          layers.LinkType
 	logDir            string
 	disableCaptureLog bool
+	offlineReplay     bool
 
 	// statistics
 	payloadCount    uint64
@@ -55,8 +56,10 @@ type gamePacketPayload struct {
 	relSeq          uint32
 	data            []byte
 	at              time.Time
+	observedAt      time.Time
 	connectionEpoch uint64
 	gapBefore       bool
+	serverScope     string
 }
 
 const pcapQueueSize = 100
@@ -192,6 +195,7 @@ func (t *GameServerPacketReader) OpenFile(file string) error {
 		return err
 	}
 	t.fd = fd
+	t.offlineReplay = true
 
 	// libpcap uses multibyte fopen for file names, causing issues with non-ASCII paths.
 	handle, err := pcap.OpenOfflineFile(fd)
@@ -228,6 +232,7 @@ func (t *GameServerPacketReader) OpenStdin() error {
 		return fmt.Errorf("nic already opened")
 	}
 
+	t.offlineReplay = true
 	handle, err := pcap.OpenOfflineFile(os.Stdin)
 	if err != nil {
 		logger.Println(err)
@@ -376,6 +381,10 @@ func (t *GameServerPacketReader) packetLoop(payloadCh <-chan gamePacketPayload) 
 				buffer.Next(consumed)
 				t.parsedCount++
 				msg.ConnectionEpoch = currentEpoch
+				if len(payloads) > 0 {
+					msg.ServerScope = payloads[0].serverScope
+					msg.ObservedAt = payloads[0].observedAt
+				}
 				t.packetCh <- msg
 				skipPayload(consumed)
 			}
@@ -410,10 +419,12 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 	baseSeq := uint32(0)
 	stream := tcpStreamBuffer{}
 	flow := ""
+	serverScope := ""
 	forward := func(parts []gamePacketPayload) {
 		for _, p := range parts {
 			p.relSeq -= baseSeq
 			p.connectionEpoch = connectionEpoch
+			p.serverScope = serverScope
 			ch <- p
 		}
 	}
@@ -422,6 +433,10 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 	lastDropped := 0
 	for i := 0; t.ctx.Err() == nil; i++ {
 		b, ci, err := handle.ReadPacketData()
+		observedAt := time.Time{}
+		if !t.offlineReplay {
+			observedAt = time.Now()
+		}
 		if err != nil {
 			if err == pcap.NextErrorTimeoutExpired {
 				continue
@@ -477,6 +492,9 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 				logger.Printf("detected client ip %v", dstIP)
 			}
 
+			if !t.offlineReplay {
+				serverScope = ip4.SrcIP.String()
+			}
 			packetFlow := fmt.Sprintf("%s:%d>%s:%d", ip4.SrcIP, tcp.SrcPort, ip4.DstIP, tcp.DstPort)
 			if flow != packetFlow {
 				switchingConnection := flow != ""
@@ -492,7 +510,7 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 					continue
 				}
 			}
-			forward(stream.push(tcp.Seq, tcp.Payload, ci.Timestamp))
+			forward(stream.pushObserved(tcp.Seq, tcp.Payload, ci.Timestamp, observedAt))
 		}
 
 		if i&((1<<10)-1) == 0 {

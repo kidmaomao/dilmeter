@@ -101,7 +101,11 @@ func (runtime *nativeReminderRuntime) evaluateEnergySkills(now time.Time) {
 		rule, exists := runtime.settings.SkillCooldowns.Rules[id]
 		progress, observed, active := runtime.energyState(id, now.UnixMilli())
 		cd := runtime.skillCooldowns[id]
-		ready := exists && rule.Enabled && active && observed && progress >= rule.ProgressThresholdPercent &&
+		threshold := rule.ProgressThresholdPercent
+		if id == darkEnergySkillID {
+			threshold = 100
+		}
+		ready := exists && rule.Enabled && active && observed && progress >= threshold &&
 			(id != darkEnergySkillID || (cd.UsedAtMs > 0 && cd.ReadyAtMs <= now.UnixMilli()))
 		if ready && !runtime.energyReady[id] {
 			runtime.energyGeneration[id]++

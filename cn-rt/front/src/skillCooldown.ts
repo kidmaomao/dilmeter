@@ -1,4 +1,4 @@
-import { isEnergySkill } from "./skillEnergy";
+import { DARK_ENERGY_SKILL_ID, isEnergySkill } from "./skillEnergy";
 import type { EffectTimerOverlayItem } from "./effectTimer";
 import { DEFAULT_DORCHA_THRESHOLD, normalizeDorchaThreshold, normalizeDorchaScalePercent } from "./dorcha";
 
@@ -153,7 +153,15 @@ export interface TargetHealthBarOverlayItem {
     generation?: number;
 }
 
+export interface BurstEffectActor {
+    actorId: string;
+    actorName: string;
+    startedAtMs: number;
+    endsAtMs: number;
+}
+
 export interface BossMechanicOverlayItem {
+    effectActors?: BurstEffectActor[];
     readyActors?: { actorId: string; actorName: string }[];
     nextReadySoon?: boolean;
     previewExpiresAtMs?: number;
@@ -727,7 +735,7 @@ export function loadSkillCooldownSettings(): SkillCooldownSettings {
                     scalePercent: normalizeDorchaScalePercent(value.scalePercent),
                     progressThresholdPercent: clampNumber(
                         value.progressThresholdPercent,
-                        1,
+                        skillId === DARK_ENERGY_SKILL_ID ? 100 : 1,
                         100,
                         isEnergySkill(skillId) ? 100 : DEFAULT_TOAH_PROGRESS_THRESHOLD,
                     ),
@@ -877,7 +885,7 @@ export function saveSkillCooldownSettings(settings: SkillCooldownSettings) {
         rule.scalePercent = normalizeDorchaScalePercent(rule.scalePercent);
         rule.progressThresholdPercent = clampNumber(
             rule.progressThresholdPercent,
-            1,
+            rule.skillId === DARK_ENERGY_SKILL_ID ? 100 : 1,
             100,
             isEnergySkill(rule.skillId) ? 100 : DEFAULT_TOAH_PROGRESS_THRESHOLD,
         );

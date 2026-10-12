@@ -5,6 +5,7 @@ import { holyEnergyState } from "./skillEnergy";
 import { parseConditionStack, resolveBuffExpiresAt } from "./buffAlert";
 import { estimateFighterIdle } from "./fighterEnergyBounds";
 import { musicPerformanceExpiry, musicPerformanceInSession, type MusicPerformance } from "./musicPerformance";
+import { LANCE_MOUNT_SKILLS, lanceMountedAt, lanceHeatSamples } from "./lancerKpi";
 
 export type KpiAimSample = { entityId: string; atMs: number; rate: number; targetId?: string };
 export type KpiStatus = "measured" | "estimated" | "no-samples" | "missing-data" | "pending";
@@ -27,6 +28,7 @@ export type ArcanaKpiInput = {
     aimSamples?: readonly KpiAimSample[];
     musicPerformances?: readonly MusicPerformance[];
     dorchaMinimum?: number;
+    lanceHeatGainMultiplier?: 1 | 1.5;
 };
 type ConditionSlice = TimeInterval & { condition: EntityCondition };
 
@@ -114,6 +116,7 @@ function canonicalActions(input: ArcanaKpiInput) {
         // A damage-derived fallback cannot reveal missed casts or multi-hit counts.
         if (action.Id !== input.player.id || action.IsFallback || action.MechanicSignal
             || (action.SourceId && action.SourceId !== input.player.id)) return false;
+        if ([59105, 59106].includes(action.SkillId) && (action.SubSkillId ?? 0) > 1) return false;
         const at = actionTime(action);
         if (at < input.session.startAt || at >= input.session.endAt + 1) return false;
         const key = `${action.SkillId}:${at}:${action.CombatActionId || 0}`;
@@ -282,12 +285,6 @@ export function buildArcanaKpi(input: ArcanaKpiInput): ArcanaKpiReport {
             `仅统计两次完整释放之间的次数；跨无敌区间及首尾不完整间隔不计。共 ${count} 次 / ${samples} 个间隔。`,
             actions.length ? undefined : "missing-data", samples);
     };
-    const withoutChain = (id: string, label: string, ids: number[]) => {
-        if (!boss.conditionHistory.length || !actions.length || onlyFallback(ids)) return missing(id, label, "次", "需要首领状态时间轴和本角色技能释放记录；伤害段数不能替代释放次数。");
-        const chain = bossSlices([948]);
-        const count = casts(ids).filter((action) => !chain.some((slice) => actionTime(action) >= slice.start && actionTime(action) < slice.end)).length;
-        return row(id, label, count, "次", "按本角色确认释放次数统计，释放时首领未处于闪电链状态；排除无敌期间。");
-    };
     const cooldownWait = (id: string, label: string, skill: number, cooldownSeconds: number) => {
         const releases = actions.filter((action) => action.SkillId === skill);
         const seen = new Set<string>();
@@ -379,26 +376,48 @@ export function buildArcanaKpi(input: ArcanaKpiInput): ArcanaKpiReport {
                 rows.splice(1, 0, pending("piercing", "多尔卡不足：魔法穿刺无效率", "%", "待确认多尔卡不足的点数标准；需同时记录多尔卡数量和魔法穿刺状态。"));
                 break;
             }
+            // CC 938 remains present while Mana Pierce is disabled by Dorcha
+            // shortage. Its public MPD flag reports that state even when the
+            // observer never receives the teammate's private quantity.
+            const pierceSlices = selfSlices([938]);
+            const explicitStates = pierceSlices.flatMap((slice) => {
+                const match = /(?:^|;)MPD:b:(true|false)(?:;|$)/.exec(slice.condition.Metadata ?? "");
+                return match ? [{ start: slice.start, end: slice.end, disabled: match[1] === "true" }] : [];
+            });
+            const intersect = (left: readonly TimeInterval[], right: readonly TimeInterval[]) => left.flatMap((a) => right
+                .map((b) => ({ start: Math.max(a.start, b.start), end: Math.min(a.end, b.end) }))
+                .filter((interval) => interval.end > interval.start));
+            const explicitKnown = intersect(explicitStates, windows);
+            const explicitDisabled = intersect(explicitStates.filter((state) => state.disabled), windows);
             const updates = (input.statUpdates ?? []).filter((event) => event.Id === player.id)
                 .flatMap((event) => event.Stats.filter((stat) => stat.StatId === 196).map((stat) => ({ at: event.At, value: stat.Value })))
                 .sort((a, b) => a.at - b.at);
             const low: TimeInterval[] = [], known: TimeInterval[] = [];
             for (let i = 0; i < updates.length; i++) {
-                const interval = { start: Math.max(session.startAt, updates[i].at), end: Math.min(session.endAt, updates[i + 1]?.at ?? session.endAt) };
+                const interval = { start: Math.max(session.startAt, updates[i].at, player.conditionHistory[0]?.At ?? Infinity),
+                    end: Math.min(session.endAt, updates[i + 1]?.at ?? session.endAt) };
                 if (interval.end <= interval.start) continue;
                 if (!Number.isFinite(updates[i].value) || updates[i].value < 0 || updates[i].value > 15) continue;
                 known.push(interval);
                 if (updates[i].value < minimum) low.push(interval);
             }
-            const observedSeconds = activeSeconds - duration(subtractIntervals(windows, known));
-            if (observedSeconds < activeSeconds - 0.001 || !player.conditionHistory.length) {
-                rows.splice(1, 0, missing("piercing", "多尔卡不足：魔法穿刺无效率", "%", teammate ? "未收到该队友完整的多尔卡数量记录，无法由伤害反推；本人资源不会用于代算队友。" : "缺少完整多尔卡数量或状态时间轴；旧日志的最终数量不能代表整场。"));
+            // Prefer the explicit effect state. Quantities can fill uncovered
+            // segments in older logs, but cannot override an observed MPD flag.
+            const quantityKnown = subtractIntervals(intersect(known, windows), explicitKnown);
+            const observedSeconds = duration(explicitKnown) + duration(quantityKnown);
+            if (observedSeconds <= 0) {
+                rows.splice(1, 0, missing("piercing", "多尔卡不足：魔法穿刺无效率", "%", teammate
+                    ? "未收到该角色的魔法穿刺失效／恢复状态，也没有可用的多尔卡数量记录。魔法封锁提供施法回复效果，不能单独确定资源初值。"
+                    : "尚未记录可用的魔法穿刺状态或多尔卡数量；从首次有效状态开始统计，未知时段不补零。"));
                 break;
             }
-            const lowActive = windows.flatMap((window) => low.map((interval) => ({ start: Math.max(window.start, interval.start), end: Math.min(window.end, interval.end) })).filter((interval) => interval.end > interval.start));
-            const piercingOff = duration(subtractIntervals(lowActive, selfSlices([938])));
-            rows.splice(1, 0, row("piercing", "多尔卡不足：魔法穿刺无效率", activeSeconds ? piercingOff / activeSeconds * 100 : null, "%",
-                `多尔卡少于 ${minimum} 点且魔法穿刺未生效的时间 / 可输出时间；累计 ${piercingOff.toFixed(2)} 秒。`));
+            const quantityDisabled = intersect(subtractIntervals(low, pierceSlices), quantityKnown);
+            const piercingOff = duration(explicitDisabled) + duration(quantityDisabled);
+            const unobservedSeconds = Math.max(0, activeSeconds - observedSeconds);
+            rows.splice(1, 0, row("piercing", "多尔卡不足：魔法穿刺无效率", piercingOff / observedSeconds * 100, "%",
+                (explicitKnown.length ? "按当前角色魔法穿刺的失效／恢复状态统计；" : `按多尔卡少于 ${minimum} 点且魔法穿刺未生效统计；`)
+                + `失效 ${piercingOff.toFixed(2)} 秒 / 已记录状态的可输出时间 ${observedSeconds.toFixed(2)} 秒。`
+                + (unobservedSeconds > .001 ? ` 未观测的 ${unobservedSeconds.toFixed(2)} 秒不参与计算。` : "")));
             break;
         }
         case "流星射手": {
@@ -464,12 +483,38 @@ export function buildArcanaKpi(input: ArcanaKpiInput): ArcanaKpiReport {
                 "仅统计观察到完整 0→100 的蓄能周期；开场已蓄能及未攒满周期不计，无敌期间暂停。", undefined, samples), fury()];
             break;
         }
-        case "爆裂骑士枪":
-            rows = [withoutChain("lance", "无闪电链时骑士枪冲刺次数", [20017]),
-                withoutChain("blast", "无闪电链时爆裂冲刺次数", [59105]),
-                withoutChain("annihilation", "无闪电链时湮灭次数", [59106]),
-                missing("heat", "湮灭时平均过热值", "", "待确认骑士枪过热数值的记录字段。")];
+        case "爆裂骑士枪": {
+            // Session endpoints are whole seconds; keep releases in the last
+            // recorded second while evaluating condition expiry at full precision.
+            const lanceValid = (action: eventSkillAction) => valid(action.At);
+            const releases = actions.filter((action) => LANCE_MOUNT_SKILLS.includes(action.SkillId) && lanceValid(action));
+            const evaluated = releases.map((action) => ({ action, mounted: lanceMountedAt(action, player.conditionHistory) }));
+            const covered = evaluated.filter((sample) => sample.mounted === true).length;
+            const unknown = evaluated.filter((sample) => sample.mounted === null).length;
+            const incomplete = LANCE_MOUNT_SKILLS.some((skill) => onlyFallback([skill]));
+            const names = ["骑士枪冲刺", "爆裂冲刺", "湮灭"];
+            const breakdown = LANCE_MOUNT_SKILLS.map((skill, index) => {
+                const samples = evaluated.filter((sample) => sample.action.SkillId === skill);
+                return `${names[index]} ${samples.filter((sample) => sample.mounted === true).length}/${samples.length} 次`;
+            }).join("；");
+            rows = [row("lance-mounted", "骑乘效果生效施放占比", !unknown && !incomplete && releases.length ? covered / releases.length * 100 : null, "%",
+                `三种技能释放时具有骑士枪冲刺骑乘效果（975）的次数 ÷ 总释放次数；排除首领无敌期间。${breakdown}。`
+                + (unknown ? ` 有 ${unknown} 次缺少释放时状态。` : "")
+                + (incomplete ? " 缺少部分技能的完整释放记录。" : ""), unknown || incomplete ? "missing-data" : undefined, releases.length)];
+            const resets = (input.arcanaSignals ?? []).filter((signal) => signal.Id === player.id && signal.Signal === "lance-heat-reset")
+                .map((signal) => signal.AtMs / 1000);
+            const heat = lanceHeatSamples(input.actions, player.id, session.endAt, resets)
+                .filter((sample) => actionTime(sample.action) >= session.startAt && lanceValid(sample.action));
+            const complete = heat.filter((sample) => sample.basePoints !== null);
+            const average = complete.length ? complete.reduce((sum, sample) => sum + sample.basePoints!, 0) / complete.length : null;
+            const multiplier = input.lanceHeatGainMultiplier;
+            rows.push(row("heat", "湮灭时平均过热值（按技能推算）", average !== null && multiplier ? average * multiplier : null, "点",
+                "从上次湮灭清空后，按聚焦连击 +2、粉碎冲击 +5、螺旋斡刃 +3、蓄势突进 +15、爆裂冲刺 +15 累计；连接奖励为获取量 +50%。上限及小数取整未确认，暂按未设上限累计。"
+                + (heat.length > complete.length ? ` 排除 ${heat.length - complete.length} 次起始值或中途释放记录不完整的湮灭。` : "")
+                + (!multiplier && average !== null ? ` 请设置连接奖励：无加成为 ${average.toFixed(2)} 点，+50% 为 ${(average * 1.5).toFixed(2)} 点。` : ""),
+                average === null ? (heat.length || onlyFallback([59106]) ? "missing-data" : "no-samples") : multiplier ? "estimated" : "pending", complete.length));
             break;
+        }
         case "枪炮师": {
             const domainRecords = (input.arcanaSignals ?? []).filter((signal) => signal.Id === player.id
                 && signal.SkillId === 59121 && signal.Signal === "domain-sample" && signal.TargetId === boss.id);

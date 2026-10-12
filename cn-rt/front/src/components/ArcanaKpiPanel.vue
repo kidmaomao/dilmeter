@@ -7,8 +7,15 @@
             <span class="arcana-kpi-clock">统计 {{ report.activeSeconds.toFixed(2) }} 秒 · 已排除无敌 {{ report.excludedSeconds.toFixed(2) }} 秒</span>
         </header>
         <p class="arcana-kpi-note">按当前角色的阿尔卡纳职业显示数据。仅统计首领可输出期间；普通等待时间保留，未记录的机制无法自动扣除。</p>
+        <label v-if="report.jobName === '爆裂骑士枪'" class="lance-heat-setting">
+            过热连接奖励
+            <select :value="lanceHeatBonus ?? 'unknown'" @change="emit('update:lanceHeatBonus', ($event.target as HTMLSelectElement).value)">
+                <option value="unknown">未确认</option>
+                <option value="base">无加成</option>
+                <option value="link">获取量 +50%</option>
+            </select>
+        </label>
         <p v-if="!report.jobName" class="arcana-kpi-empty">尚未识别阿尔卡纳职业，识别后显示对应指标。</p>
-        <p v-else-if="report.jobName === '爆裂骑士枪'" class="arcana-kpi-empty">骑士枪职业 KPI 暂未开放，后续补充。</p>
         <dl v-else class="arcana-kpi-table">
             <div v-for="item in report.rows" :key="item.id" class="arcana-kpi-row">
                 <dt>{{ item.label }}</dt>
@@ -25,7 +32,8 @@
 
 <script setup lang="ts">
 import type { ArcanaKpiReport, KpiStatus } from "../arcanaKpi";
-defineProps<{ report: ArcanaKpiReport; sample?: boolean }>();
+defineProps<{ report: ArcanaKpiReport; sample?: boolean; lanceHeatBonus?: string }>();
+const emit = defineEmits<{ "update:lanceHeatBonus": [value: string] }>();
 const formatValue = (value: number) => value.toLocaleString("zh-CN", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 const statusText = (status: KpiStatus) => status === "pending" ? "待确认口径" : status === "missing-data" ? "缺少数据" : "暂无有效样本";
 </script>
@@ -36,6 +44,8 @@ const statusText = (status: KpiStatus) => status === "pending" ? "待确认口�
 .arcana-kpi-header strong { font-size: 14px; }
 .arcana-kpi-tag { border: 1px solid var(--ui-theme-border); border-radius: 3px; padding: 1px 5px; color: var(--ui-theme-muted); font-size: 11px; }
 .arcana-kpi-clock { margin-left: auto; font-size: 11px; color: var(--ui-theme-muted); }
+.lance-heat-setting { display: flex; align-items: center; gap: 8px; padding: 8px 11px; font-size: 12px; }
+.lance-heat-setting select { color: var(--ui-theme-text); background: var(--ui-theme-surface); border: 1px solid var(--ui-theme-border); padding: 3px 6px; }
 .arcana-kpi-note, .arcana-kpi-empty { margin: 0; padding: 8px 11px; color: var(--ui-theme-muted); font-size: 11px; line-height: 1.6; }
 .arcana-kpi-empty { padding-bottom: 14px; }
 .arcana-kpi-table { margin: 0; }

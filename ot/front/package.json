@@ -8,6 +8,7 @@
     "build": "vite build",
     "verify:live-battles": "node scripts/verify-live-battles.mjs",
     "verify:arcana-kpi": "node scripts/verify-arcana-kpi.mjs",
+    "verify:lancer-kpi": "node scripts/verify-lancer-kpi.mjs",
     "verify:aim-kpi-sampling": "node scripts/verify-aim-kpi-sampling.mjs",
     "verify:dorcha": "node scripts/verify-dorcha.mjs",
     "verify:team-dps": "node scripts/verify-team-dps.mjs",

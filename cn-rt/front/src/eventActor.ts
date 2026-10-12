@@ -1,4 +1,5 @@
 import { recordMusicPerformance, endMusicPerformances, eventIdMusicPerformance, type MusicPerformance } from "./musicPerformance";
+import { captureLanceMount } from "./lancerKpi";
 import { recordVital, type BattleVitalPoint } from "./battleChartHistory";
 import { CustomReactive, IUpdateCallback } from "@/lib/util";
 import { shallowReactive } from "vue";
@@ -76,6 +77,7 @@ export class ActorManager {
             SkillId: 59041, Signal: "lightning-chain-reset", Count: 0, Complete: false });
         this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id,
             SkillId: 0, Signal: "fighter-energy-reset", Count: 0, Complete: false });
+        this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id, SkillId: 59106, Signal: "lance-heat-reset", Count: 0, Complete: false });
         this.statUpdates.push({ EventId: 17, At: at, Id: id, Private: true, Stats: [{ StatId: 196, Value: -1 }] });
     }
 
@@ -96,7 +98,7 @@ export class ActorManager {
             return;
         }
         if (event.EventId === protocols.eventIdSkillAction) {
-            this.skillActions.push(event as protocols.eventSkillAction);
+            this.skillActions.push(captureLanceMount(event as protocols.eventSkillAction, this.entityMap[event.Id]));
             return;
         }
         if (event.EventId === protocols.eventIdSkillEnergy) {
