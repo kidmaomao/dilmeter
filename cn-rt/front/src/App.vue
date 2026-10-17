@@ -39,6 +39,7 @@
                     <span>{{ runtimeNoticeText }}</span>
                 </div>
                 <div class="app-toolbar-controls">
+                <AuthorNoticeButton />
                 <button v-if="!isStandalone" type="button" class="update-check-button" :class="{ available: updateInfo?.available }" :disabled="updatePending" @click="checkForUpdate(true)">
                     <v-icon :icon="updateInfo?.available ? 'mdi-download-circle' : 'mdi-update'" size="14" />
                     {{ updateInfo?.available ? `发现 v${updateInfo.latestVersion}` : "检查更新" }}
@@ -260,6 +261,7 @@ import {
     BATTLE_RECORD_LOADED_EVENT,
     parseBattleRecord,
 } from "@/battleRecord";
+import AuthorNoticeButton from "@/components/AuthorNoticeButton.vue";
 import GameDpsReport from "@/components/GameDpsReport.vue";
 import ObsEffectsSwitch from "@/components/ObsEffectsSwitch.vue";
 import BuffOverlay from "@/components/BuffOverlay.vue";
@@ -273,8 +275,8 @@ import { ensureCnResourceNames } from "@/cnResources";
 import { loadBuffOverlaySettings, saveBuffOverlaySettings } from "@/buffAlert";
 import { loadDebuffAlertSettings, saveDebuffAlertSettings } from "@/debuffAlert";
 import { SocketClient } from "@/lib/socketClient";
-import { eventIdCharacterConditionDisable, eventIdCharacterConditionEnable, eventIdDamage, eventIdMessageBox, eventIdSkillAction, eventIdSkillCooldown, eventIdSkillState, type eventBase, type eventCharacterConditionEnable, type eventDamage, type eventMessageBox, type eventSkillAction, type eventSkillCooldown, type eventSkillState } from "@/protocols";
-import { EFFECT_TIMER_CONDITION_EVENT } from "@/effectTimer";
+import { eventIdCharacterConditionDisable, eventIdCharacterConditionEnable, eventIdFinish, eventIdLocalEntity, eventIdDamage, eventIdMessageBox, eventIdSkillAction, eventIdSkillCooldown, eventIdSkillState, type eventBase, type eventCharacterConditionEnable, type eventDamage, type eventMessageBox, type eventSkillAction, type eventSkillCooldown, type eventSkillState } from "@/protocols";
+import { EFFECT_TIMER_CONDITION_EVENT, EFFECT_TIMER_LIFECYCLE_EVENT } from "@/effectTimer";
 import { SKILL_ACTION_EVENT, SKILL_COOLDOWN_ADJUSTMENT_EVENT, SKILL_DAMAGE_EVENT, SKILL_STATE_EVENT, techniqueCooldownActionFromCondition } from "@/skillCooldown";
 import { loadSkillBarSettings, saveSkillBarSettings, syncNativeSkillBarSettings } from "@/skillBar";
 import { clearTimeRange } from "@/store";
@@ -334,7 +336,7 @@ interface GameServerSettings {
 
 export default defineComponent({
     name: "App",
-    components: { ObsEffectsSwitch, ReminderHelpTooltip, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
+    components: { AuthorNoticeButton, ObsEffectsSwitch, ReminderHelpTooltip, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
     setup() {
         const db = inject("db") as any;
         const region = inject("region") as any;
@@ -357,7 +359,7 @@ export default defineComponent({
         if (isDesignPreview) document.documentElement.classList.add("design-preview-root");
         const socketConnected = ref(false);
         const appName = ref("DilmeterCN");
-        const appVersion = ref("1.5.2");
+        const appVersion = ref("1.6.3");
         const runtimeStatus = ref<AppRuntimeStatus>({
             state: isStandalone ? "replay" : "starting",
             message: isStandalone ? "本地日志模式" : "正在连接桌面监测器…",
@@ -467,6 +469,10 @@ export default defineComponent({
             if (isRecordReplay.value) return;
             for (const event of events) {
                 if (!liveCursor.accept(event)) continue;
+                // Dispatch before the local identity is replaced on reconnect.
+                if (event.EventId === eventIdFinish || event.EventId === eventIdLocalEntity) {
+                    window.dispatchEvent(new CustomEvent(EFFECT_TIMER_LIFECYCLE_EVENT, { detail: event }));
+                }
                 if (event.EventId === eventIdMessageBox) {
                     msgBoxOpen.value = true;
                     msgBoxText.value += `${(event as eventMessageBox).Message}\n`;

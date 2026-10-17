@@ -103,6 +103,8 @@ func playBuffSoundOnChannel(kind string, volume int, bossChannel bool, customSou
 		filename = "buff-ending-xiaoxiao.mp3"
 	case "boss-miel-orb":
 		filename = "boss-miel-orb.wav"
+	case "boss-miel-green-curtain":
+		filename = "boss-miel-green-curtain-xiaoxiao.mp3"
 	case "boss-miel-laser":
 		filename = "boss-miel-laser.wav"
 	case "custom":

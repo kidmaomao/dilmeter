@@ -454,6 +454,7 @@ function mechanicAlertClass(item: BossMechanicOverlayItem) {
     return {
         "warning-phase": orbEarlyWarning,
         "danger-phase": finalWarning,
+        "green-curtain": item.key === "miel-green-curtain",
     };
 }
 
@@ -1484,6 +1485,26 @@ html.skill-overlay-page .v-application,
     background: #ffb34f;
     box-shadow: 0 0 7px rgba(255, 118, 51, .88);
     transform-origin: left center;
+}
+
+.boss-mechanic-overlay-item.green-curtain .boss-mechanic-card {
+    color: #dbffe7;
+    background: rgba(5, 48, 24, .84);
+    border-color: #65f78a;
+    box-shadow: 0 0 12px rgba(101, 247, 138, .9), 0 0 28px rgba(26, 202, 77, .72), inset 0 0 16px rgba(28, 180, 69, .22);
+}
+.boss-mechanic-overlay-item.green-curtain .boss-mechanic-icon {
+    color: #acffc4;
+    filter: drop-shadow(0 0 6px #2add67);
+}
+.boss-mechanic-overlay-item.green-curtain strong {
+    color: #e1ffe9;
+    -webkit-text-stroke-color: #083b1c;
+    text-shadow: 0 0 7px #92ffb2, 0 0 17px #22cc59, 0 2px 2px rgba(0, 0, 0, .65);
+}
+.boss-mechanic-overlay-item.green-curtain .boss-mechanic-progress {
+    background: #65f78a;
+    box-shadow: 0 0 9px #2add67;
 }
 
 .buff-stack-overlay-list {

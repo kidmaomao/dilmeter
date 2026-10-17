@@ -2,11 +2,11 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot ".."))
-$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.6.2" }
+$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.6.3" }
 if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid DILMETER_APP_VERSION: $version"
 }
-$releaseDir = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot "artifacts\release-v$version"))
+$releaseDir = if ($env:DILMETER_RELEASE_DIR) { [System.IO.Path]::GetFullPath($env:DILMETER_RELEASE_DIR) } else { [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot "artifacts\release-v$version")) }
 $cnExe = "DilmeterCN-v$version.exe"
 $rtExe = "DilmeterRT-v$version.exe"
 if (-not $releaseDir.StartsWith($workspaceRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {

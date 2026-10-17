@@ -2,12 +2,12 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot ".."))
-$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.6.2" }
-$displayVersion = if ($env:DILMETER_DISPLAY_VERSION) { $env:DILMETER_DISPLAY_VERSION.Trim() } elseif ($env:DILMETER_APP_VERSION) { $version } else { "1.6.2" }
+$version = if ($env:DILMETER_APP_VERSION) { $env:DILMETER_APP_VERSION.Trim() } else { "1.6.3" }
+$displayVersion = if ($env:DILMETER_DISPLAY_VERSION) { $env:DILMETER_DISPLAY_VERSION.Trim() } elseif ($env:DILMETER_APP_VERSION) { $version } else { "1.6.3" }
 if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
     throw "Invalid DILMETER_APP_VERSION: $version"
 }
-$releaseDir = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot "artifacts\release-v$version"))
+$releaseDir = if ($env:DILMETER_RELEASE_DIR) { [System.IO.Path]::GetFullPath($env:DILMETER_RELEASE_DIR) } else { [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot "artifacts\release-v$version")) }
 $stageDir = [System.IO.Path]::GetFullPath((Join-Path $releaseDir "OT"))
 $otExe = "DilmeterOT-v$version.exe"
 

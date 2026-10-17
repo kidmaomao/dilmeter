@@ -140,3 +140,17 @@ func TestPlayMCIFileReopensEntireTransactionAfterError263(t *testing.T) {
 		t.Fatalf("unexpected MCI recovery sequence:\n got: %#v\nwant: %#v", commands, expected)
 	}
 }
+
+func TestEmbeddedGreenCurtainXiaoxiaoSound(t *testing.T) {
+	data, err := staticFiles.ReadFile(embeddedStaticDir + "/audio/boss-miel-green-curtain-xiaoxiao.mp3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if extension, valid := detectCustomAudioExtension(data); !valid || extension != ".mp3" || len(data) < 1024 {
+		t.Fatal("green curtain voice is missing or not a usable MP3")
+	}
+	const expected = "b9825326fdcffd76b65b4570fdaa955451e75ac404e56040f48c97fe412265d4"
+	if fmt.Sprintf("%x", sha256.Sum256(data)) != expected {
+		t.Fatal("green curtain voice differs from the generated Xiaoxiao recording")
+	}
+}

@@ -28,7 +28,10 @@ const (
 	// non-damaging and deployable skills such as Smoke Screen and Hydra.
 	OpcodeSkillPrepareReady = 27013
 	OpcodeSkillExecute      = 27016
-	OpcodeSkillPrepareEnd   = 27028
+	// Transformation skills can confirm success through Complete without Execute.
+	OpcodeSkillComplete   = 27020
+	OpcodeSkillCancel     = 27021
+	OpcodeSkillPrepareEnd = 27028
 	// OpcodeSkillCooldownReset names the affected skill directly and resets
 	// its current cooldown. OpcodeSkillCooldownReduce carries one or more
 	// (skill id, milliseconds) reductions.

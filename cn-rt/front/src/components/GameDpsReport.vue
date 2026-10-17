@@ -592,7 +592,7 @@
                                             <span>{{ rule.stackCustomSoundName || "选择 MP3 / WAV" }}</span>
                                         </label>
                                         <button v-if="rule.stackAlertEnabled && rule.stackSoundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('buff-stack', rule.ccId, conditionDisplayName(rule.ccId))">
-                                            <v-icon icon="mdi-account-voice" size="13" />本地TTS
+                                            <v-icon icon="mdi-account-voice" size="13" />语音制作
                                         </button>
                                         <button
                                             v-if="rule.stackAlertEnabled && rule.stackScreenEnabled"
@@ -644,7 +644,7 @@
                                         <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                     </label>
                                     <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('buff', rule.ccId, conditionDisplayName(rule.ccId))">
-                                        <v-icon icon="mdi-account-voice" size="13" />本地TTS
+                                        <v-icon icon="mdi-account-voice" size="13" />语音制作
                                     </button>
                                     <label v-if="rule.soundMode !== 'none'">
                                         音效提前（秒）
@@ -806,7 +806,7 @@
                                     <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                 </label>
                                 <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('skill', rule.skillId, skillDisplayName(rule.skillId))">
-                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
+                                    <v-icon icon="mdi-account-voice" size="13" />语音制作
                                 </button>
                                 <button
                                     v-if="rule.soundMode !== 'none'"
@@ -1088,7 +1088,7 @@
                                     <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                 </label>
                                 <button v-if="rule.soundEnabled && rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('debuff', rule.ccId, conditionDisplayName(rule.ccId))">
-                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
+                                    <v-icon icon="mdi-account-voice" size="13" />语音制作
                                 </button>
                                 <button
                                     v-if="rule.soundEnabled"
@@ -1122,13 +1122,14 @@
                         <div class="boss-mechanic-rule-list">
                             <div v-for="rule in configuredBossMechanicRules" :key="rule.key" class="boss-mechanic-rule boss-reminder-editor">
                                 <div class="boss-mechanic-identity">
-                                    <v-icon :icon="rule.trigger === 'orb-spawn' ? 'mdi-orbit' : 'mdi-laser-pointer'" size="24" />
+                                    <v-icon :icon="rule.trigger === 'boss-spawn-cycle' ? 'mdi-shield-outline' : rule.trigger === 'orb-spawn' ? 'mdi-orbit' : 'mdi-laser-pointer'" size="24" />
                                     <strong>{{ rule.name }}</strong>
-                                    <small>{{ rule.trigger === "orb-spawn" ? "米耶尔环绕球生成信号" : `技能 ${rule.skillId} 执行信号` }}</small>
+                                    <small>{{ rule.trigger === "boss-spawn-cycle" ? "识别四王立即提醒首轮；首轮在开战后 7 秒（14:53），后续每 63 秒并按实际出现校准" : rule.trigger === "orb-spawn" ? "米耶尔环绕球生成信号" : `技能 ${rule.skillId} 执行信号` }}</small>
                                 </div>
                                 <div class="reminder-rule-controls">
                                 <label><input v-model="rule.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用提醒</label>
-                                <label>
+                                <label v-if="rule.trigger === 'boss-spawn-cycle'">提前提醒（秒）<input v-model.number="rule.warningSeconds" type="number" min="1" max="62" step="0.1" @input="markBossMechanicSettingsDirty" /></label>
+                                <label v-else>
                                     倒计时（秒）
                                     <input v-model.number="rule.countdownSeconds" type="number" min="1" max="120" step="0.1" @input="markBossMechanicSettingsDirty" />
                                 </label>
@@ -1144,8 +1145,8 @@
                                     音效
                                     <select class="reminder-sound-select" v-model="rule.soundMode" @change="markBossMechanicSettingsDirty">
                                         <option value="none">不提示</option>
-                                        <option value="dedicated">专属机制音效</option>
-                                        <option value="custom">自定义 / 本地TTS</option>
+                                        <option value="dedicated">{{ rule.trigger === "boss-spawn-cycle" ? "晓晓：绿幕即将出现" : "专属机制音效" }}</option>
+                                        <option value="custom">自定义 / 语音制作</option>
                                     </select>
                                 </label>
                                 <label v-if="rule.soundMode === 'custom'" class="buff-alert-file-picker">
@@ -1153,7 +1154,7 @@
                                     <span>{{ rule.customSoundName || "选择 MP3 / WAV" }}</span>
                                 </label>
                                 <button v-if="rule.soundMode === 'custom'" type="button" class="local-tts-open" @click="openLocalTTS('boss', rule.key, rule.name)">
-                                    <v-icon icon="mdi-account-voice" size="13" />本地TTS
+                                    <v-icon icon="mdi-account-voice" size="13" />语音制作
                                 </button>
                                 <button type="button" class="buff-alert-preview" :disabled="rule.soundMode === 'custom' && !rule.customSoundId" @click="previewBossMechanicRule(rule.key)">测试提醒</button>
                                 </div>
@@ -1224,42 +1225,7 @@
             </div>
         </section>
 
-        <div v-if="localTtsDialogOpen" class="team-chart-backdrop local-tts-backdrop" @click.self="localTtsDialogOpen = false">
-            <section class="local-tts-dialog" role="dialog" aria-modal="true" aria-labelledby="local-tts-title">
-                <header>
-                    <div><v-icon icon="mdi-account-voice" size="18" /><strong id="local-tts-title">Windows 本地 TTS</strong></div>
-                    <button type="button" aria-label="关闭本地TTS" @click="localTtsDialogOpen = false"><v-icon icon="mdi-close-box-outline" size="18" /></button>
-                </header>
-                <label>
-                    提醒文字
-                    <textarea v-model="localTtsText" maxlength="120" rows="3" placeholder="输入要朗读的内容"></textarea>
-                    <small>{{ Array.from(localTtsText).length }}/120</small>
-                </label>
-                <div class="local-tts-fields">
-                    <label>
-                        系统语音
-                        <select v-model="localTtsVoice" :disabled="localTtsVoicesLoading || !localTtsVoices.length">
-                            <option v-if="!localTtsVoices.length" value="">{{ localTtsVoicesLoading ? "正在读取…" : "未找到系统语音" }}</option>
-                            <option v-for="voice in localTtsVoices" :key="voice.name" :value="voice.name">{{ voice.description || voice.name }}（{{ voice.culture }}）</option>
-                        </select>
-                        <small>使用 Windows 已安装语音</small>
-                    </label>
-                    <label>
-                        语速
-                        <input v-model.number="localTtsRate" type="number" min="-5" max="5" step="1" />
-                        <small>-5 慢　0 正常　5 快</small>
-                    </label>
-                </div>
-                <div v-if="localTtsStatus" class="local-tts-status" :class="{ error: localTtsError }">{{ localTtsStatus }}</div>
-                <footer>
-                    <span>应用目标：{{ localTtsTarget?.label || "—" }}</span>
-                    <button type="button" class="game-button" @click="localTtsDialogOpen = false">取消</button>
-                    <button type="button" class="game-button confirm" :disabled="localTtsPending || !localTtsText.trim() || !localTtsVoice" @click="generateAndApplyLocalTTS">
-                        <v-icon icon="mdi-play-circle-outline" size="14" />{{ localTtsPending ? "生成中…" : "生成、应用并试听" }}
-                    </button>
-                </footer>
-            </section>
-        </div>
+        <SpeechMakerDialog v-model="localTtsDialogOpen" :target-label="localTtsTarget?.label || ''" :initial-text="localTtsText" @generated="applyGeneratedSpeech" />
 
         <div v-if="teamChartOpen" class="team-chart-backdrop" @click.self="teamChartOpen = false">
             <section class="team-chart-dialog" role="dialog" aria-modal="true" aria-labelledby="team-chart-title">
@@ -1345,6 +1311,7 @@
 </template>
 
 <script setup lang="ts">
+import SpeechMakerDialog from "@/components/SpeechMakerDialog.vue";
 import { createBurstPreview, type BurstPreviewPhase } from "@/burstReminderView";
 import ArcanaKpiPanel from "./ArcanaKpiPanel.vue";
 import ReminderHelpTooltip from "./ReminderHelpTooltip.vue";
@@ -1387,7 +1354,7 @@ import {
     formatDorchaQuantity, initialDorchaQuantityRuntime, applyDorchaQuantityObservation, dorchaQuantityOverlayItem,
 } from "@/dorcha";
 import { normalizeSkillDisplayName } from "@/skillDisplay";
-import { eventIdCharacterConditionDisable, eventIdCharacterConditionEnable, eventIdSkillAction, type eventCharacterConditionDisable, type eventCharacterConditionEnable, type eventDamage, type eventSkillAction, type eventSkillCooldown, type eventSkillState } from "@/protocols";
+import { eventIdCharacterConditionDisable, eventIdCharacterConditionEnable, eventIdFinish, eventIdLocalEntity, eventIdSkillAction, type eventCharacterConditionDisable, type eventCharacterConditionEnable, type eventDamage, type eventSkillAction, type eventSkillCooldown, type eventSkillState } from "@/protocols";
 import { CURRENT_HEALTH_STAT_ID, MAXIMUM_HEALTH_STAT_ID } from "@/effectiveDamage";
 import { conditions as fallbackConditionNames } from "@/data/condition";
 import { skills as fallbackSkillNames } from "@/data/skill";
@@ -1446,6 +1413,9 @@ import {
 import { loadSkillBarSettings } from "@/skillBar";
 import {
     EFFECT_TIMER_CONDITION_EVENT,
+    EFFECT_TIMER_LIFECYCLE_EVENT,
+    endTransformationEffectTimers,
+    isTransformationSkill,
     loadEffectTimerSettings,
     makeEffectTimerRule,
     normalizeEffectTimerSettings,
@@ -1499,6 +1469,7 @@ import {
     type BossMechanicAlertRule,
     type MielOrbRuntime,
 } from "@/bossMechanicAlert";
+import { requestBossMechanicPreview } from "@/bossMechanicPreview";
 
 const props = withDefaults(defineProps<{
     isFileLoading?: boolean;
@@ -1529,7 +1500,6 @@ const emit = defineEmits<{
 type NoticeType = "success" | "warning" | "error" | "info";
 type LocalTtsTargetKind = "buff" | "buff-stack" | "debuff" | "skill" | "boss";
 type LocalTtsTarget = { kind: LocalTtsTargetKind; id: number | string; label: string };
-type LocalTtsVoice = { name: string; culture: string; gender: string; description: string };
 type CombatTab = "summary" | "attack" | "alerts" | "team" | "skillbar";
 type BossMechanicRuntimeState = {
     startedAtMs: number;
@@ -1807,14 +1777,7 @@ const selectedReminderProfileId = ref(reminderProfileStore.value.activeProfileId
 const notice = ref("");
 const noticeType = ref<NoticeType>("success");
 const localTtsDialogOpen = ref(false);
-const localTtsVoices = ref<LocalTtsVoice[]>([]);
-const localTtsVoicesLoading = ref(false);
 const localTtsText = ref("");
-const localTtsVoice = ref("");
-const localTtsRate = ref(0);
-const localTtsPending = ref(false);
-const localTtsStatus = ref("");
-const localTtsError = ref(false);
 const localTtsTarget = ref<LocalTtsTarget | null>(null);
 const teamChartOpen = ref(false);
 const teamChartView = ref<"damage" | "dps" | "skills">("damage");
@@ -3087,7 +3050,7 @@ function persistBossMechanicSettings() {
 
 function bossMechanicRuntimeStatus(key: string) {
     const runtime = bossMechanicRuntime.value[key];
-    if (!runtime || runtime.endsAtMs <= skillCooldownClock.value) return "等待捕捉机制信号";
+    if (!runtime || runtime.endsAtMs <= skillCooldownClock.value) return key === "miel-green-curtain" ? "识别四王立即播报首轮；捕捉首轮后开始每 63 秒的提前提醒" : "等待捕捉机制信号";
     if (runtime.mielOrb && !isMielOrbVisible(runtime.mielOrb, skillCooldownClock.value)) {
         return `已按 ${runtime.mielOrb.requiredContacts} 次触碰反馈确认安全`;
     }
@@ -3095,8 +3058,21 @@ function bossMechanicRuntimeStatus(key: string) {
     return `已触发，剩余 ${remaining >= 10 ? Math.ceil(remaining) : Math.ceil(remaining * 10) / 10} 秒`;
 }
 
-function previewBossMechanicRule(key: string) {
-    triggerBossMechanic(key, Date.now(), true);
+async function previewBossMechanicRule(key: string) {
+    const rule = bossMechanicSettings.value.rules[key];
+    if (!rule) return;
+    if (isStandalone.value) {
+        triggerBossMechanic(key, Date.now(), true);
+        return;
+    }
+    try {
+        await requestBossMechanicPreview(rule, bossMechanicSettings.value.scalePercent);
+        if (rule.soundMode !== "none" && (rule.soundMode !== "custom" || rule.customSoundId)) {
+            void playBossMechanicSound(rule.key, rule.soundMode, rule.customSoundId);
+        }
+    } catch (error) {
+        showNotice(`Boss 机制预览失败：${String(error)}`, "error");
+    }
 }
 
 function previewMielShardHealthBar() {
@@ -3380,29 +3356,6 @@ function onBuffSoundModeChanged(rule: BuffAlertRule) {
     }
 }
 
-async function loadLocalTTSVoices() {
-    if (localTtsVoices.value.length || localTtsVoicesLoading.value) return;
-    localTtsVoicesLoading.value = true;
-    localTtsStatus.value = "";
-    localTtsError.value = false;
-    try {
-        const response = await fetch("/api/local_tts", { cache: "no-store" });
-        if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
-        const result = await response.json() as { voices?: LocalTtsVoice[] };
-        localTtsVoices.value = Array.isArray(result.voices) ? result.voices.filter((voice) => Boolean(voice.name)) : [];
-        const preferred = localTtsVoices.value.find((voice) => voice.culture.toLowerCase() === "zh-cn")
-            ?? localTtsVoices.value.find((voice) => voice.culture.toLowerCase().startsWith("zh"))
-            ?? localTtsVoices.value[0];
-        localTtsVoice.value = preferred?.name ?? "";
-        if (!preferred) throw new Error("Windows 没有安装可用的系统语音");
-    } catch (error) {
-        localTtsError.value = true;
-        localTtsStatus.value = `读取系统语音失败：${String(error)}`;
-    } finally {
-        localTtsVoicesLoading.value = false;
-    }
-}
-
 function openLocalTTS(kind: LocalTtsTargetKind, id: number | string, label: string) {
     localTtsTarget.value = { kind, id, label };
     localTtsText.value = kind === "debuff"
@@ -3414,42 +3367,22 @@ function openLocalTTS(kind: LocalTtsTargetKind, id: number | string, label: stri
                 : kind === "buff-stack"
                     ? `${label}层数已达到`
                     : `${label}要结束了`;
-    localTtsRate.value = 0;
-    localTtsStatus.value = "";
-    localTtsError.value = false;
+    if (kind === "boss" && id === "miel-green-curtain") localTtsText.value = "绿幕即将出现";
     localTtsDialogOpen.value = true;
-    void loadLocalTTSVoices();
 }
 
-async function generateAndApplyLocalTTS() {
+async function applyGeneratedSpeech(generated: { soundId: string; displayName: string }) {
     const target = localTtsTarget.value;
-    if (!target || !localTtsText.value.trim() || !localTtsVoice.value || localTtsPending.value) return;
-    localTtsPending.value = true;
-    localTtsStatus.value = "正在使用 Windows 系统语音生成 WAV…";
-    localTtsError.value = false;
+    if (!target) return;
     try {
-        const response = await fetch("/api/local_tts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: localTtsText.value, voice: localTtsVoice.value, rate: localTtsRate.value }),
-        });
-        if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
-        const generated = await response.json() as { soundId?: string; displayName?: string; voice?: string };
-        if (!generated.soundId) throw new Error("生成结果缺少音效编号");
-        applyLocalTTSSound(target, generated.soundId, generated.displayName || "本地TTS.wav");
-        const volume = target.kind === "debuff"
-            ? debuffAlertSettings.value.volume
-            : target.kind === "boss"
-                ? bossMechanicSettings.value.volume
-                : buffOverlaySettings.value.volume;
+        applyLocalTTSSound(target, generated.soundId, generated.displayName);
+        const volume = target.kind === "debuff" ? debuffAlertSettings.value.volume
+            : target.kind === "boss" ? bossMechanicSettings.value.volume
+            : buffOverlaySettings.value.volume;
         await previewBuffAlertSound("custom", false, generated.soundId, volume);
-        localTtsStatus.value = `已生成并应用：${generated.displayName || "本地TTS.wav"}`;
-        showNotice(`已为“${target.label}”应用本地 TTS。请记得保存设定。`, "success");
+        showNotice(`已为“${target.label}”选用语音。请记得保存设定。`, "success");
     } catch (error) {
-        localTtsError.value = true;
-        localTtsStatus.value = `生成失败：${String(error)}`;
-    } finally {
-        localTtsPending.value = false;
+        showNotice(`选用语音失败：${String(error)}`, "warning");
     }
 }
 
@@ -3990,7 +3923,7 @@ function handleBossMechanicEvent(event: Event) {
     const sourceId = action.SourceId || action.Id;
     const source = actorManager.value.entityMap[sourceId] as EntityActor | undefined;
     for (const rule of configuredBossMechanicRules.value) {
-        if (!rule.enabled || rule.skillId !== action.SkillId) continue;
+        if (!rule.enabled || rule.trigger === "boss-spawn-cycle" || rule.skillId !== action.SkillId) continue;
         if (rule.trigger === "orb-spawn" && action.IsFallback !== true) continue;
         if (rule.trigger === "skill-action" && action.IsFallback === true) continue;
         if (!bossMechanicSourceMatchesRule(source, rule)) continue;
@@ -4061,7 +3994,7 @@ function triggerBossMechanic(
         : undefined;
     bossMechanicRuntime.value[key] = {
         startedAtMs: atMs,
-        endsAtMs: atMs + Math.max(1, Number(rule.countdownSeconds) || 1) * 1000,
+        endsAtMs: atMs + Math.max(1, Number(rule.trigger === "boss-spawn-cycle" ? rule.warningSeconds ?? 10 : rule.countdownSeconds) || 1) * 1000,
         generation: (previous?.generation ?? 0) + 1,
         bossId: boss?.id ?? "",
         bossRaceId,
@@ -4245,6 +4178,13 @@ function handleSkillCooldownAdjustment(event: Event) {
 function handleSkillState(event: Event) {
     const state = (event as CustomEvent<eventSkillState>).detail;
     if (!state || state.Id !== actorManager.value.localEntityId) return;
+    if (state.Scope === "active" && !state.Active && isTransformationSkill(state.SkillId)) {
+        if (endTransformationEffectTimers(configuredEffectTimerRules.value, effectTimerRuntime.value,
+            state.Id, state.SkillId, Number(state.AtMs) || Number(state.At) * 1000)) {
+            publishSkillCooldownOverlayState();
+        }
+        return;
+    }
     if (state.Scope === "active" && state.SkillId === FINAL_SHOT_SKILL_ID) {
         finalShotActive.value = state.Active;
         return;
@@ -4271,6 +4211,18 @@ function handleSkillState(event: Event) {
         targetId: state.TargetId ?? "",
     };
     recentMagnumAimCycle.value = null;
+}
+
+function handleEffectTimerLifecycle(event: Event) {
+    const detail = (event as CustomEvent<{ EventId: number; Id: string; At: number; Reset?: boolean }>).detail;
+    if (!detail) return;
+    const localId = actorManager.value.localEntityId;
+    const died = detail.EventId === eventIdFinish && detail.Id === localId;
+    const reset = detail.EventId === eventIdLocalEntity && (detail.Reset || detail.Id !== localId);
+    if ((died || reset) && endTransformationEffectTimers(configuredEffectTimerRules.value,
+        effectTimerRuntime.value, localId, 0, died ? Number(detail.At) * 1000 + 999 : 0)) {
+        publishSkillCooldownOverlayState();
+    }
 }
 
 function observeMagnumAimShot(action: eventSkillAction) {
@@ -4661,7 +4613,7 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
             return [{
                 key: rule.key,
                 name: rule.name,
-                icon: rule.trigger === "orb-spawn" ? "mdi-orbit" : "mdi-laser-pointer",
+                icon: rule.trigger === "boss-spawn-cycle" ? "mdi-shield-outline" : rule.trigger === "orb-spawn" ? "mdi-orbit" : "mdi-laser-pointer",
                 // BroadcastChannel cannot structured-clone Vue's nested
                 // reactive proxy (mielOrb).  The overlay only needs these
                 // primitive lifecycle fields, so keep its payload plain.
@@ -5449,6 +5401,7 @@ onMounted(async () => {
     window.addEventListener("dilmeter-save-settings-request", persistBuffAlertSettings as EventListener);
     window.addEventListener(SKILL_ACTION_EVENT, handleSkillAction as EventListener);
     window.addEventListener(EFFECT_TIMER_CONDITION_EVENT, handleEffectTimerCondition as EventListener);
+    window.addEventListener(EFFECT_TIMER_LIFECYCLE_EVENT, handleEffectTimerLifecycle as EventListener);
     window.addEventListener(SKILL_COOLDOWN_ADJUSTMENT_EVENT, handleSkillCooldownAdjustment as EventListener);
     window.addEventListener(SKILL_DAMAGE_EVENT, handleSkillDamage as EventListener);
     window.addEventListener(SKILL_STATE_EVENT, handleSkillState as EventListener);
@@ -5507,6 +5460,7 @@ onUnmounted(() => {
     window.removeEventListener("dilmeter-save-settings-request", persistBuffAlertSettings as EventListener);
     window.removeEventListener(SKILL_ACTION_EVENT, handleSkillAction as EventListener);
     window.removeEventListener(EFFECT_TIMER_CONDITION_EVENT, handleEffectTimerCondition as EventListener);
+    window.removeEventListener(EFFECT_TIMER_LIFECYCLE_EVENT, handleEffectTimerLifecycle as EventListener);
     window.removeEventListener(SKILL_COOLDOWN_ADJUSTMENT_EVENT, handleSkillCooldownAdjustment as EventListener);
     window.removeEventListener(SKILL_DAMAGE_EVENT, handleSkillDamage as EventListener);
     window.removeEventListener(SKILL_STATE_EVENT, handleSkillState as EventListener);

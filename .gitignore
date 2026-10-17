@@ -26,6 +26,7 @@
 /.cache/
 /.tools/
 /.vscode/
+**/.netlify/
 **/tmp/
 **/.DS_Store
 

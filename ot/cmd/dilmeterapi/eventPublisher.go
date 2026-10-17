@@ -429,6 +429,10 @@ func (t *eventPublisher) loop() {
 				}
 				continue
 
+			case packet.OpcodeSkillComplete:
+				t.publishTransformationComplete(p)
+				continue
+
 			case packet.OpcodeSkillCooldownReset:
 				if err := t.publishSkillCooldownResetPacket(p); err != nil {
 					logger.Println("ParseSkillCooldownResetPacket failed:", err)
@@ -448,7 +452,8 @@ func (t *eventPublisher) loop() {
 				}
 				continue
 
-			case 27021:
+			case packet.OpcodeSkillCancel:
+				t.publishTransformationCancel(p)
 				if t.acceptsLocalCooldownPacket(p) && len(p.Msg) > 0 && p.Msg[0].Type() == packet.MessageElemTypeShort && p.Msg[0].Data().(uint16) == 59046 {
 					t.publish(&event.EventSkillEnergy{EventBase: event.EventBase{EventId: event.EventIdSkillEnergy, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)}, SkillId: darkEnergySkillID, Active: false})
 				}
@@ -774,6 +779,7 @@ func (t *eventPublisher) loop() {
 					},
 					CCId:        cond.CCId,
 					DisableAt:   cond.DisableAt,
+					AtMs:        p.At.UnixMilli(),
 					DisableAtMs: cond.DisableAtMs,
 					AttackerId:  attackerId,
 					Metadata:    cond.Metadata,

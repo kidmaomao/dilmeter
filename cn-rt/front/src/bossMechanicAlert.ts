@@ -1,4 +1,4 @@
-export type BossMechanicTrigger = "orb-spawn" | "skill-action";
+export type BossMechanicTrigger = "orb-spawn" | "skill-action" | "boss-spawn-cycle";
 export type BossMechanicSoundMode = "none" | "dedicated" | "custom";
 
 export interface BossMechanicAlertRule {
@@ -12,6 +12,8 @@ export interface BossMechanicAlertRule {
     cancelConditionIds: number[];
     enabled: boolean;
     countdownSeconds: number;
+    /** Lead time for a repeating green-curtain warning (1–62 seconds). */
+    warningSeconds?: number;
     showCountdown: boolean;
     soundMode: BossMechanicSoundMode;
     customSoundId: string;
@@ -86,6 +88,24 @@ export const BOSS_MECHANIC_EVENT = "dilmeter-boss-mechanic-event";
 const STORAGE_KEY = "dilmeter-cn-boss-mechanic-alert-v1";
 
 const DEFAULT_RULES: Record<string, BossMechanicAlertRule> = {
+    "miel-green-curtain": {
+        key: "miel-green-curtain",
+        name: "四王绿幕",
+        bossRaceIds: [7615],
+        trigger: "boss-spawn-cycle",
+        skillId: 0,
+        triggerRaceIds: [],
+        cancelConditionIds: [],
+        enabled: false,
+        countdownSeconds: 63,
+        warningSeconds: 10,
+        showCountdown: true,
+        soundMode: "dedicated",
+        customSoundId: "",
+        customSoundName: "",
+        x: defaultOverlayX() + 280,
+        y: defaultOverlayY(),
+    },
     "miel-orb": {
         key: "miel-orb",
         name: "缠绕的神迹（环绕球）",
@@ -170,14 +190,15 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
         rules[key] = {
             ...base,
             enabled: storedRule.enabled === true,
-            countdownSeconds: key === "miel-orb" && storedCountdown === 15
+            warningSeconds: key === "miel-green-curtain" ? clamp(storedRule.warningSeconds ?? 10, 1, 62, 10) : undefined,
+            countdownSeconds: key === "miel-green-curtain" ? 63 : key === "miel-orb" && storedCountdown === 15
                 ? 20
                 : clamp(storedRule.countdownSeconds, 1, 120, countdownFallback),
             showCountdown: storedRule.showCountdown !== false,
             soundMode: sanitizeSoundMode(storedRule.soundMode),
             customSoundId: sanitizeText(storedRule.customSoundId, 128),
             customSoundName: sanitizeText(storedRule.customSoundName, 180),
-            x: clampInteger(storedRule.x, -32000, 32000, key === "miel-laser" ? legacyX + 140 : legacyX),
+            x: clampInteger(storedRule.x, -32000, 32000, key === "miel-green-curtain" ? legacyX + 280 : key === "miel-laser" ? legacyX + 140 : legacyX),
             y: clampInteger(storedRule.y, -32000, 32000, legacyY),
         };
     }
@@ -224,7 +245,8 @@ export function saveBossMechanicAlertSettings(settings: BossMechanicAlertSetting
     delete settings.miel60HealthBarY;
     delete settings.miel60HealthBarScalePercent;
     for (const rule of Object.values(settings.rules)) {
-        rule.countdownSeconds = clamp(rule.countdownSeconds, 1, 120, 5);
+        rule.countdownSeconds = rule.key === "miel-green-curtain" ? 63 : clamp(rule.countdownSeconds, 1, 120, 5);
+        if (rule.key === "miel-green-curtain") rule.warningSeconds = clamp(rule.warningSeconds ?? 10, 1, 62, 10);
         rule.soundMode = sanitizeSoundMode(rule.soundMode);
         rule.customSoundId = sanitizeText(rule.customSoundId, 128);
         rule.customSoundName = sanitizeText(rule.customSoundName, 180);

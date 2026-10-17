@@ -277,3 +277,16 @@ assert.strictEqual(observeMielOrbLateConfirmation(unresolved, start + 14_751), u
 assert.equal(isMielOrbVisible(unresolved, start + 19_999), true);
 
 console.log("Boss mechanic profile migration verification passed");
+
+const green = normalizeBossMechanicAlertSettings(null).rules["miel-green-curtain"];
+assert.equal(green.warningSeconds, 10);
+assert.equal(green.countdownSeconds, 63);
+assert.equal(green.enabled, false);
+assert.deepEqual(green.bossRaceIds, [7615]);
+const greenCustom = normalizeBossMechanicAlertSettings({rules: {"miel-green-curtain": {...green, enabled: true, warningSeconds: 20.5, bossRaceIds: [7603], countdownSeconds: 10}}}).rules["miel-green-curtain"];
+assert.equal(greenCustom.warningSeconds, 20.5);
+assert.equal(greenCustom.countdownSeconds, 63);
+assert.deepEqual(greenCustom.bossRaceIds, [7615]);
+for (const [input, expected] of [[-10, 1], [90, 62], [NaN, 10], [undefined, 10]] as const) {
+    assert.equal(normalizeBossMechanicAlertSettings({rules: {"miel-green-curtain": {...green, warningSeconds: input}}}).rules["miel-green-curtain"].warningSeconds, expected);
+}

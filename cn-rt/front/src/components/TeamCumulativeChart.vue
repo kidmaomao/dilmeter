@@ -20,6 +20,9 @@
             <span>DPS 口径</span>
             <button type="button" :class="{ active: dpsMode === 'rolling' }" @click="dpsMode = 'rolling'">近期 DPS</button>
             <button type="button" :class="{ active: dpsMode === 'cumulative' }" @click="dpsMode = 'cumulative'">累计 DPS</button>
+            <label v-if="dpsMode === 'cumulative' && players.length > 1" class="team-total-toggle">
+                <input v-model="hideCumulativeTeamTotal" type="checkbox" />不显示团队总 DPS
+            </label>
             <template v-if="dpsMode === 'rolling'">
                 <span>统计窗口</span>
                 <button v-for="option in tickOptions" :key="option" type="button" :class="{ active: windowSeconds === option }" @click="windowSeconds = option">最近 {{ option }} 秒</button>
@@ -136,6 +139,16 @@ const chartElement = ref<HTMLElement>();
 const tickOptions = [1, 2, 5, 10];
 const tickSeconds = ref(1);
 const dpsMode = ref<TeamDpsMode>('rolling');
+const HIDE_TEAM_TOTAL_KEY = 'dilmeter-team-chart-hide-cumulative-total';
+const hideCumulativeTeamTotal = ref(loadHideTeamTotal());
+watch(hideCumulativeTeamTotal, value => {
+    try { localStorage.setItem(HIDE_TEAM_TOTAL_KEY, String(value)); }
+    catch { /* Keep the current view usable if WebView storage is unavailable. */ }
+});
+function loadHideTeamTotal(): boolean {
+    try { return localStorage.getItem(HIDE_TEAM_TOTAL_KEY) === 'true'; }
+    catch { return false; }
+}
 const windowSeconds = ref(5);
 const axis = ref<"time" | "hp">("time");
 const showPeaks = ref(true);
@@ -176,7 +189,10 @@ const rankings = computed(() => {
 
 function buildSeries(themeText: string): SeriesOptionsType[] {
     if (props.mode === "dps" || axis.value === "hp") {
-        const rows = [...(props.mode === "dps" && props.players.length > 1 ? [{ entityId: 'team-total', label: '全团 DPS', points: dpsTimeline.value.total }] : []), ...dpsTimeline.value.members];
+        const showTeamTotal = props.mode === "dps" && props.players.length > 1
+            && !(dpsMode.value === 'cumulative' && hideCumulativeTeamTotal.value);
+        // Exclude both solid/dashed total series so the axis and tooltip use member data only.
+        const rows = [...(showTeamTotal ? [{ entityId: 'team-total', label: '全团 DPS', points: dpsTimeline.value.total }] : []), ...dpsTimeline.value.members];
         const series = rows.flatMap((player) => {
             const total = player.entityId === 'team-total';
             const index = props.players.findIndex(p => p.entityId === player.entityId);
@@ -362,7 +378,7 @@ function renderChart() {
     } else chart = Highcharts.chart(chartElement.value, options);
 }
 
-watch([axis, dpsMode, windowSeconds, () => props.health, () => props.invulnerable, tickSeconds, () => props.mode, () => props.players, () => props.startAt, () => props.endAt], renderChart, { deep: true });
+watch([axis, dpsMode, hideCumulativeTeamTotal, windowSeconds, () => props.health, () => props.invulnerable, tickSeconds, () => props.mode, () => props.players, () => props.startAt, () => props.endAt], renderChart, { deep: true });
 watch(peaks, renderChart);
 watch([axis, () => props.startAt], () => chart?.xAxis[0]?.setExtremes(undefined, undefined));
 const handleUiColorThemeChanged = () => renderChart();
@@ -405,6 +421,8 @@ const PALETTE = ["#8ee000", "#31a9ff", "#ffb43c", "#cf72ff", "#ff5b65", "#38d0b2
 
 <style scoped>
 .team-chart-component { min-height: 480px; }
+.team-total-toggle { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.team-total-toggle input { accent-color: var(--ui-color-accent, #8ee000); }
 .team-dps-ranking { margin: 0 0 10px; border: 1px solid #4a4a4a; background: linear-gradient(#202020, #161616); }
 .team-dps-ranking header { display: flex; align-items: baseline; gap: 8px; padding: 7px 9px; border-bottom: 1px solid #484848; }
 .team-dps-ranking header strong { color: #fff; font-size: 12px; }

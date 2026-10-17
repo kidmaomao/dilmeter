@@ -145,6 +145,9 @@ func main2(ctx context.Context) {
 		})
 	}
 	var documentReady atomic.Bool
+	if err := view.Bind("__dilmeterOpenExternal", openExternalLink); err != nil {
+		logger.Println("bind external browser callback failed:", err)
+	}
 	var recoveryRequested atomic.Bool
 	var readyFallback *time.Timer
 	if err := view.Bind("__dilmeterMainReady", func() {

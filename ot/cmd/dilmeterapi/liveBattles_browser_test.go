@@ -89,6 +89,8 @@ func TestLiveBattleBrowserHarness(t *testing.T) {
 	customAudioDir = func() string { return fixtureAudioDir }
 	defer func() { customAudioDir = previousAudioDir }()
 	mux.HandleFunc("/api/buff_sound/upload", handleCustomAudioUpload)
+	mux.HandleFunc("/api/edge_tts", handleEdgeTTS)
+	mux.HandleFunc("/api/local_tts", handleLocalTTS)
 	mux.HandleFunc("/api/buff_sound", func(w http.ResponseWriter, r *http.Request) {
 		var sound nativeReminderSoundRequest
 		if json.NewDecoder(r.Body).Decode(&sound) != nil {

@@ -74,7 +74,7 @@ jobs:
             try {
               npx vue-tsc --noEmit
               if ($LASTEXITCODE -ne 0) { throw "Type check failed: $frontend" }
-              foreach ($check in @('verify:arcana-kpi', 'verify:lancer-kpi', 'verify:aim-kpi-sampling', 'verify:burst-reminders', 'verify:healer-templates', 'verify:battle-record', 'verify:v152')) {
+              foreach ($check in @('verify:arcana-kpi', 'verify:lancer-kpi', 'verify:aim-kpi-sampling', 'verify:burst-reminders', 'verify:healer-templates', 'verify:battle-record', 'verify:v152', 'verify:external-links', 'verify:native-ready', 'verify:effect-timer')) {
                 npm run $check
                 if ($LASTEXITCODE -ne 0) { throw "Check failed: $frontend $check" }
               }
@@ -103,6 +103,29 @@ jobs:
           cmd /c cn-rt\package_release.bat
           cmd /c ot\package_release.bat
 
+      - name: Package optional Xiaoxiao speech addon
+        shell: pwsh
+        run: |
+          $releaseDir = Join-Path $PWD "artifacts\release-v${{ steps.version.outputs.value }}"
+          python scripts/package-edge-tts-addon.py --output $releaseDir
+          if ($LASTEXITCODE -ne 0) { throw 'Speech addon packaging failed' }
+          $addon = Get-ChildItem -LiteralPath $releaseDir -Filter 'Dilmeter-EdgeTTS-Addon-*-win-x64.zip'
+          if (@($addon).Count -ne 1) { throw 'Expected one speech addon ZIP' }
+          $testRoot = Join-Path $releaseDir 'speech-addon-test'
+          Expand-Archive -LiteralPath $addon.FullName -DestinationPath $testRoot
+          $env:DILMETER_EDGE_TTS_ADDON_TEST_ROOT = $testRoot
+          foreach ($variant in @('cn-rt', 'ot')) {
+            Push-Location $variant
+            try {
+              go test ./cmd/dilmeterapi -run EdgeTTS -count=1
+              if ($LASTEXITCODE -ne 0) { throw "Speech addon test failed: $variant" }
+              if ($variant -eq 'cn-rt') {
+                go test -tags dilmeter_rt ./cmd/dilmeterapi -run EdgeTTS -count=1
+                if ($LASTEXITCODE -ne 0) { throw 'Speech addon test failed: RT' }
+              }
+            } finally { Pop-Location }
+          }
+
       - name: Publish GitHub Release
         shell: pwsh
         env:
@@ -113,6 +136,9 @@ jobs:
           $releaseDir = Join-Path $PWD "artifacts\release-v$version"
           $assets = Get-ChildItem -LiteralPath $releaseDir -File | Where-Object { $_.Name -match '^Dilmeter(?:CN|RT|OT)\.(?:zip|json)$' }
           if ($assets.Count -ne 6) { throw "Expected 6 release assets, found $($assets.Count)" }
+          $speechAssets = Get-ChildItem -LiteralPath $releaseDir -File | Where-Object { $_.Name -match '^Dilmeter-EdgeTTS-Addon(?:-v[0-9.]+-win-x64\.zip|\.json)$' }
+          if ($speechAssets.Count -ne 2) { throw 'Expected speech addon ZIP and checksum manifest' }
+          $assets = @($assets) + @($speechAssets)
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @($assets.FullName) --clobber

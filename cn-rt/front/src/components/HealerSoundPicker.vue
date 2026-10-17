@@ -17,15 +17,26 @@
             <input type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" :aria-label="`${label}自定义音效`" :disabled="disabled" @change="upload" />
             <span>{{ modelValue.name || '选择 MP3 / WAV' }}</span>
         </label>
+        <button v-if="modelValue.kind === 'custom'" type="button" :disabled="disabled" @click="speechOpen = true">语音制作</button>
+        <SpeechMakerDialog v-model="speechOpen" :target-label="label" :initial-text="label" @generated="applyGeneratedSpeech" />
         <slot />
-        <button type="button" :aria-label="`试听${label}`" :disabled="disabled || modelValue.kind === 'none' || modelValue.kind === 'custom' && !modelValue.soundId" @click="preview">试听</button>
+        <button type="button" :aria-label="`试听${label}`" :disabled="disabled || modelValue.kind === 'none' || modelValue.kind === 'custom' && !modelValue.soundId" @click="preview()">试听</button>
     </span>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+import SpeechMakerDialog from './SpeechMakerDialog.vue';
 import type { HealerSound } from '@/healerMonitorTypes';
 const props = defineProps<{ modelValue: HealerSound; volume: number; label: string; disabled?: boolean }>();
 const emit = defineEmits<{ 'update:modelValue': [value: HealerSound]; busy: [value: boolean]; notice: [message: string]; error: [message: string] }>();
+const speechOpen = ref(false);
+async function applyGeneratedSpeech(result: { soundId: string; displayName: string }) {
+    const sound = { kind: 'custom', soundId: result.soundId, name: result.displayName };
+    emit('update:modelValue', sound);
+    await preview(sound);
+    emit('notice', '语音已选用，请保存设定。');
+}
 function setKind(event: Event) { emit('update:modelValue', { ...props.modelValue, kind: (event.target as HTMLSelectElement).value }); }
 async function upload(event: Event) {
     const input = event.target as HTMLInputElement, file = input.files?.[0]; input.value = '';
@@ -43,10 +54,10 @@ async function upload(event: Event) {
     } catch (reason) { emit('error', `导入音效失败：${String(reason)}`); }
     finally { emit('busy', false); }
 }
-async function preview() {
+async function preview(sound: HealerSound = props.modelValue) {
     emit('busy', true);
     try {
-        const response = await fetch('/api/buff_sound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: props.modelValue.kind, soundId: props.modelValue.soundId, volume: props.volume }), signal: AbortSignal.timeout(30000) });
+        const response = await fetch('/api/buff_sound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: sound.kind, soundId: sound.soundId, volume: props.volume }), signal: AbortSignal.timeout(30000) });
         if (!response.ok) throw new Error((await response.text()).trim());
         emit('notice', '已试听；若无声，请检查音量和托盘静音开关。');
     } catch (reason) { emit('error', `试听失败：${String(reason)}`); }

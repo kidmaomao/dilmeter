@@ -195,6 +195,7 @@ type nativeBossMechanicRule struct {
 	TriggerRaceIDs   []uint32 `json:"triggerRaceIds"`
 	Enabled          bool     `json:"enabled"`
 	CountdownSeconds float64  `json:"countdownSeconds"`
+	WarningSeconds   *float64 `json:"warningSeconds,omitempty"`
 	ShowCountdown    bool     `json:"showCountdown"`
 	SoundMode        string   `json:"soundMode"`
 	CustomSoundID    string   `json:"customSoundId"`
@@ -321,6 +322,7 @@ type nativeReminderRuntime struct {
 	magnumAim               nativeMagnumAimRuntime
 	finalShotActive         bool
 	bossMechanics           map[string]nativeBossMechanicRuntime
+	greenCurtain            nativeGreenCurtainRuntime
 	buffStackAlerts         map[uint32]nativeBuffStackRuntime
 	effectTimers            map[string]nativeEffectTimerRuntime
 	announcedSkillSounds    map[string]struct{}
@@ -435,6 +437,8 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	switch value := current.(type) {
 	case *event.EventLocalEntity:
 		if value.Reset || value.Id != runtime.localID {
+			runtime.endTransformationEffectTimers(0, 0)
+			runtime.clearGreenCurtain()
 			runtime.dorcha = dorchaQuantityState{}
 			runtime.darkEnergy = event.EventSkillEnergy{}
 			runtime.energyReady = nil
@@ -469,7 +473,11 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		entity.Active = true
 		entity.Defeated = false
 		entity.AppearedAt = value.At
+		runtime.observeGreenCurtainBoss(entity, nativeEventAtMs(value.At, 0))
 	case *event.EventEntityDisappear:
+		if value.Id == runtime.greenCurtain.BossID || value.Id == runtime.localID {
+			runtime.clearGreenCurtain()
+		}
 		entity := runtime.ensureEntity(value.Id)
 		entity.Active = false
 		if value.Id == runtime.selectedTargetID {
@@ -480,6 +488,11 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 			entity.RefreshGuard = make(map[uint32]int64)
 		}
 	case *event.EventFinish:
+		if value.Id == runtime.localID {
+			// Finish carries seconds only; include the full second so a death
+			// immediately after activation can end the current transformation.
+			runtime.endTransformationEffectTimers(0, value.At*1000+999)
+		}
 		runtime.ensureEntity(value.Id).Active = false
 		runtime.ensureEntity(value.Id).Defeated = true
 		if value.Id == runtime.selectedTargetID {
@@ -533,6 +546,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	case *event.EventSkillState:
 		runtime.observeSkillState(value)
 	case *event.EventCharacterConditionEnable:
+		runtime.observeGreenCurtainCondition(value)
 		entity := runtime.ensureEntity(value.Id)
 		if _, exists := entity.Conditions[value.CCId]; exists {
 			entity.RefreshGuard[value.CCId] = value.At
@@ -620,6 +634,10 @@ func (runtime *nativeReminderRuntime) startEffectTimer(key string, rule nativeEf
 
 func (runtime *nativeReminderRuntime) observeSkillState(state *event.EventSkillState) {
 	if state == nil || state.Id == "" || state.Id != runtime.localID {
+		return
+	}
+	if state.Scope == "active" && !state.Active && isTransformationSkill(uint32(state.SkillId)) {
+		runtime.endTransformationEffectTimers(state.SkillId, nativeEventAtMs(state.At, state.AtMs))
 		return
 	}
 	if state.Scope == "active" && state.SkillId == finalShotSkillID {
@@ -1011,7 +1029,7 @@ func (runtime *nativeReminderRuntime) observeBossMechanic(action *event.EventSki
 	}
 	atMs := nativeEventAtMs(action.At, action.AtMs)
 	for key, rule := range runtime.settings.BossMechanics.Rules {
-		if !rule.Enabled || rule.SkillID != action.SkillId {
+		if !rule.Enabled || rule.Trigger == "boss-spawn-cycle" || rule.SkillID != action.SkillId {
 			continue
 		}
 		if rule.Trigger == "orb-spawn" && !action.IsFallback {
@@ -1140,6 +1158,7 @@ func (runtime *nativeReminderRuntime) observeBossMechanicContact(damage *event.E
 }
 
 func (runtime *nativeReminderRuntime) evaluateBossMechanics(now time.Time) {
+	runtime.evaluateGreenCurtain(now)
 	nowMs := now.UnixMilli()
 	for key, state := range runtime.bossMechanics {
 		if state.EndsAtMs <= nowMs {
@@ -1781,6 +1800,8 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 		icon := "mdi-laser-pointer"
 		if key == "miel-orb" {
 			icon = "mdi-orbit"
+		} else if key == greenCurtainKey {
+			icon = "mdi-shield-outline"
 		}
 		mechanics = append(mechanics, nativeBossMechanicOverlayItem{
 			Key: key, Name: rule.Name, Icon: icon,
@@ -2296,7 +2317,15 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 		rule.X = clampNativeReminderInt(rule.X, -32000, 32000, settings.BossMechanics.X)
 		rule.Y = clampNativeReminderInt(rule.Y, -32000, 32000, settings.BossMechanics.Y)
 		rule.SoundMode = nativeBossSoundMode(rule.SoundMode)
-		if rule.Trigger != "orb-spawn" {
+		if key == greenCurtainKey {
+			rule.Trigger = "boss-spawn-cycle"
+			rule.CountdownSeconds = 63
+			rule.BossRaceIDs = []uint32{greenCurtainBossRaceID}
+			rule.SkillID = 0
+			rule.TriggerRaceIDs = nil
+			warning := greenCurtainWarningSeconds(rule)
+			rule.WarningSeconds = &warning
+		} else if rule.Trigger != "orb-spawn" {
 			rule.Trigger = "skill-action"
 		}
 		settings.BossMechanics.Rules[key] = rule

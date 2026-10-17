@@ -82,7 +82,8 @@ type EventDamage struct {
 
 type EventCharacterConditionEnable struct {
 	EventBase
-	Snapshot    bool `json:",omitempty"`
+	AtMs        int64 `json:",omitempty"`
+	Snapshot    bool  `json:",omitempty"`
 	CCId        uint32
 	DisableAt   int64
 	DisableAtMs int64

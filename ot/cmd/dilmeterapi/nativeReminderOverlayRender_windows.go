@@ -621,13 +621,19 @@ func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverl
 	border := color.RGBA{R: 255, G: 207, B: 105, A: 255}
 	pulse := nativeReminderPulse(nowMs, 620)
 	glow := color.RGBA{R: 255, G: 177, B: 62, A: byte(115 + 80*pulse)}
+	background := color.RGBA{R: 24, G: 13, B: 8, A: 190}
+	if item.Key == greenCurtainKey {
+		border = color.RGBA{R: 101, G: 247, B: 138, A: 255}
+		glow = color.RGBA{R: 26, G: 202, B: 77, A: byte(145 + 80*pulse)}
+		background = color.RGBA{R: 5, G: 48, B: 24, A: 220}
+	}
 	if danger {
 		border = color.RGBA{R: 255, G: 65, B: 46, A: 255}
 		pulse = nativeReminderPulse(nowMs, 340)
 		glow = color.RGBA{R: 255, G: 42, B: 28, A: byte(160 + 95*pulse)}
 	}
 	drawNativeReminderGlow(canvas, rect, glow, max(6, int(12*factor)))
-	fillNativeSkillBarRect(canvas, rect, color.RGBA{R: 24, G: 13, B: 8, A: 190})
+	fillNativeSkillBarRect(canvas, rect, background)
 	drawNativeSkillBarBorder(canvas, rect, border, 2)
 	if danger && pulse > .55 {
 		drawNativeSkillBarBorder(canvas, rect.Inset(-3), color.RGBA{R: 255, G: 238, B: 215, A: byte(90 + 100*pulse)}, 1)

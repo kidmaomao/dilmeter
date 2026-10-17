@@ -34,7 +34,30 @@ export interface EffectTimerOverlayItem extends EffectTimerRuntime, EffectTimerR
 }
 
 export const EFFECT_TIMER_CONDITION_EVENT = "dilmeter-effect-timer-condition";
+export const EFFECT_TIMER_LIFECYCLE_EVENT = "dilmeter-effect-timer-lifecycle";
 export const EFFECT_TIMER_STORAGE_KEY = "dilmeter-cn-effect-timer-v1";
+
+export function isTransformationSkill(skillId: number): boolean {
+    return [40001, 41001, 42001, 43001, 44001].includes(skillId);
+}
+
+// Clear the active duration only. The independent cooldown continues, and an
+// always-visible rule may still render its configured empty bar.
+export function endTransformationEffectTimers(
+    rules: EffectTimerRule[], runtime: Record<string, EffectTimerRuntime>,
+    actorId: string, skillId = 0, endedAtMs = 0,
+): boolean {
+    let changed = false;
+    for (const rule of rules) {
+        const state = runtime[rule.key];
+        if (rule.sourceType !== "skill" || rule.targetMode !== "self" ||
+            !isTransformationSkill(rule.sourceId) || (skillId && rule.sourceId !== skillId) ||
+            !state || state.targetId !== actorId || (endedAtMs > 0 && endedAtMs < state.startedAtMs)) continue;
+        delete runtime[rule.key];
+        changed = true;
+    }
+    return changed;
+}
 
 export function loadEffectTimerSettings(): EffectTimerSettings {
     try {

@@ -14,3 +14,14 @@
 10. 发布结果记录源码提交、Release、下载站部署及蓝奏云分享链接。网盘上传或站点部署失败时明确说明未完成项，修复后补齐。
 
 蓝奏云分享链接仅用于用户手动备用下载，不可写入客户端更新清单的 `url`，因为分享页不是 ZIP 直链。不得在仓库、工作流或发布记录中保存账户 Cookie、密码或其他登录凭证。
+
+## Netlify 下载页镜像
+
+镜像地址为 https://noginogi-downloads.netlify.app/downloads/ ，只展示页面与 gear / GitHub / 蓝奏云链接，不托管或代理安装包。每次正式版的主站下载页部署并核实后，执行 `scripts/build-download-mirror.py`，再按 [镜像维护记录](netlify-download-mirror.md) 上传页面并检查版本、链接和公开访问。不得将整个 artifacts、仓库、安装包、抓包或登录信息作为发布目录。
+
+## 可选晓晓语音附加包（1.6.3 起）
+
+- `scripts/package-edge-tts-addon.py` 按 `scripts/edge-tts-addon/lock.json` 构建独立的 Windows x64 ZIP；Release 工作流同时上传附加包及其大小/SHA-256 清单，不混入 CN、RT、OT 主包。
+- 正式发布时同样下载 GitHub Release 的最终附加包和清单，核验后同步到下载站和本次蓝奏云目录，下载页标注“可选：自定义晓晓语音制作”“Windows 10/11 64 位”“软件 1.6.3 起支持”。下载地址和蓝奏云链接须核实后填写，不能预先添加不存在的链接。
+- 保留包内使用说明、第三方许可、edge-tts 原始源码和组件锁定清单。使用附加包的实际解压目录运行 `TestEdgeTTSAddonIntegration`；常规构建验证不依赖 Microsoft 在线服务，发布前另外执行联网生成检查。
+- 更新依赖时修改锁定版本、官方下载地址和 SHA-256，并提升独立的 `addonVersion`。客户端更新不会自动更新附加包，玩家关闭软件后替换 `addons/edge-tts` 即可。

@@ -38,8 +38,8 @@ var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterOT"
 
-var AppVersion = "1.6.2"
-var AppDisplayVersion = "1.6.2"
+var AppVersion = "1.6.3"
+var AppDisplayVersion = "1.6.3"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {
@@ -220,6 +220,7 @@ func startWebsocketServer(ctx context.Context, cfg config, newClientCb func(*web
 	mux.HandleFunc("/api/skill_overlay/position", handleSkillOverlayPosition)
 	mux.HandleFunc("/api/skill_overlay/state", handleSkillOverlayState)
 	mux.HandleFunc("/api/burst_preview", handleBurstReminderPreview)
+	mux.HandleFunc("/api/boss_mechanic_preview", handleBossMechanicPreview)
 	mux.HandleFunc("/api/skill_bar", handleSkillBar)
 	mux.HandleFunc("/api/buff_sound", handleBuffSound)
 	mux.HandleFunc("/api/reminder_runtime/settings", handleNativeReminderSettings)
@@ -229,6 +230,7 @@ func startWebsocketServer(ctx context.Context, cfg config, newClientCb func(*web
 	mux.HandleFunc("/api/reminder_overlay/drag_state", handleNativeReminderDragState)
 	mux.HandleFunc("/api/buff_sound/upload", handleCustomAudioUpload)
 	mux.HandleFunc("/api/local_tts", handleLocalTTS)
+	mux.HandleFunc("/api/edge_tts", handleEdgeTTS)
 	mux.Handle("/res/", localFirstResourceHandler(htmlContent, proxy))
 	mux.Handle("/local-res/", localResourcePackHandler(htmlContent))
 

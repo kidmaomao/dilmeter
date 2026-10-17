@@ -21,6 +21,8 @@ var OpCodeStringMap = map[uint32]string{
 	26031: "OpcodeFlying",
 	27013: "OpcodeSkillPrepareReady",
 	27016: "OpcodeSkillExecute",
+	27020: "OpcodeSkillComplete",
+	27021: "OpcodeSkillCancel",
 	27028: "OpcodeSkillPrepareEnd",
 	27049: "OpcodeSkillCooldownReset",
 	27069: "OpcodeSkillCooldownReduce",
