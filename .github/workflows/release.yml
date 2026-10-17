@@ -142,6 +142,8 @@ jobs:
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag @($assets.FullName) --clobber
+            if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
+            gh release edit $tag --title "Dilmeter $tag" --notes-file "cn-rt/release-notes-current.txt"
           } else {
             gh release create $tag @($assets.FullName) --target "${{ github.sha }}" --title "Dilmeter $tag" --notes-file "cn-rt/release-notes-current.txt"
           }
