@@ -1,0 +1,38 @@
+name: Sync existing release to Gitee
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing GitHub release version without v (no rebuild)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download and verify existing GitHub assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $version = $env:RELEASE_VERSION.Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid stable version' }
+          gh release download "v$version" --dir artifacts/gitee-retry --pattern 'Dilmeter*.zip' --pattern 'Dilmeter*.json'
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download existing release' }
+          $manifest = Get-Content artifacts/gitee-retry/DilmeterCN.json -Raw | ConvertFrom-Json
+          $manifest.notes | Set-Content artifacts/gitee-retry/release-notes.txt -Encoding utf8
+      - name: Resume verified Gitee publication
+        shell: pwsh
+        env:
+          GITEE_ACCESS_TOKEN: ${{ secrets.GITEE_ACCESS_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python scripts/sync-gitee-release.py --release-dir artifacts/gitee-retry --version $env:RELEASE_VERSION --notes-file artifacts/gitee-retry/release-notes.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Gitee publication incomplete' }

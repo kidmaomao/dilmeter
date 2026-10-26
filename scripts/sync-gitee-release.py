@@ -121,7 +121,9 @@ def main():
         fields = {"content": base64.b64encode(payload).decode(), "message": f"Publish {app} {tag}", "branch": "master"}
         if old:
             fields["sha"] = old["sha"]
-        request(path, "PUT" if old else "POST", fields)
+        unchanged = old and base64.b64decode(old.get("content", "")) == payload
+        if not unchanged:
+            request(path, "PUT" if old else "POST", fields)
         public = public_download(f"https://gitee.com/{REPO}/raw/master/latest/{app}.json?version={args.version}")
         if json.loads(public) != manifest:
             raise RuntimeError(f"Public latest manifest verification failed: {app}")
