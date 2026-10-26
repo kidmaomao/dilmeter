@@ -31,7 +31,7 @@ def build(output):
             if name == 'downloads/index.html':
                 text = re.sub(r'href="([^"\s]+\.zip)"', lambda m: 'href="'+urljoin(BASE+'downloads/', m[1])+'"', text)
                 text = text.replace('本站直链下载', 'gear 本站下载')
-                text = text.replace('<main class="downloads-shell">', '<main class="downloads-shell">\n<p class="mirror-notice">Netlify 下载页镜像 · 文件由 gear / GitHub / 蓝奏云提供。<a href="https://gear.noginogi.sbs/downloads/">访问主站</a></p>')
+                text = text.replace('<main class="downloads-shell">', '<main class="downloads-shell">\n<p class="mirror-notice">Netlify 下载页镜像 · 文件由 gear / GitHub / Gitee / 蓝奏云提供。<a href="https://gear.noginogi.sbs/downloads/">访问主站</a></p>')
                 text = text.replace('rel="noopener noreferrer" hidden>GitHub', 'rel="noopener noreferrer">GitHub')
                 text = text.replace('<title>软件下载 - noginogi</title>', '<title>软件下载镜像 - noginogi</title>\n<link rel="canonical" href="https://gear.noginogi.sbs/downloads/" />')
             elif name == 'site.js':
