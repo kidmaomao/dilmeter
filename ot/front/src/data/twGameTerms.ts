@@ -3,6 +3,7 @@
 // Keep this small checked fallback available before downloads and offline.
 export type GameTerm = { kind: "skill" | "condition" | "class"; id: number; aliases: readonly string[]; tw: string };
 export const TW_GAME_TERMS: readonly GameTerm[] = [
+  { kind: "skill", id: 54402, aliases: ["狂乱"], tw: "雙槍射擊" },
   {
     "kind": "skill",
     "id": 20017,

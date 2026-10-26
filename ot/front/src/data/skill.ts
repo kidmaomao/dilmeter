@@ -3527,6 +3527,11 @@ export const skillData: Skill[] = [
         SkillLocalName: "精靈大型鐮刀實體化",
         SkillEngName: "Ego Scythe Incarnate",
     },
+    {
+        SkillID: 35130,
+        SkillLocalName: "精靈占星球實體化",
+        SkillEngName: "Ego Orb Incarnate",
+    },
     // ===================== hidden從這裡開始 =====================
     {
         SkillID: 10039,
@@ -5299,6 +5304,7 @@ export const skills = {
     "35127": "精靈雙槍實體化",
     "35128": "精靈鎖鏈鐮刃實體化",
     "35129": "精靈大型鐮刀實體化",
+    "35130": "精靈占星球實體化",
     "40001": "神聖之心",
     "40002": "神聖之力",
     "40003": "神聖之眼",

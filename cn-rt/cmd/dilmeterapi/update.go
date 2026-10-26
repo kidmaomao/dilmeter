@@ -26,6 +26,7 @@ const mirrorUpdateBaseURL = "https://gear.noginogi.sbs/downloads"
 var UpdateBaseURL = ""
 
 type updateManifest struct {
+	Source  string `json:"-"`
 	Version string `json:"version"`
 	URL     string `json:"url"`
 	SHA256  string `json:"sha256"`
@@ -34,6 +35,7 @@ type updateManifest struct {
 }
 
 type updateStatus struct {
+	Source         string `json:"source,omitempty"`
 	CurrentVersion string `json:"currentVersion"`
 	LatestVersion  string `json:"latestVersion"`
 	Available      bool   `json:"available"`
@@ -74,9 +76,14 @@ var updateDownloadDirectory = func() (string, error) {
 func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
+	preference := r.URL.Query().Get("source")
+	if !validUpdateSourcePreference(preference) {
+		http.Error(w, "无效的更新来源", http.StatusBadRequest)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
-		manifest, err := fetchUpdateManifest(r.Context())
+		manifest, err := fetchUpdateManifestWithPreference(r.Context(), preference)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("检查更新失败：%v", err), http.StatusBadGateway)
 			return
@@ -87,7 +94,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "missing update confirmation", http.StatusForbidden)
 			return
 		}
-		manifest, err := fetchUpdateManifest(r.Context())
+		manifest, err := fetchUpdateManifestWithPreference(r.Context(), preference)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("检查更新失败：%v", err), http.StatusBadGateway)
 			return
@@ -97,11 +104,12 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewEncoder(w).Encode(status)
 			return
 		}
-		path, err := downloadVerifiedUpdate(r.Context(), manifest)
+		path, source, err := downloadUpdateWithFallback(r.Context(), manifest, preference)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("下载更新失败：%v", err), http.StatusBadGateway)
 			return
 		}
+		status.Source = source
 		status.SavedPath = path
 		if err := startVerifiedUpdateInstall(path, manifest); err != nil {
 			http.Error(w, fmt.Sprintf("启动更新失败：%v", err), http.StatusInternalServerError)
@@ -116,19 +124,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func fetchUpdateManifest(ctx context.Context) (updateManifest, error) {
-	manifestURL := updateManifestEndpoint(AppName)
-	manifest, err := fetchUpdateManifestURL(ctx, manifestURL)
-	if err == nil || ctx.Err() != nil || !strings.HasPrefix(manifestURL, officialUpdateBaseURL+"/") {
-		return manifest, err
-	}
-	// The source repository may be private or GitHub may be unreachable.
-	// Keep public updates available without changing repository visibility.
-	mirrorURL := fmt.Sprintf("%s/%s.json?check=%d", mirrorUpdateBaseURL, url.PathEscape(AppName), time.Now().Unix())
-	mirror, mirrorErr := fetchUpdateManifestURL(ctx, mirrorURL)
-	if mirrorErr != nil {
-		return updateManifest{}, fmt.Errorf("GitHub: %v; 下载站: %w", err, mirrorErr)
-	}
-	return mirror, nil
+	return fetchUpdateManifestWithPreference(ctx, "auto")
 }
 
 func fetchUpdateManifestURL(ctx context.Context, manifestURL string) (updateManifest, error) {
@@ -188,7 +184,7 @@ func validateUpdateManifest(manifest updateManifest) error {
 }
 
 func toUpdateStatus(manifest updateManifest) updateStatus {
-	return updateStatus{CurrentVersion: AppVersion, LatestVersion: manifest.Version, Available: compareVersions(manifest.Version, AppVersion) > 0, Notes: manifest.Notes}
+	return updateStatus{Source: manifest.Source, CurrentVersion: AppVersion, LatestVersion: manifest.Version, Available: compareVersions(manifest.Version, AppVersion) > 0, Notes: manifest.Notes}
 }
 
 func compareVersions(left, right string) int {
@@ -216,6 +212,10 @@ func compareVersions(left, right string) int {
 }
 
 func downloadVerifiedUpdate(ctx context.Context, manifest updateManifest) (string, error) {
+	return downloadVerifiedUpdateWithProgress(ctx, manifest, nil)
+}
+
+func downloadVerifiedUpdateWithProgress(ctx context.Context, manifest updateManifest, progress io.Writer) (string, error) {
 	downloadURL, err := url.Parse(strings.TrimSpace(manifest.URL))
 	if err != nil {
 		return "", err
@@ -253,7 +253,11 @@ func downloadVerifiedUpdate(ctx context.Context, manifest updateManifest) (strin
 	temporaryPath := temporary.Name()
 	defer os.Remove(temporaryPath)
 	hash := sha256.New()
-	written, copyErr := io.Copy(io.MultiWriter(temporary, hash), io.LimitReader(response.Body, maxUpdateDownloadBytes+1))
+	writers := []io.Writer{temporary, hash}
+	if progress != nil {
+		writers = append(writers, progress)
+	}
+	written, copyErr := io.Copy(io.MultiWriter(writers...), io.LimitReader(response.Body, maxUpdateDownloadBytes+1))
 	closeErr := temporary.Close()
 	if copyErr != nil {
 		return "", copyErr

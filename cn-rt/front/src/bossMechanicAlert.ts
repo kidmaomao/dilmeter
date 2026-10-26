@@ -14,6 +14,12 @@ export interface BossMechanicAlertRule {
     countdownSeconds: number;
     /** Lead time for a repeating green-curtain warning (1–62 seconds). */
     warningSeconds?: number;
+    alwaysVisible?: boolean;
+    persistentStyle?: 'timer' | 'bar';
+    persistentX?: number;
+    persistentY?: number;
+    persistentScalePercent?: number;
+    persistentOpacityPercent?: number;
     showCountdown: boolean;
     soundMode: BossMechanicSoundMode;
     customSoundId: string;
@@ -24,6 +30,12 @@ export interface BossMechanicAlertRule {
 }
 
 export interface BossMechanicAlertSettings {
+    brontasRocks: { enabled: boolean; x: number; y: number; scalePercent: number; rotation: number };
+    ancientGiantHealthEnabled: boolean;
+    ancientGiantHealthX: number;
+    ancientGiantHealthY: number;
+    ancientGiantHealthScalePercent: number;
+    ancientGiantHealthOpacityPercent: number;
     volume: number;
     x: number;
     y: number;
@@ -98,7 +110,7 @@ const DEFAULT_RULES: Record<string, BossMechanicAlertRule> = {
         cancelConditionIds: [],
         enabled: false,
         countdownSeconds: 63,
-        warningSeconds: 10,
+        warningSeconds: 10, alwaysVisible: false, persistentStyle: "timer", persistentX: defaultOverlayX()+280, persistentY: defaultOverlayY()+140, persistentScalePercent: 100, persistentOpacityPercent: 100,
         showCountdown: true,
         soundMode: "dedicated",
         customSoundId: "",
@@ -159,6 +171,8 @@ export function loadBossMechanicAlertSettings(): BossMechanicAlertSettings {
 
 export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanicAlertSettings {
     const fallback: BossMechanicAlertSettings = {
+        brontasRocks: { enabled: false, x: 850, y: 450, scalePercent: 100, rotation: 0 },
+        ancientGiantHealthEnabled: false, ancientGiantHealthX: 750, ancientGiantHealthY: 330, ancientGiantHealthScalePercent: 100, ancientGiantHealthOpacityPercent: 100,
         volume: 80,
         x: defaultOverlayX(),
         y: defaultOverlayY(),
@@ -190,6 +204,12 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
         rules[key] = {
             ...base,
             enabled: storedRule.enabled === true,
+            alwaysVisible: key === 'miel-green-curtain' && storedRule.alwaysVisible === true,
+            persistentStyle: storedRule.persistentStyle === 'bar' ? 'bar' : 'timer',
+            persistentX: clampInteger(storedRule.persistentX, -32000, 32000, legacyX+280),
+            persistentY: clampInteger(storedRule.persistentY, -32000, 32000, legacyY+140),
+            persistentScalePercent: clampInteger(storedRule.persistentScalePercent, 50, 200, 100),
+            persistentOpacityPercent: clampInteger(storedRule.persistentOpacityPercent, 20, 100, 100),
             warningSeconds: key === "miel-green-curtain" ? clamp(storedRule.warningSeconds ?? 10, 1, 62, 10) : undefined,
             countdownSeconds: key === "miel-green-curtain" ? 63 : key === "miel-orb" && storedCountdown === 15
                 ? 20
@@ -205,6 +225,12 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
     const storedPhases = parsed.mielShardHealthPhases;
     const legacy60Enabled = parsed.miel60HealthBarEnabled !== false;
     return {
+        brontasRocks: normalizeBrontasRocks(parsed.brontasRocks),
+        ancientGiantHealthEnabled: parsed.ancientGiantHealthEnabled === true,
+        ancientGiantHealthX: clampInteger(parsed.ancientGiantHealthX, -32000, 32000, 750),
+        ancientGiantHealthY: clampInteger(parsed.ancientGiantHealthY, -32000, 32000, 330),
+        ancientGiantHealthScalePercent: clampInteger(parsed.ancientGiantHealthScalePercent, 50, 200, 100),
+        ancientGiantHealthOpacityPercent: clampInteger(parsed.ancientGiantHealthOpacityPercent, 20, 100, 100),
         volume: clamp(parsed.volume, 0, 100, 80),
         x: legacyX,
         y: legacyY,
@@ -226,6 +252,12 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
 }
 
 export function saveBossMechanicAlertSettings(settings: BossMechanicAlertSettings): void {
+    settings.brontasRocks = normalizeBrontasRocks(settings.brontasRocks);
+    settings.ancientGiantHealthEnabled = settings.ancientGiantHealthEnabled === true;
+    settings.ancientGiantHealthX = clampInteger(settings.ancientGiantHealthX, -32000, 32000, 750);
+    settings.ancientGiantHealthY = clampInteger(settings.ancientGiantHealthY, -32000, 32000, 330);
+    settings.ancientGiantHealthScalePercent = clampInteger(settings.ancientGiantHealthScalePercent, 50, 200, 100);
+    settings.ancientGiantHealthOpacityPercent = clampInteger(settings.ancientGiantHealthOpacityPercent, 20, 100, 100);
     settings.volume = clamp(settings.volume, 0, 100, 80);
     settings.x = clampInteger(settings.x, -32000, 32000, defaultOverlayX());
     settings.y = clampInteger(settings.y, -32000, 32000, defaultOverlayY());
@@ -247,6 +279,12 @@ export function saveBossMechanicAlertSettings(settings: BossMechanicAlertSetting
     for (const rule of Object.values(settings.rules)) {
         rule.countdownSeconds = rule.key === "miel-green-curtain" ? 63 : clamp(rule.countdownSeconds, 1, 120, 5);
         if (rule.key === "miel-green-curtain") rule.warningSeconds = clamp(rule.warningSeconds ?? 10, 1, 62, 10);
+        rule.alwaysVisible = rule.alwaysVisible === true;
+        rule.persistentStyle = rule.persistentStyle === 'bar' ? 'bar' : 'timer';
+        rule.persistentX = clampInteger(rule.persistentX, -32000, 32000, defaultOverlayX()+280);
+        rule.persistentY = clampInteger(rule.persistentY, -32000, 32000, defaultOverlayY()+140);
+        rule.persistentScalePercent = clampInteger(rule.persistentScalePercent, 50, 200, 100);
+        rule.persistentOpacityPercent = clampInteger(rule.persistentOpacityPercent, 20, 100, 100);
         rule.soundMode = sanitizeSoundMode(rule.soundMode);
         rule.customSoundId = sanitizeText(rule.customSoundId, 128);
         rule.customSoundName = sanitizeText(rule.customSoundName, 180);
@@ -412,4 +450,8 @@ function finiteNumber(value: unknown, fallback: number): number {
 
 function cloneRules(value: Record<string, BossMechanicAlertRule>): Record<string, BossMechanicAlertRule> {
     return JSON.parse(JSON.stringify(value)) as Record<string, BossMechanicAlertRule>;
+}
+
+function normalizeBrontasRocks(value?: Partial<BossMechanicAlertSettings['brontasRocks']>): BossMechanicAlertSettings['brontasRocks'] {
+ return { enabled: value?.enabled === true, x: clampInteger(value?.x,-32000,32000,850), y: clampInteger(value?.y,-32000,32000,450), scalePercent: clampInteger(value?.scalePercent,50,200,100), rotation: [0,90,180,270].includes(Number(value?.rotation)) ? Number(value?.rotation) : 0 };
 }

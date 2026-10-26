@@ -286,7 +286,7 @@ func TestHealerTextIndependentOfSoundAndPreview(t *testing.T) {
 	}
 	h.previewText = healerTextSettings{FontSize: 48, X: 10, Y: 20, Width: 800}
 	h.previewUntilMs = 108_000
-	if settings, lines, preview := h.textSnapshot(101_000); !preview || len(lines) != 2 || settings.FontSize != 48 {
+	if settings, lines, preview := h.textSnapshot(101_000); !preview || len(lines) != 3 || lines[2].Category != "mana" || settings.FontSize != 48 {
 		t.Fatal("preview did not use draft appearance")
 	}
 	if _, lines, preview := h.textSnapshot(108_000); preview || len(lines) != 0 {

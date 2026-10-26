@@ -22,14 +22,11 @@ const (
 	whMouseLL  = 14
 	hcAction   = 0
 	pmNoRemove = 0
-	// LLMHF_INJECTED marks mouse input synthesized by SendInput, mouse_event,
-	// or another process. Only physical mouse edges may start a SkillBar
-	// gesture or trigger its optional stop-key compensation.
+	// Ignore synthesized mouse input; only physical input may start a drag.
 	llmhfInjected = 0x00000001
 )
 
-// MSLLHOOKSTRUCT is shared by the reminder-overlay drag helper and SkillBar's
-// low-level click barrier.
+// MSLLHOOKSTRUCT is used only for dragging unlocked reminder overlays.
 type nativeLowLevelMouseHook struct {
 	Point     nativePoint
 	MouseData uint32
@@ -136,7 +133,7 @@ func runNativeReminderMouseHookThread(ready chan<- error, done chan struct{}) {
 	nativeReminderMouseHook.Store(hook)
 	nativeReminderMouseHookThread.Store(windows.GetCurrentThreadId())
 	nativeReminderMouseHookReady.Store(true)
-	logger.Printf("shared low-level mouse hook ready: thread=%d input=skillbar-barrier+reminder-drag", windows.GetCurrentThreadId())
+	logger.Printf("shared low-level mouse hook ready: thread=%d input=reminder-drag", windows.GetCurrentThreadId())
 	ready <- nil
 
 	for {
@@ -154,7 +151,6 @@ func runNativeReminderMouseHookThread(ready chan<- error, done chan struct{}) {
 
 	nativeReminderMouseHookReady.Store(false)
 	nativeReminderMouseHookThread.Store(0)
-	handleNativeSkillBarMouseHookUnavailable("shared WH_MOUSE_LL message loop stopped")
 	if installed := nativeReminderMouseHook.Swap(0); installed != 0 {
 		procUnhookWindowsHookEx.Call(installed)
 	}
@@ -220,7 +216,7 @@ func nativeReminderLowLevelMouseProc(code, message, hookData uintptr) uintptr {
 	}
 	data := (*nativeLowLevelMouseHook)(unsafe.Pointer(hookData))
 	// Once Reminder owns a left-button gesture, resolve its paired events before
-	// routing new gestures to SkillBar. This keeps the matching button-up from
+	// processing new gestures. This keeps the matching button-up from
 	// being intercepted if overlay visibility or overlap changes mid-gesture.
 	if nativeReminderHookOwned.Load() {
 		switch message {
@@ -241,9 +237,6 @@ func nativeReminderLowLevelMouseProc(code, message, hookData uintptr) uintptr {
 				return 1
 			}
 		}
-	}
-	if nativeSkillBarLowLevelMouseHandled(message, data.Point, data.Flags) {
-		return 1
 	}
 	if message != wmLButtonDown {
 		return callNextNativeReminderMouseHook(code, message, hookData)
@@ -565,7 +558,11 @@ func refreshWebViewReminderHitRegions() {
 		(target.PreviewEndsAt == 0 || target.PreviewEndsAt > nowMs) {
 		factor := dpiScale * float64(max(50, min(200, target.ScalePercent))) / 100
 		width, height := max(210, int(math.Ceil(420*factor))), max(19, int(math.Ceil(38*factor)))
-		regions = append(regions, nativeReminderHitRegion{Kind: "target-health", ID: "miel-shard", X: target.X, Y: target.Y,
+		id := target.Kind
+		if id == "" {
+			id = "miel-shard"
+		}
+		regions = append(regions, nativeReminderHitRegion{Kind: "target-health", ID: id, X: target.X, Y: target.Y,
 			Rect: nativeRect{Left: int32(target.X), Top: int32(target.Y), Right: int32(target.X + width), Bottom: int32(target.Y + height)}})
 	}
 	for _, item := range message.EffectTimers {
@@ -593,8 +590,13 @@ func refreshWebViewReminderHitRegions() {
 		}
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 		size := max(59, int(math.Ceil(118*factor)))
-		regions = append(regions, nativeReminderHitRegion{Kind: "mechanic", ID: item.Key, X: item.X, Y: item.Y,
-			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + size), Bottom: int32(item.Y + size)}})
+		width, height := size, size
+		if item.PassiveStyle != "" || len(item.Rocks) > 0 {
+			w, h := burstPopupDimensions(item)
+			width, height = int(math.Ceil(float64(w)*factor)), int(math.Ceil(float64(h)*factor))
+		}
+		regions = append(regions, nativeReminderHitRegion{Kind: "mechanic", ID: nativeMechanicDragID(item), X: item.X, Y: item.Y,
+			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + width), Bottom: int32(item.Y + height)}})
 	}
 	for _, item := range message.StackAlerts {
 		if !item.Persistent && item.EndsAtMs <= nowMs {

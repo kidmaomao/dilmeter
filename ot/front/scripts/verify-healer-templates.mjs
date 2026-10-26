@@ -7,6 +7,7 @@ const server = await createServer({ configFile: false, root, logLevel: "error", 
 try {
  const { makeHealerMember, makeHealerRule, makeHealerSettings, cloneHealerSettings, healerTemplateFromMember, applyHealerTemplate } = await server.ssrLoadModule("/src/healerMonitorTypes.ts");
  const source = makeHealerMember({ id: 'first-session-id', name: 'FirstPlayer' }, 0);
+ source.mana = true; source.manaSettings.threshold = 20; source.manaSettings.overlay.x = -80;
  source.favorite = true; source.health = true; source.healthSettings.threshold = 35;
  source.healthSettings.repeatCount = 3; source.healthSettings.repeatIntervalSeconds = 7;
  source.healthSettings.overlay = { enabled: true, x: -120, y: 220 };
@@ -17,12 +18,14 @@ try {
  source.buffSettings.rules[0].deathLoss = { enabled: false, sound: {kind: 'custom', soundId: 'death-audio', name: '死亡.mp3'}, repeatCount: 3, repeatIntervalSeconds: 9 };
  source.skillSettings.enabled = true; source.skillSettings.rules = [{ skillId: 59005, name: '崩坏', cooldownSeconds: 12.5, sound: {kind: 'skill-ready', soundId: '', name: ''} }];
  const template = healerTemplateFromMember(source, 'template-1', '队友1');
- assert.deepEqual(Object.keys(template).sort(), ['id', 'name', 'health', 'healthSettings', 'buffSettings', 'skillSettings'].sort(), 'templates contain no character identity/favorite fields');
+ assert.deepEqual(Object.keys(template).sort(), ['id', 'name', 'health', 'healthSettings', 'mana', 'manaSettings', 'buffSettings', 'skillSettings'].sort(), 'templates contain no character identity/favorite fields');
  source.healthSettings.threshold = 80;
  assert.equal(template.healthSettings.threshold, 35, 'saving a template captures independent preferences');
  const second = makeHealerMember({ id: 'second-session-id', name: 'SecondPlayer' }, 1);
  applyHealerTemplate(second, template);
  assert.equal(second.id, 'second-session-id'); assert.equal(second.name, 'SecondPlayer'); assert.equal(second.favorite, false);
+ assert.equal(second.mana, true); assert.equal(second.manaSettings.threshold, 20); assert.equal(second.manaSettings.overlay.x, -80);
+ second.manaSettings.threshold = 40; assert.equal(template.manaSettings.threshold, 20);
  assert.equal(second.key, 'player:SecondPlayer'); assert.equal(second.health, true);
  assert.equal(second.healthSettings.threshold, 35); assert.equal(second.healthSettings.overlay.x, -120);
  assert.equal(second.buffSettings.rules[0].sound.soundId, 'existing-audio');

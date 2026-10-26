@@ -71,6 +71,11 @@ func ParseSkillExecutePacket(msg Message) (*SkillExecutePacket, error) {
 		if result.SkillId == 59047 || heavyTarget || alchemyTarget || puppetTarget || fighterTarget || stingerTarget || archeryTarget || (len(msg) == 2 && (result.SkillId == 54302 || result.SkillId == 59121 || result.SkillId == 59122 || result.SkillId == 59123)) {
 			return result, nil
 		}
+		// Spirit awakening confirms its selected target, including the caster
+		// for orbs. Repeated uses at that target are distinct casts.
+		if IsSpiritAwakeningSkill(result.SkillId) && len(msg) == 2 {
+			return result, nil
+		}
 		token := msg[1].Data().(uint64)
 		result.ActionId = uint32(token) ^ uint32(token>>32)
 	}

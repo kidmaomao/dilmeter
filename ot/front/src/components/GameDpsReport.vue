@@ -683,6 +683,7 @@
                                     <span>{{ $game("点时弹框") }}</span>
                                 </label>
                                 <span v-else-if="rule.skillId === 59047">{{ $game("能量满 100% 且 CD 完成后提示") }}</span>
+                                <span v-else-if="isSpiritAwakeningSkill(rule.skillId)">充能滿 100% 後提示，連續實體化觸發時保持</span>
                                 <label v-else-if="rule.skillId === TOAH_SPIRIT_SKILL_ID || isEnergySkill(rule.skillId)">{{ $game("\n                                    提示进度\n                                    ") }}<input
                                         v-model.number="rule.progressThresholdPercent"
                                         type="number"
@@ -1020,7 +1021,7 @@
                                 <div class="boss-mechanic-identity">
                                     <v-icon :icon="rule.trigger === 'boss-spawn-cycle' ? 'mdi-shield-outline' : rule.trigger === 'orb-spawn' ? 'mdi-orbit' : 'mdi-laser-pointer'" size="24" />
                                     <strong>{{ rule.name }}</strong>
-                                    <small>{{ $game(rule.trigger === "boss-spawn-cycle" ? "识别四王立即提醒首轮；首轮在开战后 7 秒（14:53），后续每 63 秒并按实际出现校准" : rule.trigger === "orb-spawn" ? "米耶尔环绕球生成信号" : `技能 ${rule.skillId} 执行信号`) }}</small>
+                                    <ReminderHelpTooltip :label="`${rule.name}說明`" :text="$game(rule.trigger === 'boss-spawn-cycle' ? '识别四王立即提醒首轮；首轮在开战后 7 秒（14:53），后续每 63 秒并按实际出现校准' : rule.trigger === 'orb-spawn' ? '米耶尔环绕球生成后开始倒计时' : '捕捉神剑执行信号后开始倒计时')" />
                                 </div>
                                 <div class="reminder-rule-controls">
                                 <label><input v-model="rule.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $game("启用提醒") }}</label>
@@ -1047,7 +1048,42 @@
                                     <v-icon icon="mdi-account-voice" size="13" />{{ $game("语音制作\n                                ") }}</button>
                                 <button type="button" class="buff-alert-preview" :disabled="rule.soundMode === 'custom' && !rule.customSoundId" @click="previewBossMechanicRule(rule.key)">{{ $game("测试提醒") }}</button>
                                 </div>
+                                <div v-if="rule.key === 'miel-green-curtain'" class="reminder-rule-controls green-curtain-controls">
+                                    <label><input v-model="rule.alwaysVisible" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("一直显示") }}</label>
+                                    <div class="green-curtain-appearance">
+                                        <label>{{ $ui("常驻样式") }}<select v-model="rule.persistentStyle" @change="markBossMechanicSettingsDirty"><option value="timer">{{ $ui("简单时间") }}</option><option value="bar">{{ $ui("能量条") }}</option></select></label>
+                                        <label>{{ $ui("常驻 X") }}<input v-model.number="rule.persistentX" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                        <label>Y <input v-model.number="rule.persistentY" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                        <label>{{ $ui("常驻大小") }}<input v-model.number="rule.persistentScalePercent" type="number" min="50" max="200" @input="markBossMechanicSettingsDirty" />%</label>
+                                        <label>{{ $ui("常驻透明度") }}<input v-model.number="rule.persistentOpacityPercent" type="number" min="20" max="100" @input="markBossMechanicSettingsDirty" />%</label>
+                                        <button type="button" class="buff-alert-preview" @click="previewBossMechanicRule(rule.key, true)">{{ $ui("预览常驻") }}</button>
+                                        <ReminderHelpTooltip :label="$ui('绿幕常驻说明')" :text="$ui('常驻设置可随时调整。勾选一直显示后生效；首次绿幕前以 -- 表示待校准，进入提前提醒时间后切换为原有提示。')" />
+                                    </div>
+                                </div>
                                 <span class="buff-alert-runtime-status">{{ $game(bossMechanicRuntimeStatus(rule.key)) }}</span>
+                            </div>
+                            <div class="boss-mechanic-rule boss-reminder-editor">
+                                <div class="boss-mechanic-identity"><v-icon icon="mdi-compass-outline" size="24" /><strong>{{ $ui("布隆塔纳斯 50% 落石方位") }}</strong><ReminderHelpTooltip :label="$ui('落石方位说明')" :text="$ui('按实际生成的矿石显示并闪烁高亮；以固定地图上方为 12 点，不随镜头转动。可用方向校准调整朝向。')" /></div>
+                                <div class="reminder-rule-controls">
+                                    <label><input v-model="bossMechanicSettings.brontasRocks.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("启用方位提示") }}</label>
+                                    <label>X <input v-model.number="bossMechanicSettings.brontasRocks.x" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                    <label>Y <input v-model.number="bossMechanicSettings.brontasRocks.y" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                    <label>{{ $ui("大小") }}<input v-model.number="bossMechanicSettings.brontasRocks.scalePercent" type="number" min="50" max="200" @input="markBossMechanicSettingsDirty" />%</label>
+                                    <label>{{ $ui("方向校准") }}<select v-model.number="bossMechanicSettings.brontasRocks.rotation" @change="markBossMechanicSettingsDirty"><option :value="0">{{ $ui("默认") }}</option><option :value="90">{{ $ui("顺时针 90°") }}</option><option :value="180">{{ $ui("旋转 180°") }}</option><option :value="270">{{ $ui("逆时针 90°") }}</option></select></label>
+                                    <button type="button" class="buff-alert-preview" @click="previewBrontasRocks">{{ $ui("预览方位") }}</button>
+                                </div>
+                            </div>
+                            <div class="boss-mechanic-rule boss-mechanic-health-rule boss-reminder-editor">
+                                <div class="boss-mechanic-identity"><v-icon icon="mdi-heart-pulse" size="24" /><strong>{{ $ui("古代巨人血条") }}</strong><ReminderHelpTooltip :label="$ui('古代巨人血条说明')" :text="$ui('一王 70% / 25% 机制；只显示当前锁定的巨人，取消目标后隐藏。预览会持续 8 秒。')" /></div>
+                                <div class="reminder-rule-controls">
+                                    <label><input v-model="bossMechanicSettings.ancientGiantHealthEnabled" type="checkbox" @change="markBossMechanicSettingsDirty" />{{ $ui("启用血条") }}</label>
+                                    <label>X <input v-model.number="bossMechanicSettings.ancientGiantHealthX" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                    <label>Y <input v-model.number="bossMechanicSettings.ancientGiantHealthY" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                    <label>{{ $ui("大小") }}<input v-model.number="bossMechanicSettings.ancientGiantHealthScalePercent" type="number" min="50" max="200" @input="markBossMechanicSettingsDirty" />%</label>
+                                    <label>{{ $ui("透明度") }}<input v-model.number="bossMechanicSettings.ancientGiantHealthOpacityPercent" type="number" min="20" max="100" @input="markBossMechanicSettingsDirty" />%</label>
+                                    <button type="button" class="buff-alert-preview" @click="previewMielShardHealthBar('ancient-giant')">{{ $ui("预览血条") }}</button>
+                                </div>
+                                <span v-if="mielShardHealthBarPreview?.kind === 'ancient-giant'" class="buff-alert-runtime-status">{{ $ui("正在预览 8 秒，可解锁后拖动") }}</span>
                             </div>
                             <div class="boss-mechanic-rule boss-mechanic-health-rule boss-reminder-editor">
                                 <div class="boss-mechanic-identity">
@@ -1075,7 +1111,7 @@
                                 </label>
                                 <button type="button" class="buff-alert-preview" @click="previewMielShardHealthBar">{{ $game("预览血条") }}</button>
                                 </div>
-                                <span class="buff-alert-runtime-status">{{ $game(mielShardHealthBarPreview ? "正在预览 5 秒，可解锁后拖动" : "不影响环绕球与射线提醒") }}</span>
+                                <span class="buff-alert-runtime-status">{{ $game(mielShardHealthBarPreview?.kind === "miel-shard" ? "正在预览 8 秒，可解锁后拖动" : "不影响环绕球与射线提醒") }}</span>
                             </div>
                         </div>
                     </section>
@@ -1097,9 +1133,6 @@
                             <BurstReminderSettings :translate="gameUiText" :settings="burstSettings" :dirty="burstSettingsDirty" :saving="burstSettingsSaving" @change="burstSettingsDirty = true; reminderProfileSettingsDirty = true" @save="persistBurstSettings" @preview="previewBurstRule" />
                         </div>
                     </div>
-                </div>
-                <div v-show="activeTab === 'skillbar'" class="extra-skillbar-page">
-                    <slot name="extra-skillbar" :active="activeTab === 'skillbar'" />
                 </div>
             </div>
         </section>
@@ -1199,7 +1232,7 @@ import { gameUiText, skillResourceName } from "@/gameTerms";
 import ArcanaKpiPanel from "./ArcanaKpiPanel.vue";
 import ReminderHelpTooltip from "./ReminderHelpTooltip.vue";
 import { buildArcanaKpi } from "@/arcanaKpi";
-import { isEnergySkill, holyEnergyState, energyReminderReady, type SkillEnergyState } from "@/skillEnergy";
+import { isSpiritAwakeningSkill, SPIRIT_AWAKENING_SKILL_IDS, isEnergySkill, holyEnergyState, energyReminderReady, type SkillEnergyState } from "@/skillEnergy";
 import { deadIntervals, invulnerableIntervals } from "@/battleChartHistory";
 import type { PeakActor } from "@/teamDpsPeaks";
 import { computed, inject, onMounted, onUnmounted, ref, shallowRef, toRefs, watch, type Ref } from "vue";
@@ -1289,7 +1322,6 @@ import {
     type TargetHealthBarOverlayItem,
     type ToahSpiritProgressRuntime,
 } from "@/skillCooldown";
-import { loadSkillBarSettings } from "@/skillBar";
 import {
     EFFECT_TIMER_CONDITION_EVENT,
     EFFECT_TIMER_LIFECYCLE_EVENT,
@@ -1379,7 +1411,7 @@ const emit = defineEmits<{
 type NoticeType = "success" | "warning" | "error" | "info";
 type LocalTtsTargetKind = "buff" | "buff-stack" | "debuff" | "skill" | "boss";
 type LocalTtsTarget = { kind: LocalTtsTargetKind; id: number | string; label: string };
-type CombatTab = "summary" | "attack" | "alerts" | "team" | "skillbar";
+type CombatTab = "summary" | "attack" | "alerts" | "team";
 type BossMechanicRuntimeState = {
     startedAtMs: number;
     endsAtMs: number;
@@ -1617,7 +1649,7 @@ const bossMechanicSettings = ref(loadBossMechanicAlertSettings());
 const bossMechanicSettingsDirty = ref(false);
 const bossMechanicSettingsSaved = ref(false);
 const bossMechanicRuntime = ref<Record<string, BossMechanicRuntimeState>>({});
-const mielShardHealthBarPreview = ref<{ endsAtMs: number; generation: number } | null>(null);
+const mielShardHealthBarPreview = ref<{ endsAtMs: number; generation: number; kind?: string } | null>(null);
 const burstSettings = ref(loadBurstSettings());
 const burstSettingsDirty = ref(false), burstSettingsSaving = ref(false);
 const burstPreviewPopups = ref<BossMechanicOverlayItem[]>([]);
@@ -1700,7 +1732,6 @@ const combatTabs: Array<{ id: CombatTab; label: string; icon: string }> = [
     { id: "attack", label: "技能分析", icon: "mdi-sword-cross" },
     { id: "alerts", label: "提醒设置", icon: "mdi-bell-outline" },
     { id: "team", label: "队友提醒", icon: "mdi-account-heart-outline" },
-    { id: "skillbar", label: "额外技能栏", icon: "mdi-view-grid-plus-outline" },
 ];
 const visibleCombatTabs = computed(() => dpsVisible.value
     ? combatTabs
@@ -2296,7 +2327,7 @@ const allSkillDefinitions = computed<Array<{ id: number; name: string }>>(() => 
             definitions.set(id, normalizeSkillDisplayName(id, name) || definitions.get(id) || `技能 ${id}`);
         }
     }
-    for (const id of [59047, 59085, 59088]) if (!definitions.has(id)) definitions.set(id, skillDisplayName(id));
+    for (const id of [59047, 59085, 59088, ...SPIRIT_AWAKENING_SKILL_IDS]) if (!definitions.has(id)) definitions.set(id, skillDisplayName(id));
     return [...definitions].map(([id, name]) => ({ id, name }));
 });
 const skillCooldownSearchResults = computed<Array<{ id: number; name: string }>>(() => {
@@ -2933,7 +2964,14 @@ function bossMechanicRuntimeStatus(key: string) {
     return `已触发，剩余 ${remaining >= 10 ? Math.ceil(remaining) : Math.ceil(remaining * 10) / 10} 秒`;
 }
 
-async function previewBossMechanicRule(key: string) {
+async function previewBrontasRocks() {
+    try {
+        const response = await fetch('/api/boss_mechanic_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'brontas-rocks', durationSeconds: 8, ...bossMechanicSettings.value.brontasRocks }), signal: AbortSignal.timeout(5000) });
+        if (!response.ok) throw new Error(await response.text());
+    } catch (error) { showNotice(`落石预览失败：${String(error)}`, 'error'); }
+}
+
+async function previewBossMechanicRule(key: string, persistent = false) {
     const rule = bossMechanicSettings.value.rules[key];
     if (!rule) return;
     if (isStandalone.value) {
@@ -2941,8 +2979,8 @@ async function previewBossMechanicRule(key: string) {
         return;
     }
     try {
-        await requestBossMechanicPreview(rule, bossMechanicSettings.value.scalePercent);
-        if (rule.soundMode !== "none" && (rule.soundMode !== "custom" || rule.customSoundId)) {
+        await requestBossMechanicPreview(rule, bossMechanicSettings.value.scalePercent, persistent);
+        if (!persistent && rule.soundMode !== "none" && (rule.soundMode !== "custom" || rule.customSoundId)) {
             void playBossMechanicSound(rule.key, rule.soundMode, rule.customSoundId);
         }
     } catch (error) {
@@ -2950,17 +2988,17 @@ async function previewBossMechanicRule(key: string) {
     }
 }
 
-function previewMielShardHealthBar() {
+function previewMielShardHealthBar(kind: unknown = "miel-shard") {
     const nowMs = Date.now();
-    const generation = (mielShardHealthBarPreview.value?.generation ?? 0) + 1;
-    mielShardHealthBarPreview.value = { endsAtMs: nowMs + 5_000, generation };
+    const generation = nowMs;
+    mielShardHealthBarPreview.value = { endsAtMs: nowMs + 8_000, generation, kind: kind === "ancient-giant" ? kind : "miel-shard" };
     if (mielShardHealthBarPreviewTimer !== undefined) window.clearTimeout(mielShardHealthBarPreviewTimer);
     publishSkillCooldownOverlayState(true);
     mielShardHealthBarPreviewTimer = window.setTimeout(() => {
         mielShardHealthBarPreview.value = null;
         mielShardHealthBarPreviewTimer = undefined;
         publishSkillCooldownOverlayState(true);
-    }, 5_000);
+    }, 8_000);
 }
 
 function addEffectTimerRule() {
@@ -3064,20 +3102,8 @@ function currentReminderSnapshot(): ReminderProfileSnapshot {
     });
 }
 
-function mergeSkillBarCooldownRules(rules: Record<number, SkillCooldownRule>): Record<number, SkillCooldownRule> {
-    const merged = Object.fromEntries(Object.entries(rules).filter(([, rule]) => !rule.barOnly)) as Record<number, SkillCooldownRule>;
-    const bar = loadSkillBarSettings();
-    bar.slots.forEach((slot, index) => {
-        if (slot.skillId <= 0 || merged[slot.skillId]) return;
-        const rule = makeSkillCooldownRule(slot.skillId, bar.x + index * 4, bar.y + bar.iconSize + 12);
-        rule.enabled = true;
-        rule.barOnly = true;
-        rule.alwaysVisible = false;
-        rule.soundMode = "none";
-        rule.cooldownSeconds = slot.cooldownSeconds;
-        merged[slot.skillId] = rule;
-    });
-    return merged;
+function withoutLegacyBarRules(rules: Record<number, SkillCooldownRule>): Record<number, SkillCooldownRule> {
+    return Object.fromEntries(Object.entries(rules).filter(([, rule]) => !rule.barOnly));
 }
 
 function saveCurrentReminderProfile(profileId = reminderProfileStore.value.activeProfileId) {
@@ -3095,7 +3121,7 @@ function applyReminderProfile(profileId: string) {
     buffOverlaySettings.value.rules = snapshot.buffRules;
     debuffAlertSettings.value = snapshot.debuffSettings;
     skillCooldownSettings.value.aimReminder = snapshot.aimReminder;
-    skillCooldownSettings.value.rules = mergeSkillBarCooldownRules(Object.fromEntries(Object.entries(snapshot.skillRules).map(([rawId, rawRule]) => {
+    skillCooldownSettings.value.rules = withoutLegacyBarRules(Object.fromEntries(Object.entries(snapshot.skillRules).map(([rawId, rawRule]) => {
         const skillId = Number(rawId);
         const rule = rawRule as SkillCooldownRule;
         const defaults = makeSkillCooldownRule(skillId, Number(rule.x) || 600, Number(rule.y) || 180);
@@ -3118,7 +3144,7 @@ function applyReminderProfile(profileId: string) {
     playerBuffUsesDefaults.value = snapshot.playerBuffUsesDefaults;
     skillCooldownRuntime.value = {};
     magnumAimPreview.value = null;
-    for (const id of [59047, 59085]) { delete energyPreviews[id]; delete energyAnnounced[id]; }
+    for (const id of [59047, 59085, ...SPIRIT_AWAKENING_SKILL_IDS]) { delete energyPreviews[id]; delete energyAnnounced[id]; }
     toahSpiritProgressRuntime.value = initialToahSpiritProgressRuntime();
     dorchaQuantityRuntime.value = initialDorchaQuantityRuntime();
     dorchaPreviewUntilMs = 0;
@@ -3568,17 +3594,18 @@ async function pollNativeReminderDragState() {
             skillCooldownSettings.value.aimReminder.y = y;
             changed = true;
             if (!state.dragging) saveSkillCooldownSettings(skillCooldownSettings.value);
+        } else if (state.kind === "mechanic" && state.id === "brontas-rocks") {
+            bossMechanicSettings.value.brontasRocks.x = x; bossMechanicSettings.value.brontasRocks.y = y; changed = true;
+            if (!state.dragging) saveBossMechanicAlertSettings(bossMechanicSettings.value);
         } else if (state.kind === "mechanic") {
-            const rule = bossMechanicSettings.value.rules[state.id];
+            const rule = bossMechanicSettings.value.rules[state.id.replace(/-persistent$/, "")];
             if (rule) {
-                rule.x = x;
-                rule.y = y;
+                if (state.id.endsWith("-persistent")) { rule.persistentX = x; rule.persistentY = y; } else { rule.x = x; rule.y = y; }
                 changed = true;
                 if (!state.dragging) saveBossMechanicAlertSettings(bossMechanicSettings.value);
             }
         } else if (state.kind === "target-health") {
-            bossMechanicSettings.value.mielShardHealthBarX = x;
-            bossMechanicSettings.value.mielShardHealthBarY = y;
+            if (state.id === "ancient-giant") { bossMechanicSettings.value.ancientGiantHealthX = x; bossMechanicSettings.value.ancientGiantHealthY = y; } else { bossMechanicSettings.value.mielShardHealthBarX = x; bossMechanicSettings.value.mielShardHealthBarY = y; }
             changed = true;
             if (!state.dragging) saveBossMechanicAlertSettings(bossMechanicSettings.value);
         } else if (state.kind === "effect") {
@@ -3755,19 +3782,8 @@ function addFirstSkillCooldownSearchResult() {
 }
 
 function removeSkillCooldownRule(skillId: number) {
-    const barSlot = loadSkillBarSettings().slots.find((slot) => slot.skillId === skillId);
-    if (barSlot) {
-        const barRule = makeSkillCooldownRule(skillId);
-        barRule.enabled = true;
-        barRule.barOnly = true;
-        barRule.alwaysVisible = false;
-        barRule.soundMode = "none";
-        barRule.cooldownSeconds = barSlot.cooldownSeconds;
-        skillCooldownSettings.value.rules[skillId] = barRule;
-    } else {
-        delete skillCooldownSettings.value.rules[skillId];
-        delete skillCooldownRuntime.value[skillId];
-    }
+    delete skillCooldownSettings.value.rules[skillId];
+    delete skillCooldownRuntime.value[skillId];
     for (const key of announcedSkillReadySounds) {
         if (key.startsWith(`${skillId}:`)) announcedSkillReadySounds.delete(key);
     }
@@ -3999,7 +4015,7 @@ function handleSkillAction(event: Event) {
     // Toah Spirit uses the authoritative Stat 198 gauge rather than a fixed
     // cooldown. The execute packet must not replace its progress reminder with
     // an ordinary countdown.
-    if (action.SkillId === 59085 || action.SkillId === TOAH_SPIRIT_SKILL_ID || action.SkillId === DORCHA_MASTERY_SKILL_ID) return;
+    if (action.SkillId === 59085 || isSpiritAwakeningSkill(action.SkillId) || action.SkillId === TOAH_SPIRIT_SKILL_ID || action.SkillId === DORCHA_MASTERY_SKILL_ID) return;
     const rule = skillCooldownSettings.value.rules[action.SkillId];
     if (!rule?.enabled) return;
     const previous = skillCooldownRuntime.value[action.SkillId];
@@ -4156,7 +4172,7 @@ function handleSkillDamage(event: Event) {
         selectedBossId.value = next.selectedId;
     }
     observeActiveMielOrbContact(damage, damageAtMs);
-    if (damage.SkillId === 59085) return;
+    if (damage.SkillId === 59085 || isSpiritAwakeningSkill(damage.SkillId)) return;
     const rule = skillCooldownSettings.value.rules[damage.SkillId];
     if (!rule?.enabled) return;
     const source = actorManager.value.entityMap[damage.Id] as EntityActor | undefined;
@@ -4229,7 +4245,7 @@ const energyAnnounced: Record<number, boolean> = {};
 const energyPreviews: Record<number, { until: number; state: SkillEnergyState }> = {};
 watch(() => actorManager.value.localEntityId, () => {
     delete skillCooldownRuntime.value[59047];
-    for (const id of [59047, 59085]) { delete energyAnnounced[id]; delete energyPreviews[id]; }
+    for (const id of [59047, 59085, ...SPIRIT_AWAKENING_SKILL_IDS]) { delete energyAnnounced[id]; delete energyPreviews[id]; }
 });
 function previewSkillCooldown(skillId: number) {
     if (isEnergySkill(skillId)) {
@@ -4299,7 +4315,7 @@ function previewSkillCooldown(skillId: number) {
 function localSkillEnergy(skillId: number): SkillEnergyState | undefined {
     const id = actorManager.value.localEntityId;
     if (!id) return undefined;
-    if (skillId === 59047) return actorManager.value.skillEnergy[id]?.[skillId];
+    if (skillId === 59047 || isSpiritAwakeningSkill(skillId)) return actorManager.value.skillEnergy[id]?.[skillId];
     const actor = actorManager.value.entityMap[id] as EntityActor | undefined;
     return holyEnergyState(actor?.conditionMap[1179] ?? actorManager.value.pendingConditionMap[id]?.[1179], skillCooldownClock.value);
 }
@@ -4307,6 +4323,10 @@ function localSkillEnergy(skillId: number): SkillEnergyState | undefined {
 function skillCooldownRuntimeStatus(skillId: number) {
     if (isEnergySkill(skillId)) {
         const energy = localSkillEnergy(skillId);
+        if (isSpiritAwakeningSkill(skillId)) {
+            if (!energy?.Active) return '等待武器充能資訊；滿充或消耗充能時可自動識別，也可重新登入或換線';
+            return `充能 ${Math.floor(energy.Percent)}% · 滿充後亮起；連續實體化觸發時保持，消耗後重新充能`;
+        }
         const activationId = skillId === 59047 ? 59046 : 59088;
         const activation = `${skillDisplayName(activationId)}（${activationId}）`;
         if (!energy?.Active) return `请开启${activation}，等待服务器能量数据`;
@@ -4462,15 +4482,15 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
         : undefined;
     const targetHealth: TargetHealthBarOverlayItem | undefined = activeHealthPreview
         ? {
-            entityId: "miel-shard-health-preview",
-            name: "安乐碎片（预览）",
-            phaseLabel: "普通 60%",
+            entityId: "miel-shard-health-preview", kind: activeHealthPreview.kind,
+            name: activeHealthPreview.kind === "ancient-giant" ? "古代巨人（预览）" : "安乐碎片（预览）",
+            phaseLabel: activeHealthPreview.kind === "ancient-giant" ? "一王 70%" : "普通 60%",
             currentHealth: 38_281_896,
             maximumHealth: 63_803_160,
-            x: Math.min(32000, Math.max(-32000, Math.round(Number(bossMechanicSettings.value.mielShardHealthBarX) || 0))),
-            y: Math.min(32000, Math.max(-32000, Math.round(Number(bossMechanicSettings.value.mielShardHealthBarY) || 0))),
-            scalePercent: Math.min(200, Math.max(50, Math.round(Number(bossMechanicSettings.value.mielShardHealthBarScalePercent) || 100))),
-            opacityPercent: Math.min(100, Math.max(20, Math.round(Number(bossMechanicSettings.value.mielShardHealthBarOpacityPercent) || 100))),
+            x: Math.min(32000, Math.max(-32000, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthX : bossMechanicSettings.value.mielShardHealthBarX)) || 0))),
+            y: Math.min(32000, Math.max(-32000, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthY : bossMechanicSettings.value.mielShardHealthBarY)) || 0))),
+            scalePercent: Math.min(200, Math.max(50, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthScalePercent : bossMechanicSettings.value.mielShardHealthBarScalePercent)) || 100))),
+            opacityPercent: Math.min(100, Math.max(20, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthOpacityPercent : bossMechanicSettings.value.mielShardHealthBarOpacityPercent)) || 100))),
             previewExpiresAtMs: activeHealthPreview.endsAtMs,
             generation: activeHealthPreview.generation,
         }
@@ -4566,6 +4586,12 @@ function selectedMielShardTargetHealth(): TargetHealthBarOverlayItem | undefined
         : undefined;
     const selectedCurrentHealth = selectedTarget?.statMap[CURRENT_HEALTH_STAT_ID];
     const selectedMaximumHealth = selectedTarget?.statMap[MAXIMUM_HEALTH_STAT_ID];
+    if (selectedTarget && selectedTarget.raceId >= 7611 && selectedTarget.raceId <= 7614 && bossMechanicSettings.value.ancientGiantHealthEnabled
+        && actorManager.value.activeEntityMap[selectedTarget.id] === true && Number.isFinite(selectedCurrentHealth) && Number(selectedCurrentHealth) > 0
+        && Number.isFinite(selectedMaximumHealth) && Number(selectedMaximumHealth) > 0) {
+        return { kind: 'ancient-giant', entityId: selectedTarget.id, name: '古代巨人', phaseLabel: '一王机制', currentHealth: Math.min(selectedCurrentHealth!, selectedMaximumHealth!), maximumHealth: selectedMaximumHealth!,
+            x: bossMechanicSettings.value.ancientGiantHealthX, y: bossMechanicSettings.value.ancientGiantHealthY, scalePercent: bossMechanicSettings.value.ancientGiantHealthScalePercent, opacityPercent: bossMechanicSettings.value.ancientGiantHealthOpacityPercent };
+    }
     const selectedTargetOwner = selectedTarget?.ownerId
         ? actorManager.value.entityMap[selectedTarget.ownerId] as EntityActor | undefined
         : undefined;
@@ -7977,4 +8003,9 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
         min-width: 850px;
     }
 }
+
+.boss-reminder-editor > .green-curtain-controls { grid-column: 2; padding-top: 10px; border-top: 1px solid var(--ui-theme-border); }
+.green-curtain-controls small { flex-basis: 100%; color: var(--ui-theme-muted); }
+.green-curtain-appearance { display: contents; }
+@media (max-width: 1100px) { .boss-reminder-editor > .green-curtain-controls { grid-column: 1; } }
 </style>

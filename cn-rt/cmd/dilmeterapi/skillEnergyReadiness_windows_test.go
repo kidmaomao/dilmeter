@@ -97,31 +97,3 @@ func TestDarkEnergyReminderStaysDimUntilBothReady(t *testing.T) {
 		t.Fatalf("hidden digits conceal incomplete energy: %q", label)
 	}
 }
-
-func TestDarkEnergySkillBarRequiresEnergyAndCooldown(t *testing.T) {
-	item := nativeSkillOverlayItem{SkillID: darkEnergySkillID}
-	if text, mask := nativeSkillBarCooldownText(item, 130000); text != "未开启" || mask != 1 {
-		t.Fatalf("missing energy data must stay dim: %q %v", text, mask)
-	}
-	item.EnergyActive = true
-	if text, mask := nativeSkillBarCooldownText(item, 130000); text != "CD待观测" || mask != 1 {
-		t.Fatalf("unknown CD must stay dim: %q %v", text, mask)
-	}
-	item.CooldownObserved, item.UsedAtMs, item.ReadyAtMs = true, 100000, 130000
-	if text, mask := nativeSkillBarCooldownText(item, 125000); text != "5" || mask != 1 {
-		t.Fatalf("running CD must stay dim: %q %v", text, mask)
-	}
-	if text, mask := nativeSkillBarCooldownText(item, 130000); text != "能量未满" || mask != 1 {
-		t.Fatalf("expired CD cannot clear the energy mask: %q %v", text, mask)
-	}
-	item.EnergyReady = true
-	if text, mask := nativeSkillBarCooldownText(item, 130000); text != "" || mask != 0 {
-		t.Fatalf("ready skill must be unmasked: %q %v", text, mask)
-	}
-	canvas := image.NewRGBA(image.Rect(0, 0, 48, 48))
-	texts := drawNativeSkillBarSlot(canvas, canvas.Bounds(), nativeSkillBarSlot{SkillID: darkEnergySkillID},
-		nativeSkillOverlayItem{}, 130000, nativeSkillBarFeedback{}, false)
-	if len(texts) == 0 || texts[0].text != "未开启" {
-		t.Fatal("slot without an initial state bypassed the energy gate")
-	}
-}

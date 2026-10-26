@@ -1,6 +1,6 @@
 # 正式发布流程
 
-正式发布必须完成 GitHub Release、NogiNogi 下载页、蓝奏云三处同步。仅推送 main 或上传 GitHub 不算发布完成。
+正式发布必须完成 GitHub Release、Gitee Release、NogiNogi 下载页、蓝奏云及 Netlify 下载页镜像同步。仅推送 main 或上传单一来源不算发布完成。
 
 1. 核对 CN、RT、OT 的功能范围、版本和 Windows 文件属性。通用修复必须检查 OT 是否同步，并保留 OT 的语言和资源差异。
 2. 准备更新公告；用户要求先确认公告时，使用用户最后确认的文字后再发布。两个 `release-notes-current.txt`、ZIP 内公告、三个更新清单和下载页公告应一致。
@@ -14,6 +14,15 @@
 10. 发布结果记录源码提交、Release、下载站部署及蓝奏云分享链接。网盘上传或站点部署失败时明确说明未完成项，修复后补齐。
 
 蓝奏云分享链接仅用于用户手动备用下载，不可写入客户端更新清单的 `url`，因为分享页不是 ZIP 直链。不得在仓库、工作流或发布记录中保存账户 Cookie、密码或其他登录凭证。
+
+## GitHub 与 Gitee 双端发布（1.6.4 起）
+
+- 正式工作流发布 GitHub 产物后，运行 `scripts/sync-gitee-release.py`，把同一批最终 CN、RT、OT ZIP 同步到公开仓库 `kidmao100/dilmeter-releases`。仅同步本次版本，不补传历史版本。
+- 令牌只从 GitHub Actions 加密 Secret `GITEE_ACCESS_TOKEN` 或本地 `--token-file` 读取；不可写入源码、下载清单、命令行参数或日志。令牌文件必须留在仓库外。
+- 脚本先核验三个 ZIP 的版本、大小、SHA-256 和公告，再创建预发布、上传附件；三个附件均通过免登录实际下载及哈希核对后，才转为正式版并更新 `master/latest/DilmeterCN.json`、`DilmeterRT.json`、`DilmeterOT.json`。清单必须填写 Gitee 返回的公开 ZIP 下载地址。
+- Gitee 失败时不得宣称双端发布完成。使用 GitHub 最终产物重试同一脚本；禁止重新构建另一批 ZIP 冒充同一版本。脚本复用已有附件并验证，不覆盖同名文件。
+- 客户端提供自动、GitHub 优先、Gitee 优先。自动模式依次尝试 GitHub、Gitee、下载站；检查清单超时、下载失败或持续过慢会换源。备用源的版本、大小、SHA-256 必须与已选更新一致，避免下载尚未同步的旧包。
+- 发布记录包含 Gitee 版本页、免登录下载验证结果及三个公开更新清单。首次升级到 1.6.4 后才启用新的来源选择和自动换源逻辑。
 
 ## Netlify 下载页镜像
 

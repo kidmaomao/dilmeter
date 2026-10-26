@@ -110,9 +110,6 @@
                 <template #obs-effects>
                     <ObsEffectsSwitch v-if="!isStandalone" />
                 </template>
-                <template #extra-skillbar="{ active }">
-                    <SkillBarSettingsDialog v-if="!isStandalone" embedded :model-value="active" />
-                </template>
                 <template #reminder-save-actions="{ dirty, save, sync }">
                     <div class="reminder-save-actions">
                         <span role="status" aria-live="polite" :class="{ 'save-error': reminderSaveError }">{{ reminderSavePending ? '正在保存…' : reminderSaveError || (dirty || appBuffSettingsDirty || appDebuffSettingsDirty ? '有未保存修改' : '设置已同步') }}</span>
@@ -126,7 +123,7 @@
                             <input v-model="appBuffSettings.locked" type="checkbox" @change="persistOverlayLock" />
                             锁定覆盖层
                         </label>
-                        <ReminderHelpTooltip label="覆盖层锁定说明" text="勾选后鼠标穿透，不拦截游戏操作。取消勾选用于拖动已显示的提醒；也可在各分类中输入屏幕坐标定位。此项不控制额外技能栏。" />
+                        <ReminderHelpTooltip label="覆盖层锁定说明" text="勾选后鼠标穿透，不拦截游戏操作。取消勾选用于拖动已显示的提醒；也可在各分类中输入屏幕坐标定位。" />
                         <label class="reminder-opacity-setting" title="同时调整 Buff、Debuff、技能图标与倒计时的透明度">
                             <span>透明度</span>
                             <input
@@ -235,18 +232,26 @@
                 </v-card>
             </v-dialog>
 
-            <v-dialog v-model="updateDialogOpen" max-width="560">
+            <v-dialog v-model="updateDialogOpen" :persistent="updatePending" max-width="560">
                 <v-card class="update-dialog-card">
                     <v-card-title><v-icon icon="mdi-update" class="mr-2" />在线更新</v-card-title>
-                    <v-card-text v-if="updateInfo">
+                    <v-card-text>
+                        <v-select v-model="updateSource" :items="updateSourceOptions" label="更新来源" density="compact" variant="outlined" :disabled="updatePending" @update:model-value="changeUpdateSource" />
+                        <p>连接超时或下载持续过慢时，会自动尝试其他来源。</p>
+                        <p v-if="updatePending" role="status">正在检查或下载，请稍候…</p>
+                        <v-alert v-if="updateError" type="error" density="compact" class="my-2" role="alert">{{ updateError }}</v-alert>
+                        <template v-if="updateInfo">
+                            <p v-if="updateInfo.source">当前来源： {{ updateSourceLabel(updateInfo.source) }}</p>
                         <p>当前版本：v{{ updateInfo.currentVersion }}　最新版本：v{{ updateInfo.latestVersion }}</p>
                         <p v-if="updateInfo.notes" class="update-notes">{{ updateInfo.notes }}</p>
                         <p v-if="!updateInfo.available">当前已经是最新版本。</p>
                         <p v-else>更新包会先经过 HTTPS 下载及 SHA-256 校验。确认无误后，软件会自动退出并替换程序文件；安装完成后不会自动重启，请手动重新打开软件。配置和战斗记录不会被删除。</p>
+                        </template>
                     </v-card-text>
                     <v-card-actions>
                         <v-spacer />
-                        <v-btn @click="updateDialogOpen = false">关闭</v-btn>
+                        <v-btn :disabled="updatePending" @click="updateDialogOpen = false">关闭</v-btn>
+                        <v-btn :disabled="updatePending" @click="checkForUpdate(true)">重新检查</v-btn>
                         <v-btn v-if="updateInfo?.available" color="primary" :loading="updatePending" @click="downloadUpdate">立即更新并关闭</v-btn>
                     </v-card-actions>
                 </v-card>
@@ -257,6 +262,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, inject, onMounted, onUnmounted, ref, watch } from "vue";
+import { loadUpdateSource, saveUpdateSource, updateRequestURL, updateSourceLabel, type UpdateSourcePreference } from "./updateSource";
 import {
     BATTLE_RECORD_LOADED_EVENT,
     parseBattleRecord,
@@ -267,7 +273,6 @@ import ObsEffectsSwitch from "@/components/ObsEffectsSwitch.vue";
 import BuffOverlay from "@/components/BuffOverlay.vue";
 import DebuffOverlay from "@/components/DebuffOverlay.vue";
 import SkillCooldownOverlay from "@/components/SkillCooldownOverlay.vue";
-import SkillBarSettingsDialog from "@/components/SkillBarSettingsDialog.vue";
 import LogCleanupDialog from "@/components/LogCleanupDialog.vue";
 import BattleRecordBrowser from "@/components/BattleRecordBrowser.vue";
 import { BOSS_MECHANIC_EVENT } from "@/bossMechanicAlert";
@@ -278,7 +283,6 @@ import { SocketClient } from "@/lib/socketClient";
 import { eventIdCharacterConditionDisable, eventIdCharacterConditionEnable, eventIdFinish, eventIdLocalEntity, eventIdDamage, eventIdMessageBox, eventIdSkillAction, eventIdSkillCooldown, eventIdSkillState, type eventBase, type eventCharacterConditionEnable, type eventDamage, type eventMessageBox, type eventSkillAction, type eventSkillCooldown, type eventSkillState } from "@/protocols";
 import { EFFECT_TIMER_CONDITION_EVENT, EFFECT_TIMER_LIFECYCLE_EVENT } from "@/effectTimer";
 import { SKILL_ACTION_EVENT, SKILL_COOLDOWN_ADJUSTMENT_EVENT, SKILL_DAMAGE_EVENT, SKILL_STATE_EVENT, techniqueCooldownActionFromCondition } from "@/skillCooldown";
-import { loadSkillBarSettings, saveSkillBarSettings, syncNativeSkillBarSettings } from "@/skillBar";
 import { clearTimeRange } from "@/store";
 import { normalizeSkillDisplayName } from "@/skillDisplay";
 import {
@@ -312,6 +316,7 @@ interface AppInfo {
 }
 
 interface UpdateInfo {
+    source?: string;
     currentVersion: string;
     latestVersion: string;
     available: boolean;
@@ -336,7 +341,7 @@ interface GameServerSettings {
 
 export default defineComponent({
     name: "App",
-    components: { AuthorNoticeButton, ObsEffectsSwitch, ReminderHelpTooltip, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, SkillBarSettingsDialog, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
+    components: { AuthorNoticeButton, ObsEffectsSwitch, ReminderHelpTooltip, GameDpsReport, BuffOverlay, DebuffOverlay, SkillCooldownOverlay, LogCleanupDialog, BattleRecordBrowser, HealerMonitorPanel, HealerOverlay },
     setup() {
         const db = inject("db") as any;
         const region = inject("region") as any;
@@ -359,7 +364,7 @@ export default defineComponent({
         if (isDesignPreview) document.documentElement.classList.add("design-preview-root");
         const socketConnected = ref(false);
         const appName = ref("DilmeterCN");
-        const appVersion = ref("1.6.3");
+        const appVersion = ref("1.6.4");
         const runtimeStatus = ref<AppRuntimeStatus>({
             state: isStandalone ? "replay" : "starting",
             message: isStandalone ? "本地日志模式" : "正在连接桌面监测器…",
@@ -382,6 +387,13 @@ export default defineComponent({
         let catalogTimer: number | undefined;
         const loadError = ref("");
         const updateInfo = ref<UpdateInfo | null>(null);
+        const updateSource = ref<UpdateSourcePreference>(loadUpdateSource());
+        const updateSourceOptions = [
+            { title: "自动（GitHub → Gitee → 下载站）", value: "auto" },
+            { title: "GitHub 优先", value: "github" },
+            { title: "Gitee 优先", value: "gitee" },
+        ];
+        const updateError = ref("");
         const updatePending = ref(false);
         const updateDialogOpen = ref(false);
         const isOverlayWindow = isBuffOverlay || isDebuffOverlay || isSkillOverlay || isHealerOverlay;
@@ -822,24 +834,33 @@ export default defineComponent({
 
         const checkForUpdate = async (showDialog = false) => {
             if (isStandalone || updatePending.value) return;
+            if (showDialog) updateDialogOpen.value = true;
             updatePending.value = true;
+            updateError.value = "";
+            updateInfo.value = null;
             try {
-                const response = await fetch("/api/update", { cache: "no-store" });
+                const response = await fetch(updateRequestURL(updateSource.value), { cache: "no-store" });
                 if (!response.ok) throw new Error((await response.text()).trim() || `HTTP ${response.status}`);
                 updateInfo.value = await response.json() as UpdateInfo;
                 if (showDialog || updateInfo.value.available) updateDialogOpen.value = true;
             } catch (error) {
-                if (showDialog) loadError.value = `检查更新失败：${error}`;
+                updateError.value = `检查更新失败：${error}`;
             } finally {
                 updatePending.value = false;
             }
+        };
+
+        const changeUpdateSource = () => {
+            saveUpdateSource(updateSource.value);
+            void checkForUpdate(true);
         };
 
         const downloadUpdate = async () => {
             if (updatePending.value) return;
             updatePending.value = true;
             try {
-                const response = await fetch("/api/update", {
+                updateError.value = "";
+                const response = await fetch(updateRequestURL(updateSource.value), {
                     method: "POST",
                     headers: { "X-Dilmeter-Action": "install-update" },
                 });
@@ -849,7 +870,7 @@ export default defineComponent({
                 msgBoxText.value = "更新包已通过校验，软件即将关闭并安装。安装完成后不会自动重启，请手动重新打开 Dilmeter。";
                 msgBoxOpen.value = true;
             } catch (error) {
-                loadError.value = `下载更新失败：${error}`;
+                updateError.value = `下载更新失败：${error}`;
             } finally {
                 updatePending.value = false;
             }
@@ -1141,23 +1162,6 @@ export default defineComponent({
 
         onMounted(async () => {
             if (isBuffOverlay || isDebuffOverlay || isSkillOverlay || isHealerOverlay) return;
-            void (async () => {
-                const settings = loadSkillBarSettings();
-                try {
-                    const response = await fetch("/api/skill_bar", { cache: "no-store" });
-                    if (response.ok) {
-                        const nativeState = await response.json() as { x?: number; y?: number; positionSet?: boolean };
-                        if (nativeState.positionSet) {
-                            if (Number.isFinite(Number(nativeState.x))) settings.x = Math.round(Number(nativeState.x));
-                            if (Number.isFinite(Number(nativeState.y))) settings.y = Math.round(Number(nativeState.y));
-                            saveSkillBarSettings(settings);
-                        }
-                    }
-                } catch {
-                    // Keep the browser-side portable settings when native state is unavailable.
-                }
-                await syncNativeSkillBarSettings(settings);
-            })().catch(() => undefined);
             region.value = "cn";
             lang.value = "cn";
             regionList.value = ["cn"];
@@ -1267,6 +1271,11 @@ export default defineComponent({
             appName,
             appVersion,
             updateInfo,
+            updateSource,
+            updateSourceOptions,
+            updateSourceLabel,
+            changeUpdateSource,
+            updateError,
             updatePending,
             updateDialogOpen,
             checkForUpdate,
@@ -1378,8 +1387,7 @@ function saveDpsMonitoringEnabled(enabled: boolean): void {
     font-weight: 600;
 }
 
-.update-check-button,
-.skill-bar-settings-button {
+.update-check-button {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1391,17 +1399,6 @@ function saveDpsMonitoringEnabled(enabled: boolean): void {
     border: 1px solid #5f5f5f;
     font-size: 10px;
     cursor: pointer;
-}
-.skill-bar-settings-button {
-    margin-right: 7px;
-    color: var(--ui-theme-text);
-    border-color: var(--ui-theme-border);
-    background: linear-gradient(var(--ui-theme-raised), var(--ui-theme-control));
-}
-.skill-bar-settings-button .v-icon { color: var(--ui-color-accent); }
-.skill-bar-settings-button:hover {
-    border-color: var(--ui-color-accent);
-    background: linear-gradient(var(--ui-theme-surface-hover), var(--ui-theme-control));
 }
 .update-check-button.available { color: #f5ffe9; border-color: #82ba46; box-shadow: inset 0 0 8px rgba(123, 210, 42, .2); }
 .update-check-button:disabled { opacity: .55; cursor: wait; }

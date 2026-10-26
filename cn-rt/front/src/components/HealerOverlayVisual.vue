@@ -1,6 +1,6 @@
 <template>
- <article v-if="group.kind === 'health'" class="healer-health-card" :style="style" aria-label="队友血量提醒">
-  <div class="healer-health-heading"><span class="healer-cross">✚</span><strong :title="group.name">{{ group.name }}</strong><span>需要治疗</span></div>
+ <article v-if="group.kind === 'health' || group.kind === 'mana'" class="healer-health-card" :class="{ 'healer-mana-card': group.kind === 'mana' }" :style="style" :aria-label="group.kind === 'mana' ? '队友魔法值提醒' : '队友血量提醒'">
+  <div class="healer-health-heading"><span class="healer-cross">✚</span><strong :title="group.name">{{ group.name }}</strong><span>{{ group.kind === 'mana' ? '需要补蓝' : '需要治疗' }}</span></div>
   <div class="healer-health-value"><b>{{ group.cards[0]?.value }}</b><span>{{ group.cards[0]?.title }}</span></div>
   <div class="healer-health-track"><i :style="{ width: healthPercent + '%' }" /></div>
  </article>
@@ -58,4 +58,7 @@ const style = computed(() => ({ opacity: Math.max(20, Math.min(100, props.opacit
 .is-warning .healer-small-icon { animation: healer-buff-flash .8s ease-in-out infinite alternate; }
 @keyframes healer-buff-flash { to { border-color: #ffe8b9; box-shadow: 0 0 5px #ffae66; } }
 @media (prefers-reduced-motion: reduce) { .is-warning .healer-small-icon { animation: none; border-color: #ffaf70; } }
+.healer-mana-card { background: #152639; border-color: #74bdf0; border-left-color: #72ccff; box-shadow: 0 0 9px #387dc044; }
+.healer-mana-card .healer-health-track i { background: #72ccff; }
+.healer-mana-card .healer-health-value > span, .healer-mana-card .healer-health-heading > span:last-child { color: #b4dbf7; }
 </style>

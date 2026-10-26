@@ -12,9 +12,10 @@ const emptySkillOverlayState = `{"type":"skill-state","at":0,"items":[]}`
 
 var skillOverlayState = struct {
 	sync.RWMutex
-	data         []byte
-	burstPreview *nativeBossMechanicOverlayItem
-	bossPreviews map[string]nativeBossMechanicOverlayItem
+	data          []byte
+	burstPreview  *nativeBossMechanicOverlayItem
+	bossPreviews  map[string]nativeBossMechanicOverlayItem
+	healthPreview *nativeTargetHealthOverlayItem
 }{data: []byte(emptySkillOverlayState)}
 
 func setSkillOverlayState(data []byte) bool {
@@ -32,6 +33,7 @@ func setSkillOverlayStateAt(data []byte, nowMs int64) bool {
 	skillOverlayState.Lock()
 	message = mergeBurstPreviewLocked(message, nowMs)
 	message = mergeBossMechanicPreviewsLocked(message, nowMs)
+	message = mergeTargetHealthPreviewLocked(message, nowMs)
 	data, _ = json.Marshal(message)
 	skillOverlayState.data = append(skillOverlayState.data[:0], data...)
 	skillOverlayState.Unlock()

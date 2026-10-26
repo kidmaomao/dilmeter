@@ -83,8 +83,6 @@ assert.match(themeCss, /\.skill-timeline-summary[\s\S]*?var\(--ui-theme-muted\)/
 assert.match(themeCss, /\.team-chart-view-switch button[\s\S]*?var\(--ui-theme-control\)/);
 assert.match(themeCss, /\.team-chart-view-switch button\.active[\s\S]*?var\(--ui-theme-selected\)/);
 assert.match(themeCss, /\.team-chart-view-switch button\.active[\s\S]*?var\(--ui-theme-on-accent\)/);
-assert.match(themeCss, /\.skill-bar-settings-button[\s\S]*?var\(--ui-theme-control\)/);
-assert.match(themeCss, /\.skill-bar-settings-button \.v-icon[\s\S]*?var\(--ui-color-accent\)/);
 assert.match(themeCss, /:where\([\s\S]*?\.aim-reminder-save[\s\S]*?\.skill-cooldown-save[\s\S]*?var\(--ui-theme-text\)/);
 assert.match(themeCss, /:where\([\s\S]*?\.aim-reminder-save[\s\S]*?\.skill-cooldown-save[\s\S]*?var\(--ui-theme-raised\)/);
 assert.match(skillTimelineSource, /\.skill-timeline-scroll[\s\S]*?var\(--ui-theme-inset\)/);

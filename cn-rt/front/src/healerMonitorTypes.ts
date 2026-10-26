@@ -11,13 +11,17 @@ export interface HealerSkillSettings { enabled: boolean; soundEnabled: boolean; 
 const cooldownSkills = (value: HealerSkillSettings | undefined, index = 0): HealerSkillSettings => ({ ...(value ?? makeHealerSkills(index)), rules: (value?.rules ?? []).filter(rule => rule.skillId !== 58014) });
 export const makeHealerSkills = (index = 0): HealerSkillSettings => ({ enabled: false, soundEnabled: true, overlay: { enabled: true, x: 40, y: 240 + index * 72 }, rules: [] });
 export interface HealerPosition { enabled: boolean; x: number; y: number }
+export type HealerResourceSettings = { repeatCount: number; repeatIntervalSeconds: number; threshold: number; soundEnabled: boolean; sound: HealerSound; overlay: HealerPosition };
+export const makeHealerMana = (index = 0): HealerResourceSettings => ({ repeatCount: 1, repeatIntervalSeconds: 5, threshold: 25, soundEnabled: true, sound: makeHealerSound("electronic"), overlay: { enabled: true, x: 850, y: 180 + index * 110 } });
 export interface HealerMemberChoice {
+ self?: boolean;
+ mana: boolean; manaSettings: HealerResourceSettings;
  key: string; id: string; name: string; included: boolean; favorite: boolean; health: boolean;
  skillSettings: HealerSkillSettings;
  healthSettings: { repeatCount: number; repeatIntervalSeconds: number; threshold: number; soundEnabled: boolean; sound: HealerSound; overlay: HealerPosition };
  buffSettings: { enabled: boolean; soundEnabled: boolean; overlay: HealerPosition; rules: HealerBuffRule[] };
 }
-export type HealerMemberTemplate = Pick<HealerMemberChoice, 'health' | 'healthSettings' | 'buffSettings' | 'skillSettings'> & { id: string; name: string };
+export type HealerMemberTemplate = Pick<HealerMemberChoice, 'mana' | 'manaSettings' | 'health' | 'healthSettings' | 'buffSettings' | 'skillSettings'> & { id: string; name: string };
 export interface HealerSettings {
  version: number; enabled: boolean; volume: number; iconSize: number; soundEnabled: boolean;
  text: { enabled: boolean; fontSize: number; x: number; y: number; width: number };
@@ -27,7 +31,7 @@ export interface HealerBuffState { state: string; remainingSeconds: number | nul
 export interface HealerMemberState {
  key: string; id: string; name: string; active: boolean; waitingReason?: string;
  skills: Record<number, HealerBuffState>;
- healthState: string; healthPercent: number | null; buffs: Record<number, HealerBuffState>;
+ manaState: string; manaPercent: number | null; healthState: string; healthPercent: number | null; buffs: Record<number, HealerBuffState>;
 }
 export interface HealerMonitorState {
  settings: HealerSettings; members: HealerMemberState[]; alerts: { key: string; name: string; message: string }[];
@@ -46,19 +50,23 @@ export const makeHealerRule = (ccId: number, name: string, warning = 10): Healer
  deathLoss: { enabled: true, sound: makeHealerSound('healer-death'), repeatCount: 1, repeatIntervalSeconds: 5 },
 });
 export const makeHealerMember = (member: Pick<HealerMemberState, 'id' | 'name'>, index: number): HealerMemberChoice => ({
- key: `player:${member.name}`, id: member.id, name: member.name, included: true, favorite: false, health: false,
+ key: `player:${member.name}`, id: member.id, name: member.name, included: true, favorite: false, health: false, mana: false, manaSettings: makeHealerMana(index),
  skillSettings: makeHealerSkills(index),
  healthSettings: { repeatCount: 1, repeatIntervalSeconds: 5, threshold: 25, soundEnabled: true, sound: makeHealerSound('healer-health'), overlay: { enabled: true, x: 600, y: 180 + index * 110 } },
  buffSettings: { enabled: false, soundEnabled: true, overlay: { enabled: true, x: 40, y: 160 + index * 72 }, rules: [] },
 });
+export const makeHealerSelf = (): HealerMemberChoice => ({ ...makeHealerMember({ id: '', name: '自身角色' }, 0), self: true, key: 'self', favorite: true, mana: true });
+export const healerTemplateSummary = (template: HealerMemberTemplate): string => `${template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭'} · ${template.mana ? `魔法值 ≤${template.manaSettings.threshold}%` : '魔法值关闭'} · ${template.buffSettings.rules.length} 个 Buff · ${template.skillSettings.rules.length} 个技能`;
 export const makeHealerSettings = (): HealerSettings => ({ version: 2, enabled: false, volume: 70, iconSize: 30, opacityPercent: 100, templates: [], soundEnabled: true, text: { enabled: true, fontSize: 16, x: 600, y: 180, width: 660 }, members: [] });
-export const cloneHealerSettings = (value: HealerSettings): HealerSettings => JSON.parse(JSON.stringify({ ...value, opacityPercent: value.opacityPercent ?? 100, templates: (value.templates ?? []).map((member, index) => ({ ...member, skillSettings: cooldownSkills(member.skillSettings, index) })), members: value.members.map((member, index) => ({ ...member, skillSettings: cooldownSkills(member.skillSettings, index) })) }));
+export const cloneHealerSettings = (value: HealerSettings): HealerSettings => JSON.parse(JSON.stringify({ ...value, opacityPercent: value.opacityPercent ?? 100, templates: (value.templates ?? []).map((member, index) => ({ ...member, mana: member.mana ?? false, manaSettings: member.manaSettings ?? makeHealerMana(index), skillSettings: cooldownSkills(member.skillSettings, index) })), members: value.members.map((member, index) => ({ ...member, mana: member.mana ?? false, manaSettings: member.manaSettings ?? makeHealerMana(index), skillSettings: cooldownSkills(member.skillSettings, index) })) }));
 // Copy only reminder preferences so templates never replace the target identity or share mutable rules.
 export function healerTemplateFromMember(member: HealerMemberChoice, id: string, name: string): HealerMemberTemplate {
- return JSON.parse(JSON.stringify({ id, name, health: member.health, healthSettings: member.healthSettings, buffSettings: member.buffSettings, skillSettings: cooldownSkills(member.skillSettings) }));
+ return JSON.parse(JSON.stringify({ id, name, mana: member.mana ?? false, manaSettings: member.manaSettings ?? makeHealerMana(), health: member.health, healthSettings: member.healthSettings, buffSettings: member.buffSettings, skillSettings: cooldownSkills(member.skillSettings) }));
 }
 export function applyHealerTemplate(member: HealerMemberChoice, template: HealerMemberTemplate): void {
  const copy = JSON.parse(JSON.stringify(template)) as HealerMemberTemplate;
+ member.mana = copy.mana ?? false;
+ member.manaSettings = copy.manaSettings ?? makeHealerMana();
  member.health = copy.health;
  member.healthSettings = copy.healthSettings;
  member.buffSettings = copy.buffSettings;

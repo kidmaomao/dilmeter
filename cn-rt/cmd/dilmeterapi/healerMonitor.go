@@ -21,9 +21,12 @@ import (
 // are candidates, not an inferred party roster. Favorites are matched by exact
 // character name after a fresh appearance, never by a persisted entity ID.
 type healerMemberSelection struct {
+	Self           bool                       `json:"self,omitempty"`
 	Key            string                     `json:"key"`
 	Name           string                     `json:"name"`
 	Favorite       bool                       `json:"favorite"`
+	Mana           bool                       `json:"mana"`
+	ManaSettings   *healerHealthSettings      `json:"manaSettings"`
 	HealthSettings *healerHealthSettings      `json:"healthSettings,omitempty"`
 	SkillSettings  *healerMemberSkillSettings `json:"skillSettings"`
 	BuffSettings   *healerMemberBuffSettings  `json:"buffSettings,omitempty"`
@@ -98,6 +101,8 @@ type healerMemberTemplate struct {
 	ID             string                     `json:"id"`
 	Name           string                     `json:"name"`
 	Health         bool                       `json:"health"`
+	Mana           bool                       `json:"mana"`
+	ManaSettings   *healerHealthSettings      `json:"manaSettings"`
 	HealthSettings *healerHealthSettings      `json:"healthSettings"`
 	SkillSettings  *healerMemberSkillSettings `json:"skillSettings"`
 	BuffSettings   *healerMemberBuffSettings  `json:"buffSettings"`
@@ -135,6 +140,8 @@ type healerMemberState struct {
 	ID            string                     `json:"id"`
 	Name          string                     `json:"name"`
 	Active        bool                       `json:"active"`
+	ManaState     string                     `json:"manaState"`
+	ManaPercent   *float64                   `json:"manaPercent"`
 	HealthState   string                     `json:"healthState"`
 	HealthPercent *float64                   `json:"healthPercent"`
 	Overture      healerBuffState            `json:"overture"`
@@ -185,12 +192,19 @@ type healerMonitorState struct {
 }
 
 type healerObservation struct {
-	lastDeathMs  int64
-	removals     map[uint32]healerBuffRemoval
-	healthAtMs   int64
-	maximumKnown bool
-	visible      bool
-	buffs        map[uint32]bool
+	lastDeathMs    int64
+	removals       map[uint32]healerBuffRemoval
+	manaAtMs       int64
+	manaCurrent    float64
+	manaBase       float64
+	manaBonus      float64
+	manaBaseKnown  bool
+	manaBonusKnown bool
+	healthBonus    float64
+	healthAtMs     int64
+	maximumKnown   bool
+	visible        bool
+	buffs          map[uint32]bool
 }
 
 type healerBuffRemoval struct {
@@ -354,7 +368,7 @@ func normalizeHealerSettings(s healerSettings) healerSettings {
 		}
 		member.Buffs = buffs
 		member = normalizeHealerMember(member, s, len(members))
-		if (member.ID == "" && member.Name == "") || len(member.ID) > 128 || seen[member.Key] || !(member.Included || member.Favorite || member.Health || member.Overture || member.Vivace || len(buffs) > 0 || member.BuffSettings.Enabled || member.SkillSettings.Enabled) {
+		if (member.ID == "" && member.Name == "") || len(member.ID) > 128 || seen[member.Key] || !(member.Included || member.Favorite || member.Health || member.Mana || member.Overture || member.Vivace || len(buffs) > 0 || member.BuffSettings.Enabled || member.SkillSettings.Enabled) {
 			continue
 		}
 		seen[member.Key] = true
@@ -422,6 +436,7 @@ func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRun
 		// Fresh HP must still confirm revival before health alerts resume.
 		if observed := h.observed[v.Id]; observed != nil {
 			observed.healthAtMs = 0
+			observed.manaAtMs = 0
 			observed.lastDeathMs = v.At * 1000
 			// The server may remove Buffs just before announcing death.
 			for ccID, removal := range observed.removals {
@@ -432,10 +447,15 @@ func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRun
 			}
 		}
 		delete(h.alerts, v.Id+":health")
+		delete(h.alerts, v.Id+":mana")
 	case *event.EventStatUpdate:
 		for _, stat := range v.Stats {
 			if math.IsNaN(stat.Value) || math.IsInf(stat.Value, 0) {
 				continue
+			}
+			h.observation(v.Id).observeManaStat(stat, v.At*1000)
+			if stat.StatId == 31 {
+				h.observation(v.Id).healthBonus = stat.Value
 			}
 			if stat.StatId == 28 {
 				h.observation(v.Id).healthAtMs = v.At * 1000
@@ -574,12 +594,12 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 		rules := buffSettings.Rules
 		entity := runtime.entities[id]
 		observation := h.observed[id]
-		member := healerMemberState{Key: choice.Key, ID: id, Name: choice.Name, HealthState: "unknown", Overture: healerBuffState{State: "unknown"}, Vivace: healerBuffState{State: "unknown"}, Buffs: map[uint32]healerBuffState{}, Skills: map[uint16]healerBuffState{}}
+		member := healerMemberState{Key: choice.Key, ID: id, Name: choice.Name, HealthState: "unknown", ManaState: "unknown", Overture: healerBuffState{State: "unknown"}, Vivace: healerBuffState{State: "unknown"}, Buffs: map[uint32]healerBuffState{}, Skills: map[uint16]healerBuffState{}}
 		available := entity != nil && observation != nil && observation.visible && capturing
 		skillAvailable := entity != nil && observation != nil && observation.visible && streamCapturing
 		skillAlive := skillAvailable && healerEntityActive(entity, observation)
 		member.Active = available && healerEntityActive(entity, observation)
-		if member.Name == "" && entity != nil {
+		if (member.Name == "" || choice.Self) && entity != nil {
 			member.Name = entity.Name
 		}
 		for _, rule := range rules {
@@ -587,6 +607,7 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 		}
 		if !member.Active {
 			member.HealthState = "unavailable"
+			member.ManaState = "unavailable"
 			if !capturing {
 				member.WaitingReason = "等待实时数据；开启软件后请让队友切换一次地图"
 			} else if available {
@@ -595,11 +616,11 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 				member.WaitingReason = "等待识别／不在视野；请让队友切换地图"
 			}
 		} else {
-			if observation.healthAtMs > 0 && observation.maximumKnown && entity.MaximumHealth > 0 && !math.IsInf(entity.MaximumHealth, 0) && !math.IsNaN(entity.CurrentHealth) && !math.IsInf(entity.CurrentHealth, 0) {
+			if observation.healthAtMs > 0 && observation.maximumKnown && entity.MaximumHealth+observation.healthBonus > 0 && !math.IsInf(entity.MaximumHealth, 0) && !math.IsNaN(entity.CurrentHealth) && !math.IsInf(entity.CurrentHealth, 0) {
 				if nowMs-observation.healthAtMs > 30_000 {
 					member.HealthState = "stale"
 				} else {
-					percent := math.Max(0, math.Min(100, entity.CurrentHealth/entity.MaximumHealth*100))
+					percent := math.Max(0, math.Min(100, entity.CurrentHealth/(entity.MaximumHealth+observation.healthBonus)*100))
 					member.HealthPercent, member.HealthState = &percent, "normal"
 					_, wasLow := h.alerts[id+":health"]
 					if percent <= float64(health.Threshold) || wasLow && percent < float64(health.Threshold+5) {
@@ -607,6 +628,12 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 					}
 				}
 			}
+		}
+		if choice.Self && !member.Active {
+			member.WaitingReason = "等待自身角色数据；请登录或切换地图完成识别"
+		}
+		if member.Active {
+			member.ManaState, member.ManaPercent = h.manaState(id, observation, choice.ManaSettings, nowMs)
 		}
 		// A visible fallen teammate can lose music before its countdown ends.
 		// Evaluate confirmed Buff changes independently of living/health state.
@@ -644,6 +671,9 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 		// unrelated traffic after an idle gap would replenish an exhausted quota.
 		if choice.Health && (member.HealthState == "unavailable" || member.HealthState == "stale" || member.HealthState == "unknown") {
 			activeAlerts[id+":health"] = true
+		}
+		if choice.Mana && (member.ManaState == "unavailable" || member.ManaState == "stale" || member.ManaState == "unknown") {
+			activeAlerts[id+":mana"] = true
 		}
 		// A known cooldown can finish while the party stands idle. It depends on
 		// capture/visibility and the observed use, not on fresh health/Buff traffic.
@@ -696,6 +726,18 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 			alert := healerAlert{Key: id + ":health", Name: member.Name, Message: message, Category: "health", Overlay: health.Overlay.Enabled, Flash: true, Title: fmt.Sprintf("血量≤%d%%", health.Threshold), Value: fmt.Sprintf("%.0f%%", *member.HealthPercent), sound: sound, soundDue: true, repeatCount: health.RepeatCount, repeatIntervalSeconds: health.RepeatIntervalSeconds}
 			if addAlert(alert, 500) && health.Overlay.Enabled {
 				state.Cards = append(state.Cards, healerCard{Key: alert.Key, MemberKey: choice.Key, Name: member.Name, Title: alert.Title, Value: alert.Value, Category: "health", State: "low", Flash: true, X: health.Overlay.X, Y: health.Overlay.Y})
+			}
+		}
+
+		if choice.Mana && member.ManaState == "low" {
+			mana := choice.ManaSettings
+			sound := mana.Sound
+			if !mana.SoundEnabled {
+				sound = healerSound{Kind: "none"}
+			}
+			alert := healerAlert{Key: id + ":mana", Name: member.Name, Message: fmt.Sprintf("魔法值≤%d%%（当前 %.0f%%）", mana.Threshold, *member.ManaPercent), Category: "mana", Overlay: mana.Overlay.Enabled, Flash: true, Title: fmt.Sprintf("魔法值≤%d%%", mana.Threshold), Value: fmt.Sprintf("%.0f%%", *member.ManaPercent), sound: sound, soundDue: true, repeatCount: mana.RepeatCount, repeatIntervalSeconds: mana.RepeatIntervalSeconds}
+			if addAlert(alert, 500) && mana.Overlay.Enabled {
+				state.Cards = append(state.Cards, healerCard{Key: alert.Key, MemberKey: choice.Key, Name: member.Name, Title: alert.Title, Value: alert.Value, Category: "mana", State: "low", Flash: true, X: mana.Overlay.X, Y: mana.Overlay.Y})
 			}
 		}
 
@@ -780,7 +822,7 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 			(latch.announcedCount == 0 || nowMs-latch.lastSoundMs >= int64(alert.repeatIntervalSeconds)*1000)
 	}
 	for pass := 0; pass < 2; pass++ {
-		for _, category := range []string{"health", "music", "buff", "skill"} {
+		for _, category := range []string{"health", "mana", "music", "buff", "skill"} {
 			for _, alert := range state.Alerts {
 				first := h.alerts[alert.Key].announcedCount == 0
 				if alert.Category != category || first != (pass == 0) || !due(alert) || nowMs-h.lastSoundMs < 2000 {
@@ -847,7 +889,7 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 		settings = normalizeHealerSettings(settings)
 		sounds := []healerSound{}
 		for _, member := range settings.Members {
-			sounds = append(sounds, member.HealthSettings.Sound)
+			sounds = append(sounds, member.HealthSettings.Sound, member.ManaSettings.Sound)
 			for _, rule := range member.SkillSettings.Rules {
 				sounds = append(sounds, rule.Sound)
 			}
@@ -857,7 +899,7 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		for _, template := range settings.Templates {
-			sounds = append(sounds, template.HealthSettings.Sound)
+			sounds = append(sounds, template.HealthSettings.Sound, template.ManaSettings.Sound)
 			for _, rule := range template.SkillSettings.Rules {
 				sounds = append(sounds, rule.Sound)
 			}

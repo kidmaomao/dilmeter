@@ -35,9 +35,6 @@ type config struct {
 	SkillOverlayX            int    `yaml:"skill_overlay_x"`
 	SkillOverlayY            int    `yaml:"skill_overlay_y"`
 	SkillOverlayPositionSet  bool   `yaml:"skill_overlay_position_set"`
-	SkillBarX                int    `yaml:"skill_bar_x"`
-	SkillBarY                int    `yaml:"skill_bar_y"`
-	SkillBarPositionSet      bool   `yaml:"skill_bar_position_set"`
 }
 
 func findConfigPath() string {

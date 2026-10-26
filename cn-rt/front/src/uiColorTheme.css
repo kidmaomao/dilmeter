@@ -35,7 +35,6 @@
 
 .main-dilmeter-app :where(
     .update-check-button,
-    .skill-bar-settings-button,
     .ui-color-picker,
     .server-switcher select,
     .server-settings-button,
@@ -75,14 +74,7 @@
     background: var(--ui-theme-surface) !important;
 }
 
-.main-dilmeter-app .skill-bar-settings-button .v-icon {
-    color: var(--ui-color-accent) !important;
-}
 
-.main-dilmeter-app .skill-bar-settings-button:hover {
-    background: linear-gradient(var(--ui-theme-surface-hover), var(--ui-theme-control)) !important;
-    border-color: var(--ui-color-accent) !important;
-}
 
 .main-dilmeter-app .ui-color-picker select:focus,
 .main-dilmeter-app .server-switcher select:focus {
@@ -112,7 +104,7 @@
     input,
     select,
     textarea
-) {
+):not(.healer-health-card *, .healer-buff-strip *) {
     color: var(--ui-theme-text) !important;
     text-shadow: none !important;
 }

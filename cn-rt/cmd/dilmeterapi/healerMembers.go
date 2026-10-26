@@ -6,6 +6,9 @@ import (
 )
 
 func healerMemberKey(member healerMemberSelection) string {
+	if member.Self {
+		return "self"
+	}
 	if member.Name != "" {
 		return "player:" + member.Name
 	}
@@ -14,6 +17,11 @@ func healerMemberKey(member healerMemberSelection) string {
 
 func normalizeHealerMember(member healerMemberSelection, settings healerSettings, index int) healerMemberSelection {
 	member.Name = strings.TrimSpace(member.Name)
+	if member.Self {
+		member.Name = "自身角色"
+		member.Favorite = true
+		member.Included = true
+	}
 	member.Name = string([]rune(member.Name)[:min(len([]rune(member.Name)), 100)])
 	member.Key = healerMemberKey(member)
 	if member.HealthSettings == nil {
@@ -27,6 +35,7 @@ func normalizeHealerMember(member healerMemberSelection, settings healerSettings
 	health.Sound = normalizeHealerSound(health.Sound, "healer-health")
 	health.Overlay = normalizeHealerPosition(health.Overlay)
 	member.HealthSettings = &health
+	member.ManaSettings = normalizeHealerMana(member.ManaSettings, index)
 	if member.BuffSettings == nil {
 		rules := []healerBuffRule{}
 		if member.Overture {
@@ -91,7 +100,8 @@ func normalizeHealerTemplates(templates []healerMemberTemplate, settings healerS
 			template.Name = fmt.Sprintf("队友%d", index+1)
 		}
 		template.Name = string([]rune(template.Name)[:min(len([]rune(template.Name)), 48)])
-		member := normalizeHealerMember(healerMemberSelection{Name: template.Name, Health: template.Health, HealthSettings: template.HealthSettings, BuffSettings: template.BuffSettings, SkillSettings: template.SkillSettings}, settings, index)
+		member := normalizeHealerMember(healerMemberSelection{Name: template.Name, Health: template.Health, HealthSettings: template.HealthSettings, Mana: template.Mana, ManaSettings: template.ManaSettings, BuffSettings: template.BuffSettings, SkillSettings: template.SkillSettings}, settings, index)
+		template.ManaSettings = member.ManaSettings
 		template.HealthSettings, template.BuffSettings, template.SkillSettings = member.HealthSettings, member.BuffSettings, member.SkillSettings
 		seen[template.ID] = true
 		result = append(result, template)
@@ -113,6 +123,12 @@ func normalizeHealerPosition(position healerPosition) healerPosition {
 func healerFavoriteMembers(members []healerMemberSelection) []healerMemberSelection {
 	result := []healerMemberSelection{}
 	for _, member := range members {
+		if member.Self {
+			member.Name = "自身角色"
+			member.Key = "self"
+			member.Favorite = true
+			member.Included = true
+		}
 		if !member.Favorite || member.Name == "" {
 			continue
 		}
@@ -125,6 +141,11 @@ func healerFavoriteMembers(members []healerMemberSelection) []healerMemberSelect
 func (h *healerMonitor) resolveMembers(runtime *nativeReminderRuntime) {
 	for index := range h.settings.Members {
 		member := &h.settings.Members[index]
+		if member.Self {
+			member.ID = runtime.localID
+			member.Key = "self"
+			continue
+		}
 		if member.Name == "" {
 			entity := runtime.entities[member.ID]
 			if entity != nil && entity.Known && entity.OwnerID == "" && battleRecordPCRace(entity.RaceID) && member.ID != runtime.localID && h.observed[member.ID] != nil {

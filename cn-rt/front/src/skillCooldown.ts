@@ -1,4 +1,4 @@
-import { DARK_ENERGY_SKILL_ID, isEnergySkill } from "./skillEnergy";
+import { DARK_ENERGY_SKILL_ID, isEnergySkill, isSpiritAwakeningSkill } from "./skillEnergy";
 import type { EffectTimerOverlayItem } from "./effectTimer";
 import { DEFAULT_DORCHA_THRESHOLD, normalizeDorchaThreshold, normalizeDorchaScalePercent } from "./dorcha";
 
@@ -8,7 +8,7 @@ export type SkillCooldownOwnerMode = "auto" | "player" | "pet";
 export interface SkillCooldownRule {
     skillId: number;
     enabled: boolean;
-    /** Track cooldown state for SkillBarOverlay without showing the legacy ready reminder. */
+    /** Legacy field: entries exclusive to the removed bar are discarded on load. */
     barOnly?: boolean;
     /** Full lockout after a cumulative-cooldown skill reaches its limit. */
     cooldownSeconds: number;
@@ -140,6 +140,7 @@ export interface SkillCooldownOverlayMessage {
 }
 
 export interface TargetHealthBarOverlayItem {
+    kind?: string;
     entityId: string;
     name: string;
     currentHealth: number;
@@ -161,6 +162,9 @@ export interface BurstEffectActor {
 }
 
 export interface BossMechanicOverlayItem {
+    rocks?: { clock: number }[];
+    passiveStyle?: "timer" | "bar";
+    opacityPercent?: number;
     effectActors?: BurstEffectActor[];
     readyActors?: { actorId: string; actorName: string }[];
     nextReadySoon?: boolean;
@@ -704,12 +708,13 @@ export function loadSkillCooldownSettings(): SkillCooldownSettings {
                 const skillId = Number(rawId);
                 if (!Number.isInteger(skillId) || skillId <= 0 || !rawRule || typeof rawRule !== "object") continue;
                 const value = rawRule as Partial<SkillCooldownRule>;
+                if (value.barOnly) continue;
                 const fallbackX = 600 + (fallbackIndex % 4) * 80;
                 const fallbackY = 180 + Math.floor(fallbackIndex / 4) * 96;
                 rules[skillId] = {
                     skillId,
                     enabled: value.enabled !== false,
-                    barOnly: value.barOnly === true,
+                    barOnly: false,
                     cooldownSeconds: clampNumber(value.cooldownSeconds, 0.1, 86400, 30, 1),
                     shortCooldownSeconds: clampNumber(
                         value.shortCooldownSeconds,
@@ -735,7 +740,7 @@ export function loadSkillCooldownSettings(): SkillCooldownSettings {
                     scalePercent: normalizeDorchaScalePercent(value.scalePercent),
                     progressThresholdPercent: clampNumber(
                         value.progressThresholdPercent,
-                        skillId === DARK_ENERGY_SKILL_ID ? 100 : 1,
+                        skillId === DARK_ENERGY_SKILL_ID || isSpiritAwakeningSkill(skillId) ? 100 : 1,
                         100,
                         isEnergySkill(skillId) ? 100 : DEFAULT_TOAH_PROGRESS_THRESHOLD,
                     ),
@@ -859,8 +864,8 @@ export function saveSkillCooldownSettings(settings: SkillCooldownSettings) {
         x: clampNumber(settings.aimReminder?.x, -32000, 32000, 600),
         y: clampNumber(settings.aimReminder?.y, -32000, 32000, 180),
     };
-    for (const rule of Object.values(settings.rules)) {
-        rule.barOnly = rule.barOnly === true;
+    for (const [id, rule] of Object.entries(settings.rules)) {
+        if (rule.barOnly) { delete settings.rules[Number(id)]; continue; }
         rule.cooldownSeconds = clampNumber(rule.cooldownSeconds, 0.1, 86400, 30, 1);
         rule.shortCooldownSeconds = clampNumber(
             rule.shortCooldownSeconds,
@@ -885,7 +890,7 @@ export function saveSkillCooldownSettings(settings: SkillCooldownSettings) {
         rule.scalePercent = normalizeDorchaScalePercent(rule.scalePercent);
         rule.progressThresholdPercent = clampNumber(
             rule.progressThresholdPercent,
-            rule.skillId === DARK_ENERGY_SKILL_ID ? 100 : 1,
+            rule.skillId === DARK_ENERGY_SKILL_ID || isSpiritAwakeningSkill(rule.skillId) ? 100 : 1,
             100,
             isEnergySkill(rule.skillId) ? 100 : DEFAULT_TOAH_PROGRESS_THRESHOLD,
         );

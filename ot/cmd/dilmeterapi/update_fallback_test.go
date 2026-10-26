@@ -27,10 +27,10 @@ func TestUpdateManifestPublicMirrorFallback(t *testing.T) {
 		wantErr      bool
 	}{
 		{"github available", http.StatusOK, valid, nil, http.StatusOK, 1, false},
-		{"private repository", http.StatusNotFound, "", nil, http.StatusOK, 2, false},
-		{"invalid primary data", http.StatusOK, "invalid", nil, http.StatusOK, 2, false},
-		{"primary timed out", 0, "", context.DeadlineExceeded, http.StatusOK, 2, false},
-		{"both unavailable", http.StatusNotFound, "", nil, http.StatusServiceUnavailable, 2, true},
+		{"private repository", http.StatusNotFound, "", nil, http.StatusOK, 3, false},
+		{"invalid primary data", http.StatusOK, "invalid", nil, http.StatusOK, 3, false},
+		{"primary timed out", 0, "", context.DeadlineExceeded, http.StatusOK, 3, false},
+		{"both unavailable", http.StatusNotFound, "", nil, http.StatusServiceUnavailable, 3, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			originalClient := updateHTTPClient
@@ -48,6 +48,11 @@ func TestUpdateManifestPublicMirrorFallback(t *testing.T) {
 						return nil, tc.transportErr
 					}
 				case 2:
+					if !strings.HasPrefix(req.URL.String(), giteeUpdateBaseURL+"/") {
+						t.Fatalf("unexpected Gitee endpoint: %s", req.URL)
+					}
+					status, body = http.StatusServiceUnavailable, ""
+				case 3:
 					if !strings.HasPrefix(req.URL.String(), mirrorUpdateBaseURL+"/"+AppName+".json?") {
 						t.Fatalf("unexpected mirror endpoint: %s", req.URL)
 					}

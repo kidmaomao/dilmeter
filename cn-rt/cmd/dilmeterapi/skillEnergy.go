@@ -13,7 +13,9 @@ import (
 const darkEnergySkillID uint16 = 59047
 const holyEnergySkillID uint16 = 59085
 
-func isEnergySkill(id uint16) bool { return id == darkEnergySkillID || id == holyEnergySkillID }
+func isEnergySkill(id uint16) bool {
+	return id == darkEnergySkillID || id == holyEnergySkillID || packet.IsSpiritAwakeningSkill(id)
+}
 
 // 135688 is a counted property update, not a flat stat packet. Walk complete
 // entries so unrelated keys and removals cannot be mistaken for a gauge.
@@ -80,6 +82,10 @@ func holyEnergyPercent(metadata string) (float64, bool) {
 }
 
 func (runtime *nativeReminderRuntime) energyState(skillID uint16, nowMs int64) (percent float64, observed, active bool) {
+	if packet.IsSpiritAwakeningSkill(skillID) {
+		state := runtime.spiritEnergy[skillID]
+		return state.Percent, state.Active, state.Active
+	}
 	if skillID == darkEnergySkillID {
 		return runtime.darkEnergy.Percent, runtime.darkEnergy.Active, runtime.darkEnergy.Active
 	}
@@ -97,15 +103,22 @@ func (runtime *nativeReminderRuntime) evaluateEnergySkills(now time.Time) {
 	if runtime.energyGeneration == nil {
 		runtime.energyGeneration = make(map[uint16]uint64)
 	}
-	for _, id := range []uint16{darkEnergySkillID, holyEnergySkillID} {
-		rule, exists := runtime.settings.SkillCooldowns.Rules[id]
+	for id := range runtime.energyReady {
+		if _, exists := runtime.settings.SkillCooldowns.Rules[id]; !exists {
+			delete(runtime.energyReady, id)
+		}
+	}
+	for id, rule := range runtime.settings.SkillCooldowns.Rules {
+		if !isEnergySkill(id) {
+			continue
+		}
 		progress, observed, active := runtime.energyState(id, now.UnixMilli())
 		cd := runtime.skillCooldowns[id]
 		threshold := rule.ProgressThresholdPercent
-		if id == darkEnergySkillID {
+		if id == darkEnergySkillID || packet.IsSpiritAwakeningSkill(id) {
 			threshold = 100
 		}
-		ready := exists && rule.Enabled && active && observed && progress >= threshold &&
+		ready := rule.Enabled && active && observed && progress >= threshold &&
 			(id != darkEnergySkillID || (cd.UsedAtMs > 0 && cd.ReadyAtMs <= now.UnixMilli()))
 		if ready && !runtime.energyReady[id] {
 			runtime.energyGeneration[id]++

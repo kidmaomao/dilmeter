@@ -7,7 +7,7 @@
             '--overlay-opacity': String(overlayAppearance.opacity / 100),
         }"
     >
-        <section v-if="visibleTargetHealth" class="target-health-overlay-list" aria-label="安乐碎片机制血量">
+        <section v-if="visibleTargetHealth" class="target-health-overlay-list" aria-label="选中目标机制血量">
             <div
                 class="target-health-overlay-item"
                 :style="targetHealthPositionStyle(visibleTargetHealth)"
@@ -132,11 +132,21 @@
                 :key="mechanic.label ? mechanic.key : `${mechanic.key}-${mechanic.generation}`"
                 class="boss-mechanic-overlay-item"
                 :data-burst="Boolean(mechanic.label)"
+                :data-quiet="Boolean(mechanic.passiveStyle || mechanic.rocks?.length)"
                 :class="mechanicAlertClass(mechanic)"
                 :style="mechanicPositionStyle(mechanic)"
                 :title="mechanic.name"
             >
                 <BurstReminderPopup v-if="mechanic.label" :item="mechanic" :now-ms="nowMs" />
+                <div v-else-if="mechanic.rocks?.length" class="brontas-rock-card">
+                    <strong>二王落石 · {{ mechanic.rocks.length }} 处</strong>
+                    <div class="brontas-compass"><span v-for="clock in [12, 3, 6, 9]" :key="clock" :class="[`clock-${clock}`, { present: mechanic.rocks.some(rock => rock.clock === clock) }]">{{ clock }} 点<span>{{ mechanic.rocks.some(rock => rock.clock === clock) ? '◆' : '·' }}</span></span><small>地图方位</small></div>
+                </div>
+                <div v-else-if="mechanic.passiveStyle" class="green-curtain-persistent" :class="`style-${mechanic.passiveStyle}`" :style="{ opacity: (mechanic.opacityPercent ?? 100) / 100 }">
+                    <div v-if="mechanic.passiveStyle === 'bar'" class="curtain-track"><i :style="mechanic.timingUnknown ? { transform: 'scaleX(0)' } : mechanicProgressStyle(mechanic)" /></div>
+                    <svg class="curtain-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M2 2h20v2H2z M3 5h8l-6 9 2 7H3z M13 5h8v16h-4l2-7z" /><path fill="#123322" d="M4 6h1v5H4z M19 6h1v5h-1z" /></svg>
+                    <strong>{{ mechanic.timingUnknown ? '--' : mechanicRemainingText(mechanic) }}</strong>
+                </div>
                 <div v-else class="boss-mechanic-card">
                     <v-icon :icon="mechanic.icon" class="boss-mechanic-icon" aria-hidden="true" />
                     <strong v-if="!mechanic.hideCountdown">{{ mechanicRemainingText(mechanic) }}</strong>
@@ -163,6 +173,7 @@
 </template>
 
 <script setup lang="ts">
+import { isSpiritAwakeningSkill } from "@/skillEnergy";
 import { burstPopupDimensions } from "@/burstReminderView";
 import BurstReminderPopup from "./BurstReminderPopup.vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
@@ -516,7 +527,7 @@ function aimReminderBuffText(item: AimReminderOverlayItem) {
 
 function toahProgressText(item: SkillCooldownOverlayItem) {
     if (item.energyGate) {
-        if (!item.energyActive) return "未开启 / 待数据";
+        if (!item.energyActive) return isSpiritAwakeningSkill(item.skillId) ? "待充能数据" : "未开启 / 待数据";
         const progress = item.skillId === 59047 && item.showEnergyPercent === false
             ? (Number(item.progressPercent) >= 100 ? "能量已满" : "能量未满")
             : `${toahSpiritDisplayPercent(item.progressPercent)}%`;
@@ -1435,7 +1446,7 @@ html.skill-overlay-page .v-application,
     transform-origin: left top;
 }
 
-.boss-mechanic-overlay-item[data-burst="true"] { animation: none; }
+.boss-mechanic-overlay-item[data-burst="true"], .boss-mechanic-overlay-item[data-quiet="true"] { animation: none; }
 .boss-mechanic-icon {
     color: #fff3ae;
     font-size: 27px;
@@ -1729,4 +1740,23 @@ html.skill-overlay-page .v-application,
     from { filter: brightness(1.2); transform: translateX(-1px) scaleY(1.05); }
     to { filter: brightness(2); transform: translateX(-1px) scaleY(1.45); }
 }
+/* Persistent display has its own size and no warning pulse. */
+.green-curtain-persistent { position: relative; width: 104px; height: 34px; box-sizing: border-box; color: #f0fff5; background: #102a1d; border: 1px solid #70b88e; border-radius: 4px; box-shadow: 0 2px 5px #0009; transform: scale(var(--boss-mechanic-scale)); transform-origin: top left; }
+.green-curtain-persistent.style-bar { width: 180px; height: 30px; background: #071b11; overflow: hidden; }
+.curtain-icon { position: absolute; left: 6px; top: 50%; width: 22px; height: 22px; transform: translateY(-50%); color: #a9efc0; }
+.style-bar .curtain-icon { width: 20px; height: 20px; }
+.curtain-track { position: absolute; inset: 0 0 0 34px; overflow: hidden; }
+.curtain-track i { display: block; width: 100%; height: 100%; background: #287344; transform-origin: left; }
+.brontas-rock-card { box-sizing: border-box; width: 260px; height: 180px; padding: 10px; border: 1px solid #d6ab68; border-radius: 5px; color: #ffedcb; background: #211d18; transform: scale(var(--boss-mechanic-scale)); transform-origin: top left; }
+.brontas-rock-card > strong { display: block; text-align: center; font-size: 17px; }
+.brontas-compass { position: relative; height: 132px; font-size: 22px; }
+.brontas-compass > span { position: absolute; width: 80px; height: 32px; color: #8a8376; display: flex; align-items: center; justify-content: center; gap: 4px; line-height: 1; font-variant-numeric: tabular-nums; }
+.brontas-compass > span > span { font-size: 12px; }
+.brontas-compass > span.present { color: #ffcf6b; font-weight: 700; outline: 1px solid #ffcf6b; border-radius: 3px; animation: rock-highlight 1s steps(1, end) infinite; }
+@keyframes rock-highlight { 0%, 100% { background: #a35b0a; text-shadow: 0 0 6px #ffcf6b; box-shadow: 0 0 10px #ffcf6b88; } 50% { background: #483010; text-shadow: none; box-shadow: none; } }
+.brontas-compass > small { position: absolute; width: 80px; left: 80px; top: 56px; color: #c6b590; text-align: center; font-size: 12px; }
+.brontas-compass .clock-12 { left: 80px; top: 3px; }.brontas-compass .clock-3 { right: 0; top: 49px; }.brontas-compass .clock-6 { left: 80px; bottom: 3px; }.brontas-compass .clock-9 { left: 0; top: 49px; }
+.boss-mechanic-overlay-item .brontas-rock-card strong { margin: 0; align-self: auto; color: inherit; font-size: 17px; font-weight: 700; letter-spacing: normal; line-height: 24px; -webkit-text-stroke: 0; text-shadow: none; filter: none; }
+.boss-mechanic-overlay-item .green-curtain-persistent > strong { position: absolute; inset: 0; width: 100%; height: 100%; align-self: stretch; box-sizing: border-box; display: flex; align-items: center; justify-content: center; margin: 0; color: inherit; font-size: 20px; font-weight: 700; letter-spacing: normal; line-height: 1; -webkit-text-stroke: 0; text-shadow: 0 1px 3px #000; filter: none; }
+.boss-mechanic-overlay-item .green-curtain-persistent.style-bar > strong { font-size: 18px; }
 </style>

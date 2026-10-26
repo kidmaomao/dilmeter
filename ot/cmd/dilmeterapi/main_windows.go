@@ -184,17 +184,11 @@ func main2(ctx context.Context) {
 	} else {
 		defer shutdownTray()
 	}
-	// One low-level mouse router owns reminder dragging and the SkillBar click
-	// barrier so down/up pairs cannot be split between competing hooks.
+	// The mouse hook only supports dragging unlocked reminder windows.
 	if err := initializeNativeReminderOverlayInput(); err != nil {
 		logger.Println("initialize reminder overlay drag input failed:", err)
 	} else {
 		defer shutdownNativeReminderOverlayInput()
-	}
-	if err := initializeSkillBar(cfg); err != nil {
-		logger.Println("initialize native skill bar failed:", err)
-	} else {
-		defer shutdownSkillBar()
 	}
 
 	buffOverlay := webview2.NewWithOptions(webview2.WebViewOptions{

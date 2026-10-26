@@ -8,12 +8,16 @@ import (
 )
 
 var bossPreviewNames = map[string]string{
+	brontasRockKey:  "二王 50% 落石",
 	"miel-orb":      "缠绕的神迹（环绕球）",
 	"miel-laser":    "神剑（射线）",
 	greenCurtainKey: "四王绿幕",
 }
 
 type bossMechanicPreviewRequest struct {
+	Rotation        int     `json:"rotation"`
+	PassiveStyle    string  `json:"passiveStyle"`
+	OpacityPercent  int     `json:"opacityPercent"`
 	Key             string  `json:"key"`
 	DurationSeconds float64 `json:"durationSeconds"`
 	X               int     `json:"x"`
@@ -37,7 +41,7 @@ func mergeBossMechanicPreviewsLocked(message nativeSkillOverlayMessage, nowMs in
 		}
 		items = append(items, item)
 	}
-	for _, key := range []string{greenCurtainKey, "miel-orb", "miel-laser"} {
+	for _, key := range []string{greenCurtainKey, "miel-orb", "miel-laser", brontasRockKey} {
 		if item, ok := skillOverlayState.bossPreviews[key]; ok {
 			items = append(items, item)
 		}
@@ -60,6 +64,19 @@ func setBossMechanicPreview(request bossMechanicPreviewRequest, nowMs int64) {
 		StartedAtMs: nowMs, EndsAtMs: endsAtMs, PreviewExpiresAtMs: endsAtMs,
 		Generation: uint64(nowMs), X: max(-32000, min(32000, request.X)),
 		Y: max(-32000, min(32000, request.Y)), ScalePercent: max(50, min(200, request.ScalePercent)),
+	}
+	if request.Key == greenCurtainKey && (request.PassiveStyle == "timer" || request.PassiveStyle == "bar") {
+		item.PassiveStyle = request.PassiveStyle
+		item.OpacityPercent = clampNativeReminderInt(request.OpacityPercent, 20, 100, 100)
+	}
+	if request.Key == brontasRockKey {
+		item.Rocks = []nativeBrontasRockMarker{{Clock: 12}, {Clock: 9}}
+		for i := range item.Rocks {
+			if request.Rotation == 90 || request.Rotation == 180 || request.Rotation == 270 {
+				item.Rocks[i].Clock = (item.Rocks[i].Clock+request.Rotation/30-1)%12 + 1
+			}
+		}
+		item.HideCountdown = true
 	}
 	skillOverlayState.Lock()
 	var message nativeSkillOverlayMessage

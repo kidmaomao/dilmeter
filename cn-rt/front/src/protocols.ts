@@ -54,6 +54,8 @@ export type eventDamage = eventBase & {
 
 export type eventCharacterConditionEnable = eventBase & {
     EventId: 4;
+    AtMs?: number;
+    Snapshot?: boolean;
     CCId: number;
     DisableAt: number;
     /** Exact expiry for new captures; absent in older logs. */
@@ -65,6 +67,7 @@ export type eventCharacterConditionEnable = eventBase & {
 
 export type eventCharacterConditionDisable = eventBase & {
     EventId: 5;
+    AtMs?: number;
     CCId: number;
 }
 
@@ -173,7 +176,7 @@ export type eventArcanaSignal = eventBase & {
     Signal: "sniper-counter" | "domain-created" | "gunner-hit-extra" | "domain-linked" | "domain-sample" | "domain-remove-signal"
         | "chemical-effect-count" | "chemical-hit-count" | "chemical-sample" | "act7-sample" | "interlude-sample"
         | "fighter-combo" | "fighter-energy-baseline" | "fighter-energy-bounds" | "fighter-energy-delta" | "fighter-energy-reset" | "fighter-spend-start" | "fighter-spend-end"
-        | "lance-heat-reset" | "hydro-charge-sample" | "lightning-chain-state" | "lightning-chain-reset";
+        | "frenzy-state" | "frenzy-reset" | "lance-heat-reset" | "hydro-charge-sample" | "lightning-chain-state" | "lightning-chain-reset";
     CastAtMs?: number; FirstHitAtMs?: number; TargetId?: string; Count: number; Phase?: number; Complete: boolean;
     ReverseAtMs?: number; ReverseEndAtMs?: number; ReadyAtMs?: number;
     Kind?: number; DurationMs?: number; Range?: number; X?: number; Y?: number;

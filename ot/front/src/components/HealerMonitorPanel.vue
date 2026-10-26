@@ -18,12 +18,17 @@
     <p v-if="notice" class="healer-notice" role="status">{{ $ui(notice) }}<button v-if="previewing" type="button" @click="stopPreview">{{ $ui("停止预览") }}</button></p>
     <section class="healer-templates" :aria-label="$ui('通用队友模板')">
      <div class="healer-section-title"><h2>{{ $ui("通用模板 ") }}<span>{{ $ui(draft.templates.length) }}/32</span></h2><button type="button" :disabled="saving || audioBusy || isRecordReplay || draft.templates.length >= 32" @click="openTemplate()">{{ $ui("＋ 新建模板") }}</button></div>
-     <p class="healer-help">{{ $ui("预先配置「队友1」「队友2」等模板；识别角色后即可套用血量、Buff、技能、声音及坐标。套用后可单独微调，悬浮窗仍显示真实角色 ID。") }}</p>
-     <div class="healer-template-list"><div v-for="template in draft.templates" :key="template.id" class="healer-template-entry"><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`编辑模板 ${template.name}`" @click="openTemplate(undefined, template)"><strong>{{ template.name }}</strong><small>{{ $ui(template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭') }} · {{ $ui(template.buffSettings.rules.length) }}{{ $ui(" 个 Buff · ") }}{{ template.skillSettings.rules.length }}{{ $ui(" 个技能") }}</small><span>{{ $ui("编辑") }}</span></button><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`删除模板 ${template.name}`" @click="removeTarget = { kind: 'template', key: template.id, name: template.name }">×</button></div></div>
+     <p class="healer-help">{{ $ui("预先配置「队友1」「队友2」等模板；识别角色后即可套用血量、魔法值、Buff、技能、声音及坐标。套用后可单独微调，悬浮窗仍显示真实角色 ID。") }}</p>
+     <div class="healer-template-list"><div v-for="template in draft.templates" :key="template.id" class="healer-template-entry"><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`编辑模板 ${template.name}`" @click="openTemplate(undefined, template)"><strong>{{ template.name }}</strong><small>{{ $ui(healerTemplateSummary(template)) }}</small><span>{{ $ui("编辑") }}</span></button><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`删除模板 ${template.name}`" @click="removeTarget = { kind: 'template', key: template.id, name: template.name }">×</button></div></div>
      <p v-if="!draft.templates.length" class="healer-help">{{ $ui("可新建模板，也可在已配置的队友上点击「存为模板」。") }}</p>
     </section>
+    <section class="healer-self-mana" aria-label="自身魔法值监测">
+     <div class="healer-section-title"><h2>{{ $ui("自身魔法值") }}</h2><button v-if="!selfMember" type="button" :disabled="saving || audioBusy || isRecordReplay || draft.members.length >= 32" @click="addSelfMana">{{ $ui("＋ 添加自身魔法值监测") }}</button></div>
+     <p class="healer-help">{{ $ui("自动识别当前登录的角色；切换角色后跟随当前角色，不需要手动填写 ID。") }}</p>
+     <HealerMemberEditor v-if="selfMember" :member="selfMember" :live="memberState(selfMember)" :index="99" :expanded="expandedMember === selfMember.key" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :disabled="saving || audioBusy || isRecordReplay" @expand="expandedMember = selfMember.key" @change="changed" @remove="removeSelfMana" @preview="preview(selfMember, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
+    </section>
     <section class="healer-roster" :aria-label="$ui('管理队友')">
-     <div class="healer-section-title"><h2>{{ $ui("管理队友 ") }}<span>{{ $ui(draft.members.length) }}</span></h2><button type="button" :aria-expanded="manageOpen" @click="manageOpen = !manageOpen">{{ $ui(manageOpen ? '收起可见角色' : '＋ 添加队友') }}</button></div>
+     <div class="healer-section-title"><h2>{{ $ui("管理队友 ") }}<span>{{ $ui(teammateMembers.length) }}</span></h2><button type="button" :aria-expanded="manageOpen" @click="manageOpen = !manageOpen">{{ $ui(manageOpen ? '收起可见角色' : '＋ 添加队友') }}</button></div>
      <p class="healer-help">{{ $ui("勾选或取消「保存为常用」会立即保存当前设定，无需再点保存。常用队友及其设置会一直保留；开启软件后，请让队友切换一次地图以完成识别，未识别时暂停提醒。") }}</p>
      <div v-if="manageOpen" class="healer-candidates">
       <input v-model="memberSearch" type="search" :aria-label="$ui('搜索可见队友')" :placeholder="$ui('搜索当前可见角色的 ID')" />
@@ -33,9 +38,9 @@
       <p v-if="!candidates.length" class="healer-empty">{{ $ui("暂未识别到可选角色，请让队友切换地图后重试。") }}</p>
      </div>
      <fieldset :disabled="saving || isRecordReplay">
-      <HealerMemberEditor v-for="(member, index) in draft.members" :key="member.key" :expanded="expandedMember === member.key" @expand="expandedMember = member.key" :member="member" :live="memberState(member)" :index="index" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :templates="draft.templates" :disabled="saving || audioBusy" @change="changed" @favorite-change="saveFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
+      <HealerMemberEditor v-for="(member, index) in teammateMembers" :key="member.key" :expanded="expandedMember === member.key" @expand="expandedMember = member.key" :member="member" :live="memberState(member)" :index="index" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :templates="draft.templates" :disabled="saving || audioBusy" @change="changed" @favorite-change="saveFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
      </fieldset>
-     <div v-if="!draft.members.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>{{ $ui("先添加需要关注的队友") }}</strong><span>{{ $ui("然后分别设置血量、Buff 和技能提醒。") }}</span></div>
+     <div v-if="!teammateMembers.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>{{ $ui("先添加需要关注的队友") }}</strong><span>{{ $ui("然后分别设置血量、魔法值、Buff 和技能提醒。") }}</span></div>
     </section>
     <p class="healer-footnote">{{ $ui("常用状态更改后自动保存；其他修改请点击顶部闪烁的「保存设定」。保存成功后停止闪烁，保存失败会保留修改并提示重试。血量超过 30 秒未更新会暂停提醒；已识别队友的已配置 Buff 窗立即显示，未观测的 Buff 按失效样式显示“补充”，不触发声音提醒。声音不依赖此窗口保持打开。") }}</p>
    </v-card-text>
@@ -66,21 +71,26 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { VDialog } from 'vuetify/components';
 import HealerMemberEditor from './HealerMemberEditor.vue';
-import { cloneHealerSettings, makeHealerMember, makeHealerSettings, healerTemplateFromMember, applyHealerTemplate, type HealerMemberTemplate, type HealerMemberChoice, type HealerMemberState, type HealerMonitorState } from '@/healerMonitorTypes';
+import { cloneHealerSettings, makeHealerMember, makeHealerSelf, healerTemplateSummary, makeHealerSettings, healerTemplateFromMember, applyHealerTemplate, type HealerMemberTemplate, type HealerMemberChoice, type HealerMemberState, type HealerMonitorState } from '@/healerMonitorTypes';
 const props = defineProps<{ open: boolean; isRecordReplay: boolean; embedded?: boolean }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const state = ref<HealerMonitorState | null>(null), draft = ref(makeHealerSettings());
 const dirty = ref(false), saving = ref(false), audioBusy = ref(false), error = ref(''), notice = ref('');
 const expandedMember = ref('');
+const selfMember = computed(() => draft.value.members.find(member => member.self));
+const teammateMembers = computed(() => draft.value.members.filter(member => !member.self));
+function addSelfMana() { if (selfMember.value || draft.value.members.length >= 32) return; draft.value.members.push(makeHealerSelf()); expandedMember.value = 'self'; changed(); }
+function removeSelfMana() { draft.value.members = draft.value.members.filter(member => !member.self); changed(); }
+
 const manageOpen = ref(false), memberSearch = ref(''), previewing = ref(false), addTemplateId = ref('');
 const templateEdit = ref<{ id: string; member: HealerMemberChoice } | null>(null);
 const removeTarget = ref<{ kind: 'member' | 'template'; key: string; name: string } | null>(null);
 const validOpacity = computed(() => Math.max(20, Math.min(100, Number(draft.value.opacityPercent) || 100)));
 const validFontSize = computed(() => Math.max(12, Math.min(72, Number(draft.value.text.fontSize) || 16)));
 const validIconSize = computed(() => Math.max(16, Math.min(80, Number(draft.value.iconSize) || 30)));
-const candidates = computed(() => (state.value?.members || []).filter(member => member.id && member.active && member.name.toLowerCase().includes(memberSearch.value.trim().toLowerCase())));
+const candidates = computed(() => (state.value?.members || []).filter(member => member.key !== 'self' && member.id && member.active && member.name.toLowerCase().includes(memberSearch.value.trim().toLowerCase())));
 const inRoster = (member: HealerMemberState) => draft.value.members.some(choice => choice.name === member.name || choice.id === member.id && !!choice.id);
-const memberState = (member: HealerMemberChoice) => state.value?.members.find(value => value.key === member.key || value.name === member.name);
+const memberState = (member: HealerMemberChoice) => state.value?.members.find(value => value.key === member.key || !member.self && value.name === member.name);
 const changed = () => { dirty.value = true; notice.value = ''; };
 function saveFavorite(member: HealerMemberChoice) {
  changed();
@@ -150,14 +160,15 @@ function validSettings(extra: HealerMemberChoice[] = []): boolean {
  const numbers = [[draft.value.volume, 0, 100], [draft.value.text.fontSize, 12, 72], [draft.value.iconSize, 16, 80], [draft.value.opacityPercent, 20, 100]];
  const choices = [...draft.value.members, ...draft.value.templates, ...extra];
  for (const member of choices) {
+  numbers.push([member.manaSettings.threshold, 5, 95], [member.manaSettings.repeatCount, 1, 10], [member.manaSettings.repeatIntervalSeconds, 2, 300]);
   numbers.push([member.healthSettings.threshold, 5, 95], [member.healthSettings.repeatCount, 1, 10], [member.healthSettings.repeatIntervalSeconds, 2, 300]);
-  for (const position of [member.healthSettings.overlay, member.buffSettings.overlay, member.skillSettings.overlay]) numbers.push([position.x, -32000, 32000], [position.y, -32000, 32000]);
+  for (const position of [member.manaSettings.overlay, member.healthSettings.overlay, member.buffSettings.overlay, member.skillSettings.overlay]) numbers.push([position.x, -32000, 32000], [position.y, -32000, 32000]);
   for (const rule of member.skillSettings.rules) { if (!Number.isInteger(rule.skillId) || rule.skillId < 1 || rule.skillId > 65535 || !Number.isFinite(rule.cooldownSeconds) || rule.cooldownSeconds < .1 || rule.cooldownSeconds > 86400) { error.value = '请填写有效技能 ID 和冷却时间（0.1–86400 秒）。'; return false; } }
   for (const rule of member.buffSettings.rules) numbers.push([rule.warningSeconds, 0, 60], [rule.flashSeconds, 0, 60], [rule.manualDurationSeconds, 1, 86400], [rule.repeatCount, 1, 10], [rule.repeatIntervalSeconds, 2, 300], [rule.deathLoss.repeatCount, 1, 10], [rule.deathLoss.repeatIntervalSeconds, 2, 300]);
  }
- if (!numbers.every(([value, min, max]) => Number.isInteger(value) && value >= min && value <= max)) { error.value = '请填写有效数值：图标 16–80、字号 12–72、透明度 20–100%、血量 5–95%、提前时间 0–60 秒、提醒次数 1–10 次、间隔 2–300 秒。'; return false; }
+ if (!numbers.every(([value, min, max]) => Number.isInteger(value) && value >= min && value <= max)) { error.value = '请填写有效数值：图标 16–80、字号 12–72、透明度 20–100%、血量/魔法值 5–95%、提前时间 0–60 秒、提醒次数 1–10 次、间隔 2–300 秒。'; return false; }
  for (const member of choices) {
-  const sounds = [member.healthSettings.sound, ...member.skillSettings.rules.map(rule => rule.sound), ...member.buffSettings.rules.flatMap(rule => [rule.sound, rule.deathLoss.sound])];
+  const sounds = [member.manaSettings.sound, member.healthSettings.sound, ...member.skillSettings.rules.map(rule => rule.sound), ...member.buffSettings.rules.flatMap(rule => [rule.sound, rule.deathLoss.sound])];
   if (sounds.some(sound => sound.kind === 'custom' && !sound.soundId)) { error.value = `${member.name} 的自定义音效尚未选择文件。`; return false; }
  }
  return true;
@@ -175,13 +186,13 @@ async function save(successNotice = '已保存。通用模板和常用队友将�
  } catch (reason) { error.value = `保存失败：${String(reason)}`; }
  finally { saving.value = false; void refresh(); }
 }
-async function preview(member: HealerMemberChoice, kind: 'health' | 'buff' | 'skill') {
+async function preview(member: HealerMemberChoice, kind: 'health' | 'mana' | 'buff' | 'skill') {
  if (!validSettings([member])) return;
  try {
   const response = await fetch('/api/healer_monitor/text_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: draft.value.text, iconSize: draft.value.iconSize, opacityPercent: draft.value.opacityPercent, member, kind }), signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw new Error((await response.text()).trim());
   previewing.value = true; clearTimeout(previewTimer); previewTimer = setTimeout(() => { previewing.value = false; }, 8000);
-  showNotice(`${member.name} 的${kind === 'health' ? '血量' : 'Buff / 技能'}悬浮窗已按当前坐标预览 8 秒；预览不触发声音。`);
+  showNotice(`${member.name} 的${kind === 'health' ? '血量' : kind === 'mana' ? '魔法值' : 'Buff / 技能'}悬浮窗已按当前坐标预览 8 秒；预览不触发声音。`);
  } catch (reason) { error.value = `预览失败：${String(reason)}`; }
 }
 async function stopPreview() {

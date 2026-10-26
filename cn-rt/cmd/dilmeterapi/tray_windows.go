@@ -227,7 +227,6 @@ func handleTrayCommand(command uint32) {
 		if hidden {
 			procShowWindow.Call(buffOverlayHWND, swHide)
 			procShowWindow.Call(skillOverlayHWND, swHide)
-			requestNativeSkillBarVisibility(false)
 		}
 	case trayCommandDebuff:
 		hidden := !trayDebuffOverlayHidden.Load()

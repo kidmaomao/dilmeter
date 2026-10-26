@@ -21,6 +21,7 @@ const (
 	EventIdSkillEnergy      EventId = 21
 	EventIdArcanaSignal     EventId = 22
 	EventIdMusicPerformance EventId = 23
+	EventIdWorldProp        EventId = 24
 )
 
 const (
@@ -86,6 +87,7 @@ type EventCharacterConditionEnable struct {
 
 type EventCharacterConditionDisable struct {
 	EventBase
+	AtMs int64 `json:",omitempty"`
 	CCId uint32
 }
 
@@ -216,7 +218,7 @@ type EventMessageBox struct {
 	Message string
 }
 
-// EventSkillEnergy carries the authoritative Dark Diviner property gauge.
+// EventSkillEnergy carries an authoritative per-skill server gauge.
 type EventSkillEnergy struct {
 	EventBase
 	SkillId uint16
@@ -250,4 +252,16 @@ type EventArcanaSignal struct {
 	Maximum        float32  `json:"Maximum,omitempty"`
 	Rate           float32  `json:"Rate,omitempty"`
 	ObjectIds      []string `json:"ObjectIds,omitempty"`
+}
+
+// EventWorldProp retains verified mechanism-object coordinates and removals.
+type EventWorldProp struct {
+	EventBase
+	AtMs     int64
+	PropID   uint32
+	RegionID uint32
+	X        float64
+	Y        float64
+	State    string
+	Active   bool
 }

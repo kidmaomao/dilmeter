@@ -1,3 +1,4 @@
+import { frenzyDurations } from "./frenzyKpi";
 import type { EntityCondition, EntityConditionState } from "./eventActor";
 import type { eventArcanaSignal, eventSkillAction, eventSkillCooldown, eventStatUpdate } from "./protocols";
 import type { BossFightSession, TimeInterval } from "./summaryCollector";
@@ -563,6 +564,12 @@ export function buildArcanaKpi(input: ArcanaKpiInput): ArcanaKpiReport {
                 counters.length ? row("sniper", "致命狙击平均发数", samples ? shots / samples : null, "发/次",
                     `按本角色完整狙击发射记录统计，共 ${shots} 发 / ${samples} 次；队友使用公开起手及逐发反馈。需从零开始、完整结束且目标为当前首领，无敌期间及不完整释放不计。`, undefined, samples)
                     : missing("sniper", "致命狙击平均发数", "发/次", "需要狙击累计发数记录；旧日志只有伤害段数，无法补算，可用原始抓包重新解码。")];
+            const frenzy = frenzyDurations(input.arcanaSignals ?? [], player.id, session.startAt, session.endAt + 1);
+            rows.push(row("frenzy-duration", "狂乱平均持续时间", frenzy.samples.length
+                ? frenzy.samples.reduce((sum, sample) => sum + sample.seconds, 0) / frenzy.samples.length : null, "秒/次",
+                "按狂乱（54402）实际生效到结束的经过时间取平均，包含期间的首领无敌时间；只统计本场内完整开始并结束的次数。状态刷新合并为同一次，中途接入、切图和未结束的次数不计。"
+                + (frenzy.samples.some((sample) => sample.estimated) ? " 旧日志的结束记录只有秒级精度，显示近似值。" : ""),
+                frenzy.samples.length ? frenzy.samples.some((sample) => sample.estimated) ? "estimated" : "measured" : frenzy.seen ? "no-samples" : "missing-data", frenzy.samples.length));
             break;
         }
         case "禁术炼金师": {
@@ -653,7 +660,7 @@ export function buildArcanaKpi(input: ArcanaKpiInput): ArcanaKpiReport {
             break;
         }
     }
-    if (activeSeconds <= 0) rows = rows.map((item) => ({ ...item, value: null,
+    if (activeSeconds <= 0) rows = rows.map((item) => item.id === "frenzy-duration" ? item : ({ ...item, value: null,
         status: "no-samples", detail: "本场没有可统计的输出时间。" }));
     return { jobName: input.jobName, activeSeconds, excludedSeconds: Math.max(0, session.totalDuration - activeSeconds), rows };
 }

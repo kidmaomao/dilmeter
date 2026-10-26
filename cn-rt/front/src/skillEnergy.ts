@@ -1,6 +1,8 @@
 export const DARK_ENERGY_SKILL_ID = 59047;
 export const HOLY_ENERGY_SKILL_ID = 59085;
-export function isEnergySkill(id: number) { return id === DARK_ENERGY_SKILL_ID || id === HOLY_ENERGY_SKILL_ID; }
+export function isSpiritAwakeningSkill(id: number) { return Number.isInteger(id) && id >= 35111 && id <= 35130; }
+export const SPIRIT_AWAKENING_SKILL_IDS = Array.from({ length: 20 }, (_, i) => 35111 + i);
+export function isEnergySkill(id: number) { return id === DARK_ENERGY_SKILL_ID || id === HOLY_ENERGY_SKILL_ID || isSpiritAwakeningSkill(id); }
 export interface SkillEnergyState { Percent: number; Active: boolean }
 export function holyEnergyState(condition?: { Metadata?: string; DisableAt?: number; DisableAtMs?: number }, atMs = Date.now()): SkillEnergyState | undefined {
     if (!condition) return undefined;
@@ -13,6 +15,6 @@ export function holyEnergyState(condition?: { Metadata?: string; DisableAt?: num
 export function energyReminderReady(id: number, state: SkillEnergyState | undefined, threshold: number, cooldown: { usedAtMs: number; readyAtMs: number } | undefined, now: number) {
     // Dark energy is a usability gate, so legacy/custom warning thresholds
     // must never announce the skill before its gauge is full.
-    const requiredPercent = id === DARK_ENERGY_SKILL_ID ? 100 : threshold;
+    const requiredPercent = id === DARK_ENERGY_SKILL_ID || isSpiritAwakeningSkill(id) ? 100 : threshold;
     return Boolean(state?.Active && state.Percent >= requiredPercent && (id !== DARK_ENERGY_SKILL_ID || (cooldown && cooldown.usedAtMs > 0 && cooldown.readyAtMs <= now)));
 }

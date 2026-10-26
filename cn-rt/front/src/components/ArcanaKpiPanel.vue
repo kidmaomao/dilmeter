@@ -6,7 +6,7 @@
             <span v-if="sample" class="arcana-kpi-tag">样例数据</span>
             <span class="arcana-kpi-clock">统计 {{ report.activeSeconds.toFixed(2) }} 秒 · 已排除无敌 {{ report.excludedSeconds.toFixed(2) }} 秒</span>
         </header>
-        <p class="arcana-kpi-note">按当前角色的阿尔卡纳职业显示数据。仅统计首领可输出期间；普通等待时间保留，未记录的机制无法自动扣除。</p>
+        <p class="arcana-kpi-note">按当前角色的阿尔卡纳职业显示数据。除技能实际持续时长外，仅统计首领可输出期间；普通等待时间保留，未记录的机制无法自动扣除。</p>
         <label v-if="report.jobName === '爆裂骑士枪'" class="lance-heat-setting">
             过热连接奖励
             <select :value="lanceHeatBonus ?? 'unknown'" @change="emit('update:lanceHeatBonus', ($event.target as HTMLSelectElement).value)">

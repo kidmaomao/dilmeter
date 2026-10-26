@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -89,7 +90,7 @@ func applyNativeReminderDragOverride(message *nativeSkillOverlayMessage) {
 		}
 	case "mechanic":
 		for index := range message.Mechanics {
-			if message.Mechanics[index].Key == snapshot.ID {
+			if nativeMechanicDragID(message.Mechanics[index]) == snapshot.ID {
 				message.Mechanics[index].X, message.Mechanics[index].Y = snapshot.X, snapshot.Y
 			}
 		}
@@ -148,14 +149,27 @@ func applyNativeReminderPosition(settings *nativeReminderSettings, update native
 	case "aim":
 		settings.SkillCooldowns.AimReminder.X, settings.SkillCooldowns.AimReminder.Y = x, y
 	case "mechanic":
-		rule, ok := settings.BossMechanics.Rules[update.ID]
+		if update.ID == brontasRockKey {
+			settings.BossMechanics.BrontasRocks.X, settings.BossMechanics.BrontasRocks.Y = x, y
+			return true
+		}
+		key := strings.TrimSuffix(update.ID, "-persistent")
+		rule, ok := settings.BossMechanics.Rules[key]
 		if !ok {
 			return false
 		}
-		rule.X, rule.Y = x, y
-		settings.BossMechanics.Rules[update.ID] = rule
+		if update.ID == key {
+			rule.X, rule.Y = x, y
+		} else {
+			rule.PersistentX, rule.PersistentY = x, y
+		}
+		settings.BossMechanics.Rules[key] = rule
 	case "target-health":
-		settings.BossMechanics.MielShardHealthBarX, settings.BossMechanics.MielShardHealthBarY = x, y
+		if update.ID == "ancient-giant" {
+			settings.BossMechanics.AncientGiantHealthX, settings.BossMechanics.AncientGiantHealthY = x, y
+		} else {
+			settings.BossMechanics.MielShardHealthBarX, settings.BossMechanics.MielShardHealthBarY = x, y
+		}
 	case "effect":
 		rule, ok := settings.EffectTimers.Rules[update.ID]
 		if !ok {
@@ -191,4 +205,11 @@ func queueNativeReminderPositionUpdate(update nativeReminderPositionUpdate) {
 	case runtime.positionCh <- update:
 	case <-runtime.ctx.Done():
 	}
+}
+
+func nativeMechanicDragID(item nativeBossMechanicOverlayItem) string {
+	if item.PassiveStyle != "" {
+		return item.Key + "-persistent"
+	}
+	return item.Key
 }

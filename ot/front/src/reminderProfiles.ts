@@ -244,6 +244,8 @@ function emptyBossMechanicSettings(): BossMechanicAlertSettings {
         x: 850,
         y: 280,
         scalePercent: 100,
+        brontasRocks: { enabled: false, x: 850, y: 450, scalePercent: 100, rotation: 0 },
+        ancientGiantHealthEnabled: false, ancientGiantHealthX: 750, ancientGiantHealthY: 330, ancientGiantHealthScalePercent: 100, ancientGiantHealthOpacityPercent: 100,
         mielShardHealthPhases: { normal80: false, normal60: true, normal40: false, regret80: false },
         mielShardHealthBarX: 750,
         mielShardHealthBarY: 280,

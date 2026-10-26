@@ -100,6 +100,14 @@ func (runtime *nativeReminderRuntime) evaluateGreenCurtain(now time.Time) {
 		return
 	}
 	if clock.LastCurtainAtMs == 0 || nowMs < clock.LastCurtainAtMs {
+		if rule.AlwaysVisible {
+			if runtime.bossMechanics == nil {
+				runtime.bossMechanics = make(map[string]nativeBossMechanicRuntime)
+			}
+			runtime.bossMechanics[greenCurtainKey] = nativeBossMechanicRuntime{Key: greenCurtainKey, BossID: boss.ID, BossRaceID: boss.RaceID, StartedAtMs: clock.StartedAtMs, EndsAtMs: clock.StartedAtMs + 86_400_000, Passive: true, TimingUnknown: true}
+		} else {
+			delete(runtime.bossMechanics, greenCurtainKey)
+		}
 		return // Wait for the actual first curtain; opening audio already played.
 	}
 	// Predict from the latest observed curtain, not from polling ticks. Each
@@ -108,18 +116,25 @@ func (runtime *nativeReminderRuntime) evaluateGreenCurtain(now time.Time) {
 	cycle := clock.Occurrence + steps
 	dueAtMs := clock.LastCurtainAtMs + steps*greenCurtainIntervalMs
 	warningAtMs := dueAtMs - int64(greenCurtainWarningSeconds(rule)*1000)
-	if nowMs < warningAtMs {
+	passive := nowMs < warningAtMs
+	if passive && !rule.AlwaysVisible {
 		delete(runtime.bossMechanics, greenCurtainKey)
 		return
 	}
 	if runtime.bossMechanics == nil {
 		runtime.bossMechanics = make(map[string]nativeBossMechanicRuntime)
 	}
+	renderPassive := passive || rule.AlwaysVisible && !rule.ShowCountdown
+	startedAtMs := warningAtMs
+	if renderPassive {
+		startedAtMs = dueAtMs - greenCurtainIntervalMs
+	}
 	runtime.bossMechanics[greenCurtainKey] = nativeBossMechanicRuntime{
-		Key: greenCurtainKey, StartedAtMs: warningAtMs, EndsAtMs: dueAtMs,
+		Passive: renderPassive,
+		Key:     greenCurtainKey, StartedAtMs: startedAtMs, EndsAtMs: dueAtMs,
 		Generation: uint64(cycle), BossID: boss.ID, BossRaceID: boss.RaceID,
 	}
-	if clock.AnnouncedCycle >= cycle {
+	if passive || clock.AnnouncedCycle >= cycle {
 		return
 	}
 	clock.AnnouncedCycle = cycle

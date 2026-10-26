@@ -16,11 +16,10 @@ $oldSkillBarTitle =
     " r9"
 
 $requiredMarkers = @(
-    $skillBarTitle,
     $aimSummaryLabel,
     "reminder-save-all"
 ) + $AdditionalRequiredMarkers
-$forbiddenMarkers = @($oldSkillBarTitle)
+$forbiddenMarkers = @($oldSkillBarTitle, $skillBarTitle, "/api/skill_bar", "SkillBarSettingsDialog", "skillBarInjectedTag", "SendInput")
 
 foreach ($path in $BinaryPaths) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {

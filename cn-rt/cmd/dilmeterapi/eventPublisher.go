@@ -28,6 +28,7 @@ type eventPublisher struct {
 	clientMap   map[uint32]*eventClient
 	entityCache entityCache
 
+	worldProps map[uint64]bool
 	// mutable
 	currentClientId        uint32
 	localEntityId          uint64
@@ -40,6 +41,9 @@ type eventPublisher struct {
 	activeAimTargetID      uint64
 	combatTargetID         uint64
 	finalShotActive        bool
+	spiritOwner            uint64
+	spiritWeapons          []spiritWeaponState
+	spiritEnergySnapshot   map[uint16]event.EventSkillEnergy
 	gunnerSniper           *gunnerSniperCast
 	gunnerHeavy            *gunnerHeavyCast
 	gunnerPendingDomains   *event.EventArcanaSignal
@@ -116,6 +120,7 @@ func (t *eventPublisher) loop() {
 					logger.Println("* msg", i, msg.Type(), msg.String())
 				}
 			}
+			t.publishWorldPropPacket(p)
 			t.publishPartyBurstSignal(p)
 			// Boss mechanism deployment packets use a small family of shared
 			// opcodes. Keep their opcode and payload dispatch in one testable path.
@@ -452,6 +457,14 @@ func (t *eventPublisher) loop() {
 				}
 				continue
 
+			case packet.OpcodeSpiritWeaponUpdate:
+				t.publishSpiritWeaponPacket(p)
+				continue
+
+			case packet.OpcodeSpiritAwakeningReady:
+				t.publishSpiritReadyPacket(p)
+				continue
+
 			case packet.OpcodeSkillListState:
 				t.publishDarkEnergyPacket(p)
 				if err := t.publishAstrologyCooldownPacket(p); err != nil {
@@ -763,6 +776,7 @@ func (t *eventPublisher) loop() {
 							Id:      strconv.FormatUint(cond.Id, 10),
 						},
 						CCId: cond.CCId,
+						AtMs: p.At.UnixMilli(),
 					}
 					t.publish(e)
 					continue
@@ -830,6 +844,15 @@ func (t *eventPublisher) publish(e event.IEvent) {
 	t.Lock()
 	if local, ok := e.(*event.EventLocalEntity); ok {
 		local.ServerScope = t.serverScope
+		if local.Reset || local.Id != strconv.FormatUint(t.spiritOwner, 10) {
+			t.spiritOwner, t.spiritWeapons, t.spiritEnergySnapshot = 0, nil, nil
+		}
+	}
+	if energy, ok := e.(*event.EventSkillEnergy); ok && packet.IsSpiritAwakeningSkill(energy.SkillId) {
+		if t.spiritEnergySnapshot == nil {
+			t.spiritEnergySnapshot = make(map[uint16]event.EventSkillEnergy)
+		}
+		t.spiritEnergySnapshot[energy.SkillId] = *energy
 	}
 	if action, ok := e.(*event.EventSkillAction); ok {
 		t.captureLanceMount(action)
@@ -918,6 +941,12 @@ func (t *eventPublisher) addClient(ctx context.Context, ch chan<- []event.IEvent
 		false,
 	))
 	events[len(events)-1].(*event.EventLocalEntity).ServerScope = t.serverScope
+	// A newly opened settings page must see retained full charge even when
+	// 58015 leaves the server silent until the next use.
+	for _, state := range t.spiritEnergySnapshot {
+		energy := state
+		events = append(events, &energy)
+	}
 	for _, entity := range t.entityCache {
 		e := toEventEntityAppear(entity.appearAt, entity.EntityInfo)
 
@@ -1033,6 +1062,7 @@ func (t *eventPublisher) beginConnectionEpoch(epoch uint64, at time.Time) {
 	}
 
 	t.Lock()
+	t.worldProps = nil
 	t.connectionEpoch = epoch
 	t.entityCache = make(entityCache)
 	t.localEntityId = 0
@@ -1301,6 +1331,7 @@ func (t *eventPublisher) publishSkillExecutePacket(p *packet.GamePacket) error {
 	if isLocal {
 		eventID = t.localEntityId
 	}
+	t.observeSpiritAwakeningExecute(p, action.SkillId)
 	t.publish(&event.EventSkillAction{
 		EventBase: event.EventBase{
 			EventId: event.EventIdSkillAction,

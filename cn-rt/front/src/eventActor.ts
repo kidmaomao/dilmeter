@@ -1,3 +1,4 @@
+import { recordFrenzySignal } from "./frenzyKpi";
 import { recordMusicPerformance, endMusicPerformances, eventIdMusicPerformance, type MusicPerformance } from "./musicPerformance";
 import { captureLanceMount } from "./lancerKpi";
 import { recordVital, type BattleVitalPoint } from "./battleChartHistory";
@@ -78,6 +79,7 @@ export class ActorManager {
         this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id,
             SkillId: 0, Signal: "fighter-energy-reset", Count: 0, Complete: false });
         this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id, SkillId: 59106, Signal: "lance-heat-reset", Count: 0, Complete: false });
+        this.arcanaSignals.push({ EventId: 22, At: at, AtMs: at * 1000, Id: id, SkillId: 54402, Signal: "frenzy-reset", Count: 0, Complete: false });
         this.statUpdates.push({ EventId: 17, At: at, Id: id, Private: true, Stats: [{ StatId: 196, Value: -1 }] });
     }
 
@@ -87,6 +89,7 @@ export class ActorManager {
 
     public onEvent(event: protocols.eventBase) {
         recordMusicPerformance(event, this.musicPerformances);
+        recordFrenzySignal(event, this.arcanaSignals);
         if (event.EventId === eventIdMusicPerformance) return;
         this.eventVersion += 1;
         if (event.EventId === protocols.eventIdSkillCooldown) {

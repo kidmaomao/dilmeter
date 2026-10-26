@@ -291,6 +291,15 @@ func burstPowerEffectGroup(item nativeBossMechanicOverlayItem) bool {
 }
 
 func burstPopupDimensions(item nativeBossMechanicOverlayItem) (int, int) {
+	if len(item.Rocks) > 0 {
+		return 260, 180
+	}
+	if item.PassiveStyle != "" {
+		if item.PassiveStyle == "bar" {
+			return 180, 30
+		}
+		return 104, 34
+	}
 	if burstPowerEffectGroup(item) {
 		return 128, max(112, 80+18*len(item.EffectActors))
 	}

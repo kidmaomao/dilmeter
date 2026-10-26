@@ -20,6 +20,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"gitlab.com/prilus/mabidilmeter/lib/packet"
 )
 
 const (
@@ -56,12 +58,13 @@ type nativeReminderSurface struct {
 }
 
 type nativeReminderText struct {
-	text       string
-	rect       nativeRect
-	color      uint32
-	flags      uintptr
-	fontHeight int
-	fontWeight int
+	opacityPercent int
+	text           string
+	rect           nativeRect
+	color          uint32
+	flags          uintptr
+	fontHeight     int
+	fontWeight     int
 }
 
 func createNativeReminderOverlayWindow(title string, x, y, width, height int) (uintptr, error) {
@@ -155,15 +158,15 @@ func renderNativeBuffReminder(hwnd uintptr) bool {
 		drawNativeReminderGlow(canvas, rect, glow, glowRadius)
 		drawNativeReminderIcon(canvas, rect, "condition-icons", uint64(item.CCID), border)
 		if !item.Active {
-			fillNativeSkillBarRect(canvas, rect.Inset(2), color.RGBA{R: 36, G: 43, B: 45, A: 142})
+			fillNativeOverlayRect(canvas, rect.Inset(2), color.RGBA{R: 36, G: 43, B: 45, A: 142})
 		}
 		if item.Active && item.ExpiresAt != nil {
 			remaining := max(0.0, *item.ExpiresAt-now)
 			total := max(0.001, *item.ExpiresAt-float64(item.AppliedAt))
 			shade := int(float64(iconSize) * min(1.0, remaining/total))
-			fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X+1, rect.Min.Y+1, rect.Max.X-1, min(rect.Max.Y-1, rect.Min.Y+shade)), color.RGBA{A: 104})
+			fillNativeOverlayRect(canvas, image.Rect(rect.Min.X+1, rect.Min.Y+1, rect.Max.X-1, min(rect.Max.Y-1, rect.Min.Y+shade)), color.RGBA{A: 104})
 			labelRect := image.Rect(rect.Min.X, rect.Max.Y, rect.Max.X, height-padding)
-			fillNativeSkillBarRect(canvas, labelRect, color.RGBA{R: 9, G: 15, B: 17, A: 220})
+			fillNativeOverlayRect(canvas, labelRect, color.RGBA{R: 9, G: 15, B: 17, A: 220})
 			texts = append(texts, nativeReminderText{text: strconv.Itoa(int(math.Ceil(remaining))), rect: imageRectToNative(labelRect), color: nativeColorRef(255, 255, 255), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(10, countdownHeight-3), fontWeight: nativeFontBold})
 		}
 		if !nativeReminderOverlaysAreLocked() {
@@ -233,13 +236,13 @@ func renderNativeDebuffReminder(hwnd uintptr) bool {
 	top := padding
 	if showHealth {
 		healthRect := image.Rect(padding, top, padding+contentWidth, top+healthHeight)
-		fillNativeSkillBarRect(canvas, healthRect, color.RGBA{R: 35, G: 35, B: 37, A: 242})
+		fillNativeOverlayRect(canvas, healthRect, color.RGBA{R: 35, G: 35, B: 37, A: 242})
 		ratio := math.Max(0, math.Min(1, message.TargetHealth.CurrentHealth/message.TargetHealth.MaximumHealth))
 		fillRight := healthRect.Min.X + int(math.Round(float64(healthRect.Dx())*ratio))
 		if fillRight > healthRect.Min.X {
-			fillNativeSkillBarRect(canvas, image.Rect(healthRect.Min.X, healthRect.Min.Y, fillRight, healthRect.Max.Y), color.RGBA{R: 190, G: 19, B: 25, A: 247})
+			fillNativeOverlayRect(canvas, image.Rect(healthRect.Min.X, healthRect.Min.Y, fillRight, healthRect.Max.Y), color.RGBA{R: 190, G: 19, B: 25, A: 247})
 		}
-		drawNativeSkillBarBorder(canvas, healthRect, color.RGBA{R: 15, G: 15, B: 16, A: 255}, max(1, scaleOverlayCeil(1, scalePercent)))
+		drawNativeOverlayBorder(canvas, healthRect, color.RGBA{R: 15, G: 15, B: 16, A: 255}, max(1, scaleOverlayCeil(1, scalePercent)))
 		textInset := max(7, scaleOverlayCeil(10, scalePercent))
 		percentWidth := max(scaleOverlayCeil(92, scalePercent), contentWidth/5)
 		texts = append(texts,
@@ -256,8 +259,8 @@ func renderNativeDebuffReminder(hwnd uintptr) bool {
 	}
 	if showDebuffs {
 		headerRect := image.Rect(padding, top, padding+contentWidth, top+headerHeight)
-		fillNativeSkillBarRect(canvas, headerRect, color.RGBA{R: 43, G: 22, B: 20, A: 225})
-		drawNativeSkillBarBorder(canvas, headerRect, color.RGBA{R: 255, G: 174, B: 91, A: 245}, 1)
+		fillNativeOverlayRect(canvas, headerRect, color.RGBA{R: 43, G: 22, B: 20, A: 225})
+		drawNativeOverlayBorder(canvas, headerRect, color.RGBA{R: 255, G: 174, B: 91, A: 245}, 1)
 		texts = append(texts, nativeReminderText{text: message.Boss.Name, rect: imageRectToNative(headerRect), color: nativeColorRef(255, 246, 210), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(11, headerHeight-5), fontWeight: nativeFontBold})
 		top += headerHeight + headerGap
 	}
@@ -278,7 +281,7 @@ func renderNativeDebuffReminder(hwnd uintptr) bool {
 			label = strconv.Itoa(int(math.Ceil(max(0.0, *item.ExpiresAt-now))))
 		}
 		labelRect := image.Rect(rect.Min.X, rect.Max.Y, rect.Max.X, height-padding)
-		fillNativeSkillBarRect(canvas, labelRect, color.RGBA{R: 23, G: 10, B: 9, A: 225})
+		fillNativeOverlayRect(canvas, labelRect, color.RGBA{R: 23, G: 10, B: 9, A: 225})
 		texts = append(texts, nativeReminderText{text: label, rect: imageRectToNative(labelRect), color: nativeColorRef(255, 240, 220), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(10, countdownHeight-3), fontWeight: nativeFontBold})
 		if !nativeReminderOverlaysAreLocked() {
 			drawNativeUnlockedFrame(canvas, image.Rect(rect.Min.X, rect.Min.Y, rect.Max.X, labelRect.Max.Y))
@@ -356,7 +359,7 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 	for _, item := range mechanics {
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 		width, height := 118, 118
-		if item.Label != "" || item.Compact {
+		if item.Label != "" || item.Compact || item.PassiveStyle != "" || len(item.Rocks) > 0 {
 			width, height = burstPopupDimensions(item)
 		}
 		addBounds(image.Rect(item.X-48, item.Y-48, item.X+int(math.Ceil(float64(width)*factor))+48, item.Y+int(math.Ceil(float64(height)*factor))+48))
@@ -396,8 +399,17 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 		} // Burst coordinates are configured together in settings.
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 		size := max(59, int(math.Ceil(118*factor)))
-		hitRegions = append(hitRegions, nativeReminderHitRegion{Kind: "mechanic", ID: item.Key, X: item.X, Y: item.Y,
-			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + size), Bottom: int32(item.Y + size)}})
+		width, height := size, size
+		id := item.Key
+		if item.PassiveStyle != "" || len(item.Rocks) > 0 {
+			w, h := burstPopupDimensions(item)
+			width, height = int(math.Ceil(float64(w)*factor)), int(math.Ceil(float64(h)*factor))
+			if item.PassiveStyle != "" {
+				id += "-persistent"
+			}
+		}
+		hitRegions = append(hitRegions, nativeReminderHitRegion{Kind: "mechanic", ID: id, X: item.X, Y: item.Y,
+			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + width), Bottom: int32(item.Y + height)}})
 	}
 	for _, item := range stacks {
 		texts = append(texts, drawNativeStackReminder(canvas, item, offset, dpiScale, nowMs)...)
@@ -480,7 +492,7 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 			progress = min(100.0, max(0.0, *item.ProgressPercent))
 		}
 		mask := int(float64(renderRect.Dy()-2) * (100 - progress) / 100)
-		fillNativeSkillBarRect(canvas, image.Rect(renderRect.Min.X+1, renderRect.Min.Y+1, renderRect.Max.X-1, renderRect.Min.Y+1+mask), color.RGBA{R: 100, G: 102, B: 108, A: 220})
+		fillNativeOverlayRect(canvas, image.Rect(renderRect.Min.X+1, renderRect.Min.Y+1, renderRect.Max.X-1, renderRect.Min.Y+1+mask), color.RGBA{R: 100, G: 102, B: 108, A: 220})
 		if item.ProgressObserved != nil && *item.ProgressObserved {
 			label = fmt.Sprintf("%d%%", int(math.Floor(progress)))
 		} else {
@@ -508,6 +520,9 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 		}
 		if !item.EnergyActive {
 			label = "未开启"
+			if packet.IsSpiritAwakeningSkill(item.SkillID) {
+				label = "待充能数据"
+			}
 		} else if item.SkillID == darkEnergySkillID {
 			if !item.CooldownObserved {
 				label += "\nCD待观测"
@@ -520,7 +535,7 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 	}
 	// A full gauge alone must not look usable while CD is running or unknown.
 	if item.EnergyGate && item.SkillID == darkEnergySkillID && !item.EnergyReady {
-		fillNativeSkillBarRect(canvas, renderRect.Inset(1), color.RGBA{A: 165})
+		fillNativeOverlayRect(canvas, renderRect.Inset(1), color.RGBA{A: 165})
 	}
 	label = strings.TrimSpace(label)
 	if item.PetSkill {
@@ -534,7 +549,7 @@ func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem
 			flags = dtCenter | dtNoPrefix
 		}
 		labelRect := image.Rect(rect.Min.X-12, rect.Max.Y+2, rect.Max.X+12, rect.Max.Y+2+labelHeight)
-		fillNativeSkillBarRect(canvas, labelRect, color.RGBA{R: 7, G: 12, B: 14, A: 220})
+		fillNativeOverlayRect(canvas, labelRect, color.RGBA{R: 7, G: 12, B: 14, A: 220})
 		texts = append(texts, nativeReminderText{text: label, rect: imageRectToNative(labelRect), color: nativeColorRef(255, 255, 255), flags: flags, fontHeight: max(10, iconSize/5), fontWeight: nativeFontBold})
 	}
 	if !nativeReminderOverlaysAreLocked() {
@@ -572,8 +587,8 @@ func drawNativeAimReminder(canvas *image.RGBA, item nativeAimReminderOverlayItem
 	if progress >= .78 {
 		drawNativeAimRays(canvas, rect, progress, nowMs)
 	}
-	fillNativeSkillBarRect(canvas, rect, color.RGBA{R: 8, G: 17, B: 20, A: 225})
-	drawNativeSkillBarBorder(canvas, rect, border, max(1, int(2*factor)))
+	fillNativeOverlayRect(canvas, rect, color.RGBA{R: 8, G: 17, B: 20, A: 225})
+	drawNativeOverlayBorder(canvas, rect, border, max(1, int(2*factor)))
 	icon := max(24, int(math.Ceil(44*factor)))
 	iconRect := image.Rect(left+3, top+(height-icon)/2, left+3+icon, top+(height-icon)/2+icon)
 	drawNativeReminderIcon(canvas, iconRect, "skill-icons", 21002, color.RGBA{R: 114, G: 225, B: 245, A: 255})
@@ -581,12 +596,12 @@ func drawNativeAimReminder(canvas *image.RGBA, item nativeAimReminderOverlayItem
 	trackTop := top + height/2 - 2
 	trackRight := rect.Max.X - 5
 	track := image.Rect(bodyLeft, trackTop, trackRight, trackTop+max(8, int(14*factor)))
-	fillNativeSkillBarRect(canvas, track, color.RGBA{R: 23, G: 34, B: 37, A: 235})
-	drawNativeSkillBarBorder(canvas, track, color.RGBA{R: 105, G: 142, B: 150, A: 235}, 1)
+	fillNativeOverlayRect(canvas, track, color.RGBA{R: 23, G: 34, B: 37, A: 235})
+	drawNativeOverlayBorder(canvas, track, color.RGBA{R: 105, G: 142, B: 150, A: 235}, 1)
 	fillWidth := int(float64(max(0, track.Dx()-2)) * progress)
-	fillNativeSkillBarRect(canvas, image.Rect(track.Min.X+1, track.Min.Y+1, track.Min.X+1+fillWidth, track.Max.Y-1), color.RGBA{R: 82, G: 218, B: 241, A: 245})
+	fillNativeOverlayRect(canvas, image.Rect(track.Min.X+1, track.Min.Y+1, track.Min.X+1+fillWidth, track.Max.Y-1), color.RGBA{R: 82, G: 218, B: 241, A: 245})
 	markerX := track.Min.X + int(float64(track.Dx())*0.85)
-	fillNativeSkillBarRect(canvas, image.Rect(markerX, track.Min.Y-2, markerX+2, track.Max.Y+2), color.RGBA{R: 255, G: 221, B: 91, A: 255})
+	fillNativeOverlayRect(canvas, image.Rect(markerX, track.Min.Y-2, markerX+2, track.Max.Y+2), color.RGBA{R: 255, G: 221, B: 91, A: 255})
 	status := "等待穿心锁定目标"
 	if item.Active {
 		names := strings.Join(item.BuffNames, " + ")
@@ -606,6 +621,12 @@ func drawNativeAimReminder(canvas *image.RGBA, item nativeAimReminderOverlayItem
 }
 
 func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverlayItem, offset image.Point, dpiScale float64, nowMs int64) []nativeReminderText {
+	if len(item.Rocks) > 0 {
+		return drawNativeBrontasRocks(canvas, item, offset, dpiScale, nowMs)
+	}
+	if item.PassiveStyle != "" {
+		return drawNativeGreenCurtainPersistent(canvas, item, offset, dpiScale, nowMs)
+	}
 	if burstPowerEffectGroup(item) {
 		return drawNativeBurstPowerEffect(canvas, item, offset, dpiScale, nowMs)
 	}
@@ -633,14 +654,14 @@ func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverl
 		glow = color.RGBA{R: 255, G: 42, B: 28, A: byte(160 + 95*pulse)}
 	}
 	drawNativeReminderGlow(canvas, rect, glow, max(6, int(12*factor)))
-	fillNativeSkillBarRect(canvas, rect, background)
-	drawNativeSkillBarBorder(canvas, rect, border, 2)
+	fillNativeOverlayRect(canvas, rect, background)
+	drawNativeOverlayBorder(canvas, rect, border, 2)
 	if danger && pulse > .55 {
-		drawNativeSkillBarBorder(canvas, rect.Inset(-3), color.RGBA{R: 255, G: 238, B: 215, A: byte(90 + 100*pulse)}, 1)
+		drawNativeOverlayBorder(canvas, rect.Inset(-3), color.RGBA{R: 255, G: 238, B: 215, A: byte(90 + 100*pulse)}, 1)
 	}
 	total := max(int64(1), item.EndsAtMs-item.StartedAtMs)
 	barWidth := int(float64(size-12) * float64(item.EndsAtMs-nowMs) / float64(total))
-	fillNativeSkillBarRect(canvas, image.Rect(left+6, rect.Max.Y-8, left+6+max(0, barWidth), rect.Max.Y-5), border)
+	fillNativeOverlayRect(canvas, image.Rect(left+6, rect.Max.Y-8, left+6+max(0, barWidth), rect.Max.Y-5), border)
 	if !nativeReminderOverlaysAreLocked() {
 		drawNativeUnlockedFrame(canvas, rect)
 	}
@@ -655,9 +676,9 @@ func drawNativeBurstPowerEffect(canvas *image.RGBA, item nativeBossMechanicOverl
 	rect := image.Rect(left, top, left+int(math.Ceil(float64(w)*factor)), top+int(math.Ceil(float64(h)*factor)))
 	for y := rect.Min.Y; y < rect.Max.Y; y++ {
 		ratio := float64(y-rect.Min.Y) / float64(max(1, rect.Dy()-1))
-		fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X, y, rect.Max.X, y+1), color.RGBA{R: uint8(41 - 24*ratio), G: uint8(39 - 15*ratio), B: uint8(30 - 3*ratio), A: 245})
+		fillNativeOverlayRect(canvas, image.Rect(rect.Min.X, y, rect.Max.X, y+1), color.RGBA{R: uint8(41 - 24*ratio), G: uint8(39 - 15*ratio), B: uint8(30 - 3*ratio), A: 245})
 	}
-	drawNativeSkillBarBorder(canvas, rect, color.RGBA{R: 86, G: 127, B: 137, A: 255}, max(1, int(factor)))
+	drawNativeOverlayBorder(canvas, rect, color.RGBA{R: 86, G: 127, B: 137, A: 255}, max(1, int(factor)))
 	icon := max(20, int(40*factor))
 	iconLeft := left + (rect.Dx()-icon)/2
 	drawNativeReminderIcon(canvas, image.Rect(iconLeft, top+int(8*factor), iconLeft+icon, top+int(8*factor)+icon), "skill-icons", uint64(item.SkillID), color.RGBA{R: 137, G: 209, B: 220, A: 255})
@@ -699,9 +720,9 @@ func drawNativeBurstCooldown(canvas *image.RGBA, item nativeBossMechanicOverlayI
 	// Both sizes share the dark gold surface and border.
 	for y := rect.Min.Y; y < rect.Max.Y; y++ {
 		ratio := float64(y-rect.Min.Y) / float64(max(1, rect.Dy()-1))
-		fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X, y, rect.Max.X, y+1), color.RGBA{R: uint8(41 - 24*ratio), G: uint8(39 - 15*ratio), B: uint8(30 - 3*ratio), A: 245})
+		fillNativeOverlayRect(canvas, image.Rect(rect.Min.X, y, rect.Max.X, y+1), color.RGBA{R: uint8(41 - 24*ratio), G: uint8(39 - 15*ratio), B: uint8(30 - 3*ratio), A: 245})
 	}
-	drawNativeSkillBarBorder(canvas, rect, color.RGBA{R: 158, G: 128, B: 80, A: 255}, max(1, int(factor)))
+	drawNativeOverlayBorder(canvas, rect, color.RGBA{R: 158, G: 128, B: 80, A: 255}, max(1, int(factor)))
 	icon := max(16, int(32*factor))
 	iconLeft := left + (rect.Dx()-icon)/2
 	drawNativeReminderIcon(canvas, image.Rect(iconLeft, top+int(8*factor), iconLeft+icon, top+int(8*factor)+icon), "skill-icons", uint64(item.SkillID), color.RGBA{R: 237, G: 185, B: 101, A: 255})
@@ -757,8 +778,8 @@ func drawNativeStackReminder(canvas *image.RGBA, item nativeBuffStackOverlayItem
 		glowAlpha = byte(float64(glowAlpha) * float64(remaining) / 600)
 	}
 	drawNativeReminderGlow(canvas, rect, color.RGBA{R: 70, G: 218, B: 255, A: glowAlpha}, max(5, int(9*factor)))
-	fillNativeSkillBarRect(canvas, rect, color.RGBA{R: 8, G: 18, B: 26, A: 220})
-	drawNativeSkillBarBorder(canvas, rect, color.RGBA{R: 96, G: 211, B: 246, A: 245}, 1)
+	fillNativeOverlayRect(canvas, rect, color.RGBA{R: 8, G: 18, B: 26, A: 220})
+	drawNativeOverlayBorder(canvas, rect, color.RGBA{R: 96, G: 211, B: 246, A: 245}, 1)
 	if !nativeReminderOverlaysAreLocked() {
 		drawNativeUnlockedFrame(canvas, rect)
 	}
@@ -800,16 +821,16 @@ func drawNativeReminderGlow(canvas *image.RGBA, rect image.Rectangle, glow color
 		alpha := int(glow.A) * (radius - distance + 1) / (radius * 2)
 		stroke := glow
 		stroke.A = byte(max(1, alpha))
-		drawNativeSkillBarBorder(canvas, rect.Inset(-distance), stroke, 1)
+		drawNativeOverlayBorder(canvas, rect.Inset(-distance), stroke, 1)
 	}
 }
 
 func drawNativeUnlockedFrame(canvas *image.RGBA, rect image.Rectangle) {
 	stroke := color.RGBA{R: 92, G: 237, B: 255, A: 250}
-	drawNativeSkillBarBorder(canvas, rect.Inset(-2), stroke, 1)
+	drawNativeOverlayBorder(canvas, rect.Inset(-2), stroke, 1)
 	corner := max(4, min(9, min(rect.Dx(), rect.Dy())/5))
-	fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X-3, rect.Min.Y-3, rect.Min.X+corner, rect.Min.Y-1), stroke)
-	fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X-3, rect.Min.Y-3, rect.Min.X-1, rect.Min.Y+corner), stroke)
+	fillNativeOverlayRect(canvas, image.Rect(rect.Min.X-3, rect.Min.Y-3, rect.Min.X+corner, rect.Min.Y-1), stroke)
+	fillNativeOverlayRect(canvas, image.Rect(rect.Min.X-3, rect.Min.Y-3, rect.Min.X-1, rect.Min.Y+corner), stroke)
 }
 
 func drawNativeCooldownSweep(canvas *image.RGBA, rect image.Rectangle, fraction float64, shade color.RGBA) {
@@ -856,7 +877,7 @@ func drawNativeReadyParticles(canvas *image.RGBA, rect image.Rectangle, phase fl
 		y := int(centerY + math.Sin(angle)*distance)
 		size := 1 + index%3
 		particle := color.RGBA{R: 255, G: byte(190 + index%4*16), B: 72, A: alpha}
-		fillNativeSkillBarRect(canvas, image.Rect(x-size, y-size, x+size+1, y+size+1), particle)
+		fillNativeOverlayRect(canvas, image.Rect(x-size, y-size, x+size+1, y+size+1), particle)
 	}
 }
 
@@ -869,16 +890,16 @@ func drawNativeAimRays(canvas *image.RGBA, rect image.Rectangle, progress float6
 		stroke = color.RGBA{R: 255, G: 102, B: 58, A: byte(130 + 120*pulse)}
 		length += rect.Dy() / 6
 	}
-	fillNativeSkillBarRect(canvas, image.Rect(cx-1, rect.Min.Y-length, cx+2, rect.Min.Y-3), stroke)
-	fillNativeSkillBarRect(canvas, image.Rect(cx-1, rect.Max.Y+3, cx+2, rect.Max.Y+length), stroke)
-	fillNativeSkillBarRect(canvas, image.Rect(rect.Min.X-length, cy-1, rect.Min.X-3, cy+2), stroke)
-	fillNativeSkillBarRect(canvas, image.Rect(rect.Max.X+3, cy-1, rect.Max.X+length, cy+2), stroke)
+	fillNativeOverlayRect(canvas, image.Rect(cx-1, rect.Min.Y-length, cx+2, rect.Min.Y-3), stroke)
+	fillNativeOverlayRect(canvas, image.Rect(cx-1, rect.Max.Y+3, cx+2, rect.Max.Y+length), stroke)
+	fillNativeOverlayRect(canvas, image.Rect(rect.Min.X-length, cy-1, rect.Min.X-3, cy+2), stroke)
+	fillNativeOverlayRect(canvas, image.Rect(rect.Max.X+3, cy-1, rect.Max.X+length, cy+2), stroke)
 }
 
 func drawNativeReminderIcon(canvas *image.RGBA, rect image.Rectangle, directory string, id uint64, border color.RGBA) {
-	fillNativeSkillBarRect(canvas, rect, border)
+	fillNativeOverlayRect(canvas, rect, border)
 	inner := rect.Inset(1)
-	fillNativeSkillBarRect(canvas, inner, color.RGBA{R: 18, G: 26, B: 29, A: 238})
+	fillNativeOverlayRect(canvas, inner, color.RGBA{R: 18, G: 26, B: 29, A: 238})
 	if icon := nativeReminderIcon(directory, id, inner.Dx(), inner.Dy()); icon != nil {
 		draw.Draw(canvas, inner, icon, icon.Bounds().Min, draw.Over)
 	}
@@ -1010,7 +1031,14 @@ func drawNativeReminderText(surface *nativeReminderSurface, width, height int, a
 		for x := left; x < right; x++ {
 			offset := (y*width + x) * 4
 			if destination[offset] != before[index] || destination[offset+1] != before[index+1] || destination[offset+2] != before[index+2] {
-				destination[offset+3] = 255
+				alpha := 255
+				if annotation.opacityPercent > 0 && annotation.opacityPercent < 100 {
+					alpha = annotation.opacityPercent * 255 / 100
+					for channel := 0; channel < 3; channel++ {
+						destination[offset+channel] = byte(int(destination[offset+channel]) * alpha / 255)
+					}
+				}
+				destination[offset+3] = byte(alpha)
 			}
 			index += 3
 		}

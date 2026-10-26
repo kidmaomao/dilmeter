@@ -74,7 +74,7 @@ jobs:
             try {
               npx vue-tsc --noEmit
               if ($LASTEXITCODE -ne 0) { throw "Type check failed: $frontend" }
-              foreach ($check in @('verify:arcana-kpi', 'verify:lancer-kpi', 'verify:aim-kpi-sampling', 'verify:burst-reminders', 'verify:healer-templates', 'verify:battle-record', 'verify:v152', 'verify:external-links', 'verify:native-ready', 'verify:effect-timer')) {
+              foreach ($check in @('verify:arcana-kpi', 'verify:lancer-kpi', 'verify:aim-kpi-sampling', 'verify:burst-reminders', 'verify:healer-templates', 'verify:battle-record', 'verify:v152', 'verify:external-links', 'verify:native-ready', 'verify:effect-timer', 'verify:spirit-awakening', 'verify:monitor-extensions', 'verify:frenzy-kpi')) {
                 npm run $check
                 if ($LASTEXITCODE -ne 0) { throw "Check failed: $frontend $check" }
               }
@@ -147,3 +147,13 @@ jobs:
           } else {
             gh release create $tag @($assets.FullName) --target "${{ github.sha }}" --title "Dilmeter $tag" --notes-file "cn-rt/release-notes-current.txt"
           }
+
+
+      - name: Mirror verified release to Gitee
+        shell: pwsh
+        env:
+          GITEE_ACCESS_TOKEN: ${{ secrets.GITEE_ACCESS_TOKEN }}
+        run: |
+          if (-not $env:GITEE_ACCESS_TOKEN) { throw 'GITEE_ACCESS_TOKEN is required for dual publication' }
+          python scripts/sync-gitee-release.py --release-dir "artifacts/release-v${{ steps.version.outputs.value }}" --version "${{ steps.version.outputs.value }}" --notes-file cn-rt/release-notes-current.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Gitee mirror or public download verification failed' }

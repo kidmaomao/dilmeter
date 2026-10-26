@@ -122,6 +122,8 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 		}
 		if request.Kind == "health" {
 			h.previewCards = []healerCard{{Key: "preview-health", MemberKey: member.Key, Name: member.Name, Title: "低血量提醒", Value: "20%", Category: "health", State: "low", X: member.HealthSettings.Overlay.X, Y: member.HealthSettings.Overlay.Y, Flash: true}}
+		} else if request.Kind == "mana" {
+			h.previewCards = []healerCard{{Key: "preview-mana", MemberKey: member.Key, Name: member.Name, Title: "低魔法值提醒", Value: "20%", Category: "mana", State: "low", X: member.ManaSettings.Overlay.X, Y: member.ManaSettings.Overlay.Y, Flash: true}}
 		} else {
 			for index, rule := range member.BuffSettings.Rules {
 				if !*rule.OverlayEnabled {
@@ -154,7 +156,7 @@ func (h *healerMonitor) textSnapshotLocked(nowMs int64) (healerTextSettings, []h
 	if nowMs < h.previewUntilMs {
 		cards := h.previewCards
 		if cards == nil {
-			cards = []healerCard{{Key: "preview-health", MemberKey: "preview", Name: "Oneforall", Title: "血量≤25%", Value: "20%", Category: "health", X: h.previewText.X, Y: h.previewText.Y}, {Key: "preview-music", MemberKey: "preview", Name: "Oneforall", Title: "战争序曲", Value: "11s", CCID: 680, Category: "music", X: h.previewText.X, Y: h.previewText.Y + 120}}
+			cards = []healerCard{{Key: "preview-health", MemberKey: "preview", Name: "Oneforall", Title: "血量≤25%", Value: "20%", Category: "health", X: h.previewText.X, Y: h.previewText.Y}, {Key: "preview-music", MemberKey: "preview", Name: "Oneforall", Title: "战争序曲", Value: "11s", CCID: 680, Category: "music", X: h.previewText.X, Y: h.previewText.Y + 240}, {Key: "preview-mana", MemberKey: "preview", Name: "Oneforall", Title: "魔法值≤25%", Value: "20%", Category: "mana", X: h.previewText.X, Y: h.previewText.Y + 120}}
 		}
 		return h.previewText, append([]healerCard(nil), cards...), true
 	}
@@ -184,8 +186,8 @@ func buildHealerOverlayFrame(fontSize, iconSize int, cards []healerCard, preview
 	indices := map[string]int{}
 	for _, card := range cards {
 		kind := "buff"
-		if card.Category == "health" {
-			kind = "health"
+		if card.Category == "health" || card.Category == "mana" {
+			kind = card.Category
 		}
 		key := card.MemberKey + ":" + kind
 		index, exists := indices[key]
@@ -199,7 +201,7 @@ func buildHealerOverlayFrame(fontSize, iconSize int, cards []healerCard, preview
 	}
 	for i := range frame.Groups {
 		group := &frame.Groups[i]
-		if group.Kind == "health" {
+		if group.Kind == "health" || group.Kind == "mana" {
 			group.Width = max(220, frame.FontSize*13)
 			group.Height = frame.FontSize*4 + 24
 		} else {
@@ -210,7 +212,7 @@ func buildHealerOverlayFrame(fontSize, iconSize int, cards []healerCard, preview
 	// lower panel down for this frame only; never rewrite the user's settings.
 	statusIndices := []int{}
 	for i, group := range frame.Groups {
-		if group.Kind != "health" {
+		if group.Kind != "health" && group.Kind != "mana" {
 			statusIndices = append(statusIndices, i)
 		}
 	}
