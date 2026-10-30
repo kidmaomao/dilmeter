@@ -80,32 +80,6 @@
     "vertical",
     "horizontal"
   ],
-  "offsets": [
-    1,
-    0,
-    -1,
-    0,
-    1,
-    0,
-    -1,
-    0,
-    1,
-    0,
-    -1,
-    1,
-    0,
-    -1,
-    0,
-    1,
-    0,
-    0,
-    0,
-    -1,
-    0,
-    0,
-    1,
-    0
-  ],
   "illustrativeLeadMs": [
     1600,
     1500,
@@ -116,5 +90,37 @@
     1000
   ],
   "illustrativeActiveMs": 450,
-  "geometry": "Uses previous schematic widths 0.40/0.51; grid positions and player motion are synthetic; no calibration claim."
+  "geometry": "Exactly three contiguous columns and three contiguous rows; lane indices 0/1/2. Adjacent centers are one full band width apart. Only calibrated boundary positions may change; no safe slits between adjacent bands.",
+  "lanes": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    1,
+    2,
+    1,
+    0,
+    1,
+    2,
+    2,
+    1,
+    0,
+    1,
+    2,
+    1,
+    1,
+    1,
+    0,
+    1,
+    1,
+    2,
+    1
+  ],
+  "grid": {
+    "xCenter": 0,
+    "yCenter": -0.12,
+    "xHalfWidth": 0.4,
+    "yHalfWidth": 0.51
+  }
 }

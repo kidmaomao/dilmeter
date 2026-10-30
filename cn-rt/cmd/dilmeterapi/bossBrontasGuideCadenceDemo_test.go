@@ -17,11 +17,12 @@ func TestExportBrontasCadenceDemo(t *testing.T) {
 		t.Skip("set DILMETER_BRONTAS_CADENCE_OUT to export")
 	}
 	var profile struct {
-		WarningMs []int64   `json:"warningMs"`
-		Axes      []string  `json:"axes"`
-		Offsets   []float64 `json:"offsets"`
-		LeadMs    []int64   `json:"illustrativeLeadMs"`
-		ActiveMs  int64     `json:"illustrativeActiveMs"`
+		WarningMs []int64          `json:"warningMs"`
+		Axes      []string         `json:"axes"`
+		Lanes     []int            `json:"lanes"`
+		Grid      brontasGuideGrid `json:"grid"`
+		LeadMs    []int64          `json:"illustrativeLeadMs"`
+		ActiveMs  int64            `json:"illustrativeActiveMs"`
 	}
 	data, err := os.ReadFile(filepath.Join("..", "..", "..", "docs", "demos", "brontas-guide", "cadence-reference.json"))
 	if err != nil {
@@ -30,7 +31,7 @@ func TestExportBrontasCadenceDemo(t *testing.T) {
 	if err = json.Unmarshal(data, &profile); err != nil {
 		t.Fatal(err)
 	}
-	if len(profile.WarningMs) == 0 || len(profile.WarningMs) != len(profile.Axes) || len(profile.Axes) != len(profile.Offsets) || len(profile.LeadMs) == 0 {
+	if len(profile.WarningMs) == 0 || len(profile.WarningMs) != len(profile.Axes) || len(profile.Axes) != len(profile.Lanes) || len(profile.LeadMs) == 0 {
 		t.Fatal("invalid cadence profile")
 	}
 	const base int64 = 1700000000000
@@ -69,9 +70,9 @@ func TestExportBrontasCadenceDemo(t *testing.T) {
 				gap = profile.WarningMs[wave] - profile.WarningMs[wave-1]
 			}
 			lead = profile.LeadMs[min(wave, len(profile.LeadMs)-1)]
-			offset, width := profile.Offsets[wave], .40
-			if profile.Axes[wave] == "horizontal" {
-				width = .51
+			offset, width, err := profile.Grid.rayGeometry(profile.Axes[wave], profile.Lanes[wave])
+			if err != nil {
+				t.Fatal(err)
 			}
 			rays = append(rays, brontasGuideRay{ID: fmt.Sprintf("video-cadence-%02d", wave+1), Axis: profile.Axes[wave], WarningAtMs: base + at, LethalAtMs: base + at + lead, EndsAtMs: base + at + lead + profile.ActiveMs, Offset: &offset, HalfWidth: &width})
 			wave++
@@ -155,12 +156,13 @@ func TestExportBrontasCadenceDemo(t *testing.T) {
 		frames = append(frames, frame{base + ms, step, caption, player, rays, v, max(0, zeroAt-max(ms, start)), wave, gap, lead, contact})
 	}
 	result := struct {
-		FPS        float64 `json:"fps"`
-		BaseAtMs   int64   `json:"baseAtMs"`
-		DurationMs int64   `json:"durationMs"`
-		Mode       string  `json:"mode"`
-		Frames     []frame `json:"frames"`
-	}{12.5, base, duration, "cadence", frames}
+		FPS        float64          `json:"fps"`
+		BaseAtMs   int64            `json:"baseAtMs"`
+		DurationMs int64            `json:"durationMs"`
+		Mode       string           `json:"mode"`
+		Grid       brontasGuideGrid `json:"grid"`
+		Frames     []frame          `json:"frames"`
+	}{12.5, base, duration, "cadence", profile.Grid, frames}
 	data, err = json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		t.Fatal(err)

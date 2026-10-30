@@ -12,6 +12,14 @@ const input=path.resolve(process.argv[2] || path.join(root,'frames.json'));
 const output=path.resolve(process.argv[3] || path.join(root,'brontas-guide-demo.gif'));
 const demo=JSON.parse(await fs.readFile(input,'utf8'));
 const W=1040,H=660;
+const grid=demo.grid;
+if(!grid)throw new Error('Regenerate frames with a fixed nine-cell grid');
+for(const f of demo.frames)for(const r of f.rays||[]){
+ if(r.offset===undefined)continue;
+ const vertical=r.axis==='vertical',c=vertical?grid.xCenter:grid.yCenter,w=vertical?grid.xHalfWidth:grid.yHalfWidth;
+ const slot=(r.offset-c)/(2*w);
+ if(Math.abs(r.halfWidth-w)>1e-9 || Math.abs(slot-Math.round(slot))>1e-9 || Math.abs(Math.round(slot))>1)throw new Error('Ray outside the three contiguous grid lanes');
+}
 const cadence=demo.mode==='cadence';
 const duration=(demo.durationMs || 16000)/1000;
 const C={bg:'#070f17',panel:'#0e1b27',border:'#315269',text:'#ecf5fa',muted:'#abc0d0',faint:'#516c80',gold:'#ffbf47',red:'#ff4b5d',cyan:'#68eadb',blue:'#75bbff'};
@@ -22,9 +30,11 @@ const circle=(x,y,r,fill,extra='')=>`<circle cx="${x}" cy="${y}" r="${r}" fill="
 const line=(x1,y1,x2,y2,stroke,width=1,extra='')=>`<path d="M${x1},${y1}L${x2},${y2}" fill="none" stroke="${stroke}" stroke-width="${width}" ${extra}/>`;
 const mapPoint=p=>({x:292+p.x*42,y:195-p.y*42});
 const hudPoint=p=>({x:696+p.x*86,y:311-p.y*86});
+const cellIndex=p=>{const col=p.x<grid.xCenter-grid.xHalfWidth?0:p.x>grid.xCenter+grid.xHalfWidth?2:1;const row=p.y>grid.yCenter+grid.yHalfWidth?0:p.y<grid.yCenter-grid.yHalfWidth?2:1;return row*3+col+1;};
+function gridLines(cx,cy,r){return [-1,1].map(k=>line(cx+(grid.xCenter+k*grid.xHalfWidth)*r,cy-r,cx+(grid.xCenter+k*grid.xHalfWidth)*r,cy+r,C.muted,1,'stroke-opacity=".35"')+line(cx-r,cy-(grid.yCenter+k*grid.yHalfWidth)*r,cx+r,cy-(grid.yCenter+k*grid.yHalfWidth)*r,C.muted,1,'stroke-opacity=".35"')).join('');}
 
 function rayShapes(rays,now,cx,cy,radius,extent){
- return (rays||[]).filter(r=>r.offset!==undefined && r.halfWidth!==undefined && (!r.endsAtMs || now<r.endsAtMs)).map(r=>{
+ return (rays||[]).filter(r=>r.offset!==undefined && r.halfWidth!==undefined && (!r.endsAtMs || now<r.endsAtMs+150)).map(r=>{
   const fill=now<r.lethalAtMs?C.gold:C.red, hw=r.halfWidth*radius;
   return r.axis==='vertical'
    ?rect(cx+r.offset*radius-hw,cy-extent,hw*2,extent*2,fill,0,`fill-opacity=".40" stroke="${fill}" stroke-width="1"`)
@@ -48,7 +58,7 @@ function frameSVG(frame){
  s+=text(28,46,cadence?'二王 50% · 连续加速演示':'二王 50% · 走位提示动态演示',32,C.text,700);
  s+=text(1012,39,'演示数据 · 非实战录像',16,C.gold,500,'end');
  s+=text(1012,65,`${elapsed.toFixed(1)} / ${duration.toFixed(1)} s`,15,C.muted,400,'end');
- s+=text(30,76,cadence?'出线节奏取自视频模拟器；致命延迟和角色移动为示例。':'人物由演示脚本移动；插件只提示，不控制角色。',16,C.muted);
+ s+=text(30,76,cadence?'固定九宫格：纵向 3 列、横向 3 行，射线边界相接，无可站缝隙。':'人物由演示脚本移动；插件只提示，不控制角色。',16,C.muted);
  s+=rect(28,98,528,500,C.panel,16,`stroke="${C.border}"`);
  s+=text(50,130,step===0?'地图示意':'12 点落石区 · 放大',20,C.text,700)+text(532,130,step===0?'地图上方 = 12 点':'圆圈是落石区边界',14,C.muted,400,'end');
  s+=circle(292,346,202,'#122533',`stroke="${C.border}" stroke-width="2"`);
@@ -67,7 +77,8 @@ function frameSVG(frame){
  s+=circle(p.x,p.y,12,C.blue,'fill-opacity=".13"')+circle(p.x,p.y,5.5,C.text,`stroke="${C.blue}" stroke-width="2"`);
  }else{
   s+=`<g clip-path="url(#arena)">${rayShapes(frame.rays,now,292,346,202,202)}`;
-  if(!cadence && step===3){
+  s+=gridLines(292,346,202);
+  {
    // Number the nine cells defined by the TWO EDGES of each wide band.
    let cell=1;
    for(const y of [.64,-.12,-.73])for(const x of [-.59,0,.59]){
@@ -94,9 +105,9 @@ function frameSVG(frame){
   if(clock===12)s+=line(x,194,x+66,194,C.cyan,2);
  }
  s+=circle(696,311,86,'#111f2a',`stroke="#65849b" stroke-width="2"`);
- s+=line(610,311,782,311,C.border,1,'stroke-dasharray="5 5"')+line(696,225,696,397,C.border,1,'stroke-dasharray="5 5"');
+ s+=`<g clip-path="url(#zone)">${gridLines(696,311,86)}</g>`;
  if(fresh && v.player){
-  s+=`<g clip-path="url(#zone)">${rayShapes(v.rays,now,696,311,86,86)}`;
+  s+=`<g clip-path="url(#zone)">${rayShapes(v.rays,now,696,311,86,86)}${gridLines(696,311,86)}`;
   if(move){const a=hudPoint(v.player),b=hudPoint(v.target);s+=arrow(a,b)+circle(b.x,b.y,6,C.cyan);}
   if(Math.hypot(v.player.x,v.player.y)<=1){const q=hudPoint(v.player);s+=circle(q.x,q.y,v.player.radius*86,C.text,`stroke="${C.blue}" stroke-width="2"`);}
   s+='</g>';
@@ -105,7 +116,7 @@ function frameSVG(frame){
  s+=text(818,269,'最早射线致命',15,C.muted);
  s+=text(818,321,deadline,deadline==='已致命'?34:45,C.gold,700);
  s+=text(818,355,'12点区域',17,C.muted,500);
- const action=cadence && step===5?'演示结束':frame.contact?'示例判定命中 · 警惕风险':fresh?v.instruction:'数据过期 · 停止走位引导';
+ const action=cadence && step===5?'演示结束':frame.contact?'示例判定命中 · 警惕风险':move?`移至第 ${cellIndex(v.target)} 格`:fresh?v.instruction:'数据过期 · 停止走位引导';
  const detail=frame.contact?'仅展示参数下的风险，不代表实战伤害判定':fresh?v.detail:'等待新的识别结果';
  s+=text(602,442,action,20,move?C.cyan:step===5?C.gold:C.text,700);
  s+=text(602,476,detail,14,C.muted);
@@ -125,6 +136,15 @@ function frameSVG(frame){
 const fontFile=process.env.DILMETER_DEMO_FONT || (process.platform==='win32'?'C:/Windows/Fonts/msyh.ttc':undefined);
 const options={font:{loadSystemFonts:!fontFile,fontFiles:fontFile?[fontFile]:[],defaultFontFamily:'Microsoft YaHei'},background:C.bg};
 await fs.mkdir(path.dirname(output),{recursive:true});
+const previewArg=process.argv.find(a=>a.startsWith('--preview='));
+if(previewArg){
+ const index=Number(previewArg.split('=')[1]);
+ if(!Number.isInteger(index)||!demo.frames[index])throw new Error('Invalid preview frame');
+ const previewPath=output.replace(/\.gif$/i,'.png');
+ await fs.writeFile(previewPath,new Resvg(frameSVG(demo.frames[index]),options).render().asPng());
+ console.log('Saved preview '+previewPath);
+ process.exit(0);
+}
 // One palette for every frame eliminates palette flicker between phases.
 const samples=[0,22,38,61,92,130,160,190].map(i=>new Resvg(frameSVG(demo.frames[i]),options).render().pixels);
 const palette=quantize(Buffer.concat(samples),256,{format:'rgb565'});

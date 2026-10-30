@@ -18,6 +18,7 @@ func TestExportBrontasGuideDemo(t *testing.T) {
 		t.Skip("set DILMETER_BRONTAS_DEMO_OUT to export the animated demonstration")
 	}
 	const base int64 = 1700000000000
+	grid := brontasGuidePreviewGrid()
 	type demoFrame struct {
 		AtMs    int64                   `json:"atMs"`
 		Step    int                     `json:"step"`
@@ -69,22 +70,13 @@ func TestExportBrontasGuideDemo(t *testing.T) {
 				origin = player
 				target = nil
 			}
-			offset := origin.X
-			if axis == "horizontal" {
-				offset = origin.Y
-			}
-			// Illustrative proportions from the user's sketch, not game measurements.
-			// Half-width / zone radius also equals full width / zone diameter.
-			width := .40
-			if axis == "horizontal" {
-				width = .51
-			}
-			if wave == "cross" {
-				offset = 0
+			offset, width, err := grid.rayGeometry(axis, 1)
+			if err != nil {
+				t.Fatal(err)
 			}
 			f.Rays = []brontasGuideRay{{ID: wave, Axis: axis, WarningAtMs: base + start, LethalAtMs: base + lethal, EndsAtMs: base + end, Offset: &offset, HalfWidth: &width}}
 			if wave == "cross" {
-				y, horizontalWidth := -.12, .51
+				y, horizontalWidth, _ := grid.rayGeometry("horizontal", 1)
 				f.Rays = append(f.Rays, brontasGuideRay{ID: "additional-ray", Axis: "horizontal", WarningAtMs: base + start, LethalAtMs: base + lethal, EndsAtMs: base + end, Offset: &y, HalfWidth: &horizontalWidth})
 			}
 			f.Player = &brontasGuidePlayer{brontasPoint: player, Radius: .08, Speed: 1.2}
@@ -94,7 +86,7 @@ func TestExportBrontasGuideDemo(t *testing.T) {
 					q := *v.Target
 					target = &q
 				}
-				if wave != "stale" && target == nil {
+				if wave != "stale" && target == nil && v.Status != "hold" && v.Status != "blocked" {
 					t.Fatalf("demo %s has no initial route: %+v", wave, v)
 				}
 			}
@@ -135,10 +127,11 @@ func TestExportBrontasGuideDemo(t *testing.T) {
 		frames = append(frames, demoFrame{AtMs: base + ms, Step: step, Caption: caption, Player: player, Rays: f.Rays, Guide: v})
 	}
 	data, err := json.MarshalIndent(struct {
-		FPS      float64     `json:"fps"`
-		BaseAtMs int64       `json:"baseAtMs"`
-		Frames   []demoFrame `json:"frames"`
-	}{12.5, base, frames}, "", "  ")
+		FPS      float64          `json:"fps"`
+		BaseAtMs int64            `json:"baseAtMs"`
+		Grid     brontasGuideGrid `json:"grid"`
+		Frames   []demoFrame      `json:"frames"`
+	}{12.5, base, grid, frames}, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
