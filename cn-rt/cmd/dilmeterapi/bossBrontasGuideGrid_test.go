@@ -74,3 +74,42 @@ func TestBrontasGridPlannerRejectsFormerSlit(t *testing.T) {
 		}
 	}
 }
+
+func TestBrontasGridLocksToCurrentPlayerLane(t *testing.T) {
+	g := brontasGuideGrid{XHalfWidth: .5, YHalfWidth: .5}
+	for _, tc := range []struct {
+		p        brontasPoint
+		col, row int
+	}{
+		{brontasPoint{X: -.7, Y: .7}, 0, 0}, {brontasPoint{X: 0, Y: 0}, 1, 1}, {brontasPoint{X: .7, Y: -.7}, 2, 2},
+	} {
+		col, err := g.laneAt("vertical", tc.p)
+		if err != nil || col != tc.col {
+			t.Fatalf("column lock: %+v %d %v", tc, col, err)
+		}
+		row, err := g.laneAt("horizontal", tc.p)
+		if err != nil || row != tc.row {
+			t.Fatalf("row lock: %+v %d %v", tc, row, err)
+		}
+	}
+	p := brontasPoint{X: .7}
+	lane, _ := g.laneAt("vertical", p)
+	locked, _, _ := g.rayGeometry("vertical", lane)
+	p.X = -.7
+	nextLane, _ := g.laneAt("vertical", p)
+	next, _, _ := g.rayGeometry("vertical", nextLane)
+	if locked != 1 || next != -1 {
+		t.Fatal("old ray moved with player, or next ray used old position")
+	}
+}
+
+func TestBrontasDemoDetectsContactBetweenAnimationFrames(t *testing.T) {
+	offset, width := 0.0, .1
+	r := brontasGuideRay{Axis: "vertical", LethalAtMs: 40, EndsAtMs: 41, Offset: &offset, HalfWidth: &width}
+	if !brontasDemoContact(brontasPoint{X: -1}, brontasPoint{X: 1}, 0, 80, .08, r) {
+		t.Fatal("missed a lethal crossing between two rendered frames")
+	}
+	if brontasDemoContact(brontasPoint{X: -1, Y: .7}, brontasPoint{X: -.8, Y: .7}, 0, 80, .08, r) {
+		t.Fatal("false collision")
+	}
+}

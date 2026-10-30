@@ -35,7 +35,7 @@ function gridLines(cx,cy,r){return [-1,1].map(k=>line(cx+(grid.xCenter+k*grid.xH
 
 function rayShapes(rays,now,cx,cy,radius,extent){
  return (rays||[]).filter(r=>r.offset!==undefined && r.halfWidth!==undefined && (!r.endsAtMs || now<r.endsAtMs+150)).map(r=>{
-  const fill=now<r.lethalAtMs?C.gold:C.red, hw=r.halfWidth*radius;
+  const age=now-r.warningAtMs; const fill=cadence?(age<500?C.red:now<r.lethalAtMs?C.blue:now<r.lethalAtMs+90?C.gold:C.faint):(now<r.lethalAtMs?C.gold:C.red), hw=r.halfWidth*radius;
   return r.axis==='vertical'
    ?rect(cx+r.offset*radius-hw,cy-extent,hw*2,extent*2,fill,0,`fill-opacity=".40" stroke="${fill}" stroke-width="1"`)
    :rect(cx-extent,cy-r.offset*radius-hw,extent*2,hw*2,fill,0,`fill-opacity=".40" stroke="${fill}" stroke-width="1"`);
@@ -55,12 +55,12 @@ function frameSVG(frame){
  const elapsed=(now-demo.baseAtMs)/1000;
  let s=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><style>text{font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif;font-variant-numeric:tabular-nums}</style><defs><clipPath id="arena"><circle cx="292" cy="346" r="202"/></clipPath><clipPath id="zone"><circle cx="696" cy="311" r="86"/></clipPath></defs>`;
  s+=rect(0,0,W,H,C.bg);
- s+=text(28,46,cadence?'二王 50% · 连续加速演示':'二王 50% · 走位提示动态演示',32,C.text,700);
- s+=text(1012,39,'演示数据 · 非实战录像',16,C.gold,500,'end');
+ s+=text(28,46,cadence?'二王 50% · 锁定站位后躲避':'二王 50% · 走位提示动态演示',32,C.text,700);
+ s+=text(1012,39,'原模拟器规则 · 非实战标定',16,C.gold,500,'end');
  s+=text(1012,65,`${elapsed.toFixed(1)} / ${duration.toFixed(1)} s`,15,C.muted,400,'end');
- s+=text(30,76,cadence?'固定九宫格：纵向 3 列、横向 3 行，射线边界相接，无可站缝隙。':'人物由演示脚本移动；插件只提示，不控制角色。',16,C.muted);
+ s+=text(30,76,cadence?'固定线按当前行／列锁定；额外线独立落点。三行三列无间隙。':'人物由演示脚本移动；插件只提示，不控制角色。',16,C.muted);
  s+=rect(28,98,528,500,C.panel,16,`stroke="${C.border}"`);
- s+=text(50,130,step===0?'地图示意':'12 点落石区 · 放大',20,C.text,700)+text(532,130,step===0?'地图上方 = 12 点':'圆圈是落石区边界',14,C.muted,400,'end');
+ s+=text(50,130,step===0?'地图示意':'参考模拟器 · 九宫格正视图',20,C.text,700)+text(532,130,step===0?'地图上方 = 12 点':'圆圈是落石区边界',14,C.muted,400,'end');
  s+=circle(292,346,202,'#122533',`stroke="${C.border}" stroke-width="2"`);
  if(step===0){
  s+=circle(292,346,148,'none',`stroke="${C.border}" stroke-dasharray="4 9"`);
@@ -81,15 +81,17 @@ function frameSVG(frame){
   {
    // Number the nine cells defined by the TWO EDGES of each wide band.
    let cell=1;
-   for(const y of [.64,-.12,-.73])for(const x of [-.59,0,.59]){
+   for(const y of [grid.yCenter+grid.yHalfWidth+.14,grid.yCenter,grid.yCenter-grid.yHalfWidth-.14])for(const x of [grid.xCenter-grid.xHalfWidth-.14,grid.xCenter,grid.xCenter+grid.xHalfWidth+.14]){
     s+=text(292+x*202,346-y*202+5,String(cell++),16,C.muted,500,'middle');
    }
   }
   const p={x:292+frame.player.x*202,y:346-frame.player.y*202};
-  s+=circle(p.x,p.y,.08*202,frame.contact?C.red:C.text,`stroke="${C.blue}" stroke-width="2"`);
+  if(move){s+=arrow(p,{x:292+v.target.x*202,y:346-v.target.y*202});}
+  if(cadence&&frame.lock?.kind==='fixed'&&now-frame.lock.atMs<650){const l=frame.lock.player;const x=292+l.x*202,y=346-l.y*202;s+=circle(x,y,21,'none',`stroke="${C.gold}" stroke-width="2" stroke-dasharray="4 4"`);}
+  s+=circle(p.x,p.y,(v.player?.radius||.08)*202,frame.contact?C.red:C.text,`stroke="${C.blue}" stroke-width="2"`);
   s+='</g>';
   s+=circle(292,346,202,'none',`stroke="${C.border}" stroke-width="2"`);
-  s+=text(50,155,cadence?`第 ${frame.wave} 条 · 出线间隔 ${frame.gapMs?(frame.gapMs/1000).toFixed(2)+' s':'—'}`:step===3?'纵带约 40% 直径 · 横带约 51%':'宽度参与路径判断 · 不仅看中心线',14,C.muted);
+  s+=text(50,155,cadence?`固定 ${frame.wave} 条 / 额外 ${frame.randomCount||0} 条 · 间隔 ${frame.gapMs?(frame.gapMs/1000).toFixed(2)+' s':'—'}`:step===3?'纵带约 40% 直径 · 横带约 51%':'宽度参与路径判断 · 不仅看中心线',14,C.muted);
  }
  s+=text(50,574,frame.caption,17,step===5?C.gold:C.text,600);
 
@@ -112,18 +114,18 @@ function frameSVG(frame){
   if(Math.hypot(v.player.x,v.player.y)<=1){const q=hudPoint(v.player);s+=circle(q.x,q.y,v.player.radius*86,C.text,`stroke="${C.blue}" stroke-width="2"`);}
   s+='</g>';
  }else{s+=text(696,318,'待定位',18,C.muted,500,'middle');}
- const deadline=!fresh||!v.lethalAtMs?'--':now>=v.lethalAtMs?'已致命':`${(Math.ceil((v.lethalAtMs-now)/100)/10).toFixed(1)} s`;
- s+=text(818,269,'最早射线致命',15,C.muted);
+ const nextCheck=(v.rays||[]).map(r=>r.lethalAtMs).filter(t=>t>now).sort((a,b)=>a-b)[0]; const deadline=!fresh||!nextCheck?'--':`${(Math.ceil((nextCheck-now)/100)/10).toFixed(1)} s`;
+ s+=text(818,269,'距下一次判定',15,C.muted);
  s+=text(818,321,deadline,deadline==='已致命'?34:45,C.gold,700);
  s+=text(818,355,'12点区域',17,C.muted,500);
- const action=cadence && step===5?'演示结束':frame.contact?'示例判定命中 · 警惕风险':move?`移至第 ${cellIndex(v.target)} 格`:fresh?v.instruction:'数据过期 · 停止走位引导';
- const detail=frame.contact?'仅展示参数下的风险，不代表实战伤害判定':fresh?v.detail:'等待新的识别结果';
+ const action=cadence && step===5?'演示结束':frame.contact?'示例判定命中 · 警惕风险':move?(frame.motion==='reacting'?`准备 ${(Math.max(0,frame.departAtMs-now)/1000).toFixed(1)}s → 第 ${cellIndex(v.target)} 格`:`现在移至第 ${cellIndex(v.target)} 格`):fresh?v.instruction:'数据过期 · 停止走位引导';
+ const event=frame.lock; const detail=cadence&&event?event.kind==='fixed'?`固定${event.axis==='vertical'?'纵':'横'}线：锁定第 ${cellIndex(event.player)} 格时的${event.axis==='vertical'?'列':'行'}`:`额外${event.axis==='vertical'?'纵':'横'}线：独立落点，重新检查路线`:fresh?v.detail:'等待新的识别结果';
  s+=text(602,442,action,20,move?C.cyan:step===5?C.gold:C.text,700);
  s+=text(602,476,detail,14,C.muted);
  s+=line(600,509,992,509,C.border);
- s+=text(602,540,cadence?`预警 ${(frame.leadMs/1000).toFixed(2)} s（演示设定）`:'地图方向 · 对侧 6点',17,C.text,500);
- s+=text(602,569,cadence?'出线间隔 ≠ 致命延迟 · 尚未实战校准':step===3?'下方小角：本例容不下人物与余量':'宽度按参考图示意 · 待实测校准',14,C.muted);
- const labels=cadence?['等待入场','初段','加速','持续高频','归零待判','结束']:['入场','纵线','横线','多条射线','仅方向','数据中断'];
+ s+=text(602,540,cadence?'红／青均为预警 → 1.00 秒时判定':'地图方向 · 对侧 6点',17,C.text,500);
+ s+=text(602,569,cadence?'300ms 反应 · 连续路径检查 · 全程无命中':step===3?'下方小角：本例容不下人物与余量':'宽度按参考图示意 · 待实测校准',14,C.muted);
+ const labels=cadence?['入场','锁定','加速','连续避让','收尾','完成']:['入场','纵线','横线','多条射线','仅方向','数据中断'];
  for(let i=0;i<labels.length;i++){
   const x=28+i*164;
   s+=rect(x,612,154,30,i===step?'#183b49':'#101e29',6);
@@ -145,14 +147,31 @@ if(previewArg){
  console.log('Saved preview '+previewPath);
  process.exit(0);
 }
+// Outline all distinct labels in ONE font load. Per-frame rendering then uses
+// geometry only, preserving exact glyph layout while avoiding repeated TTC loads.
+const svgs=demo.frames.map(frameSVG);
+const labels=[...new Set(svgs.flatMap(svg=>svg.match(/<text\b[^>]*>[\s\S]*?<\/text>/g)||[]))];
+const allText='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'"><style>text{font-family:Microsoft YaHei;font-variant-numeric:tabular-nums}</style>'+labels.map((label,i)=>'<g id="label'+i+'">'+label+'</g>').join('')+'</svg>';
+const outlined=new Resvg(allText,options).toString();
+const labelPaths=new Map();
+for(let i=0;i<labels.length;i++){
+ const start=outlined.indexOf('<g id="label'+i+'"');
+ if(start<0)throw new Error('Missing outlined label '+i);
+ const tags=/<g\b[^>]*>|<\/g>/g; tags.lastIndex=start;
+ let depth=0,end=start,match;
+ while((match=tags.exec(outlined))){depth+=match[0].startsWith('</')?-1:1;if(depth===0){end=tags.lastIndex;break;}}
+ labelPaths.set(labels[i],outlined.slice(start,end).replace(' id="label'+i+'"',''));
+}
+const outlinedFrames=svgs.map(svg=>svg.replace(/<text\b[^>]*>[\s\S]*?<\/text>/g,label=>labelPaths.get(label)));
+const geometryOptions={font:{loadSystemFonts:false},background:C.bg};
+const renderAt=i=>new Resvg(outlinedFrames[i],geometryOptions).render();
 // One palette for every frame eliminates palette flicker between phases.
-const samples=[0,22,38,61,92,130,160,190].map(i=>new Resvg(frameSVG(demo.frames[i]),options).render().pixels);
+const samples=[0,22,38,61,92,130,160,190].map(i=>renderAt(i).pixels);
 const palette=quantize(Buffer.concat(samples),256,{format:'rgb565'});
 const gif=GIFEncoder();
 const captureFrames=new Set(cadence?[20,42,75,130,190,215,240]:[22,38,61,92,130,160]);
 for(let i=0;i<demo.frames.length;i++){
- const svg=frameSVG(demo.frames[i]);
- const rendered=new Resvg(svg,options).render();
+ const rendered=renderAt(i);
  const indexed=applyPalette(rendered.pixels,palette,'rgb565');
  gif.writeFrame(indexed,W,H,{palette,delay:80,repeat:0});
  if(captureFrames.has(i))await fs.writeFile(path.join(path.dirname(output),`brontas-frame-${String(i).padStart(3,'0')}.png`),rendered.asPng());

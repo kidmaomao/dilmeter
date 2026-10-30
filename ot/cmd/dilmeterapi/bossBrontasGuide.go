@@ -120,11 +120,17 @@ func validateBrontasGuideFrame(f brontasGuideFrame, nowMs int64) error {
 // destination until every supplied ray ends. Crossing a warning before its
 // guarded activation is allowed; checking only the endpoint is insufficient.
 func brontasRouteClear(f brontasGuideFrame, target brontasPoint, nowMs int64) bool {
+	return brontasRouteClearAfter(f, target, nowMs, brontasGuideReactionMs)
+}
+
+// An already accepted demo route uses its remaining reaction time. This helper
+// never resets the reaction delay while the scripted player is already moving.
+func brontasRouteClearAfter(f brontasGuideFrame, target brontasPoint, nowMs, reactionMs int64) bool {
 	p := f.Player
 	if p == nil || math.Hypot(target.X, target.Y) > 1-p.Radius-.03 {
 		return false
 	}
-	depart := float64(nowMs + brontasGuideReactionMs)
+	depart := float64(nowMs + reactionMs)
 	arrive := depart + math.Hypot(target.X-p.X, target.Y-p.Y)/p.Speed*1000
 	for _, ray := range f.Rays {
 		if ray.Offset == nil || ray.HalfWidth == nil {

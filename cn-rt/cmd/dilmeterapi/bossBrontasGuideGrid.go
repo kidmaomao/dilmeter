@@ -36,3 +36,30 @@ func (g brontasGuideGrid) rayGeometry(axis string, lane int) (float64, float64, 
 		return 0, 0, fmt.Errorf("invalid grid axis")
 	}
 }
+
+// laneAt locks a fixed ray to the row/column occupied at warning time.
+// Borders belong to the middle lane; adjacent bands still share that border.
+func (g brontasGuideGrid) laneAt(axis string, p brontasPoint) (int, error) {
+	if _, _, err := g.rayGeometry(axis, 1); err != nil {
+		return 0, err
+	}
+	if !finiteBrontasNumber(p.X) || !finiteBrontasNumber(p.Y) {
+		return 0, fmt.Errorf("invalid player position")
+	}
+	if axis == "vertical" {
+		if p.X < g.XCenter-g.XHalfWidth {
+			return 0, nil
+		}
+		if p.X > g.XCenter+g.XHalfWidth {
+			return 2, nil
+		}
+	} else {
+		if p.Y > g.YCenter+g.YHalfWidth {
+			return 0, nil
+		}
+		if p.Y < g.YCenter-g.YHalfWidth {
+			return 2, nil
+		}
+	}
+	return 1, nil
+}

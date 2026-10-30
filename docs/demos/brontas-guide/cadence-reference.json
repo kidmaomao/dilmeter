@@ -1,6 +1,6 @@
 {
   "source": "https://www.bilibili.com/video/BV1bH9sBXEW9/",
-  "segment": "Video simulator demonstration, approximately 03:36.93–03:55.47",
+  "segment": "Fixed-ray sample begins 03:36.933; this 15-second example uses onsets through 03:51.667.",
   "measurement": "Visible red-band onsets at 30 fps, approx ±0.07 s. Selected primary sequence; additional overlapping bands exist. This does not establish game damage deadlines or an official acceleration formula.",
   "warningMs": [
     0,
@@ -21,12 +21,7 @@
     12467,
     13234,
     13967,
-    14734,
-    15500,
-    16267,
-    17000,
-    17767,
-    18534
+    14734
   ],
   "videoWarningMs": [
     216933,
@@ -47,12 +42,7 @@
     229400,
     230167,
     230900,
-    231667,
-    232433,
-    233200,
-    233933,
-    234700,
-    235467
+    231667
   ],
   "axes": [
     "vertical",
@@ -73,54 +63,70 @@
     "vertical",
     "horizontal",
     "vertical",
-    "horizontal",
-    "vertical",
-    "horizontal",
-    "vertical",
-    "vertical",
     "horizontal"
   ],
   "illustrativeLeadMs": [
-    1600,
-    1500,
-    1400,
-    1300,
-    1200,
-    1100,
     1000
   ],
-  "illustrativeActiveMs": 450,
-  "geometry": "Exactly three contiguous columns and three contiguous rows; lane indices 0/1/2. Adjacent centers are one full band width apart. Only calibrated boundary positions may change; no safe slits between adjacent bands.",
-  "lanes": [
-    2,
-    1,
-    0,
-    1,
-    0,
-    1,
-    2,
-    1,
-    0,
-    1,
-    2,
-    2,
-    1,
-    0,
-    1,
-    2,
-    1,
-    1,
-    1,
-    0,
-    1,
-    1,
-    2,
-    1
-  ],
+  "illustrativeActiveMs": 1,
+  "geometry": "Reference Canvas frontal layout: three touching bands per axis, each width=one circle radius. Game/mineral calibration remains separate.",
   "grid": {
     "xCenter": 0,
-    "yCenter": -0.12,
-    "xHalfWidth": 0.4,
-    "yHalfWidth": 0.51
-  }
+    "yCenter": 0,
+    "xHalfWidth": 0.5,
+    "yHalfWidth": 0.5
+  },
+  "sourceVideoLanes": [
+    2,
+    1,
+    0,
+    1,
+    0,
+    1,
+    2,
+    1,
+    0,
+    1,
+    2,
+    2,
+    1,
+    0,
+    1,
+    2,
+    1,
+    1,
+    1
+  ],
+  "targeting": "At each warning timestamp, choose the lane containing the current simulated player. sourceVideoLanes records the original video only and MUST NOT drive simulated ray positions.",
+  "scope": "Worked reference-simulator example: current-player fixed locks plus two independently located extra bands observed in the source video. Not an exhaustive frame-for-frame replay or a game timing calibration.",
+  "canvasSource": "https://chatgpt.com/canvas/shared/69d47b6663f88191af8f8d8d5a517be1",
+  "referenceRules": {
+    "warningRedMs": 500,
+    "warningCyanMs": 500,
+    "lethalCheck": "one position check at warning + 1000 ms",
+    "yellowVisualMs": 90,
+    "playerRadius": 0.08727272727272728,
+    "speedRadiiPerSecond": 5,
+    "periodicGapsMs": [
+      1260,
+      1080,
+      945,
+      810,
+      756
+    ],
+    "randomChance": 0.3
+  },
+  "randomEvents": [
+    {
+      "warningMs": 4000,
+      "axis": "horizontal",
+      "lane": 2
+    },
+    {
+      "warningMs": 10067,
+      "axis": "horizontal",
+      "lane": 0
+    }
+  ],
+  "extraRayEvidence": "Two additional visible bands sampled at video 220.933 s (bottom row) and 227.000 s (top row), independent of the replay player. Their in-game origin cannot be inferred from the video. This is a worked avoidance example, not a frame-for-frame replay or exhaustive reconstruction of every extra band."
 }
