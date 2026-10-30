@@ -26,3 +26,7 @@ Pop-Location
 生成 `docs/demos/brontas-guide/brontas-guide-demo.gif` 和 6 张检查用关键帧。生成文件及依赖均已忽略，不进入 PR。
 
 Windows 默认使用系统微软雅黑；其他系统可通过 `DILMETER_DEMO_FONT` 指定支持中文的字体文件。颜色与布局来自 `BrontasGuideOverlay.vue`，SVG 负责演示地图与导出，不替代程序里的实际覆盖层。
+
+## 连续加速版
+
+新增完整倒计时与连续出线的 20 秒版本，详见 [视频采样、未校准参数及重建步骤](../../brontas-cadence-analysis.md)。原 16 秒功能样例仍可按上面的命令生成。

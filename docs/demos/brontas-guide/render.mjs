@@ -12,6 +12,8 @@ const input=path.resolve(process.argv[2] || path.join(root,'frames.json'));
 const output=path.resolve(process.argv[3] || path.join(root,'brontas-guide-demo.gif'));
 const demo=JSON.parse(await fs.readFile(input,'utf8'));
 const W=1040,H=660;
+const cadence=demo.mode==='cadence';
+const duration=(demo.durationMs || 16000)/1000;
 const C={bg:'#070f17',panel:'#0e1b27',border:'#315269',text:'#ecf5fa',muted:'#abc0d0',faint:'#516c80',gold:'#ffbf47',red:'#ff4b5d',cyan:'#68eadb',blue:'#75bbff'};
 const esc=x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const text=(x,y,s,size=16,fill=C.text,weight=400,anchor='start')=>`<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}">${esc(s)}</text>`;
@@ -43,10 +45,10 @@ function frameSVG(frame){
  const elapsed=(now-demo.baseAtMs)/1000;
  let s=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><style>text{font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif;font-variant-numeric:tabular-nums}</style><defs><clipPath id="arena"><circle cx="292" cy="346" r="202"/></clipPath><clipPath id="zone"><circle cx="696" cy="311" r="86"/></clipPath></defs>`;
  s+=rect(0,0,W,H,C.bg);
- s+=text(28,46,'二王 50% · 走位提示动态演示',32,C.text,700);
+ s+=text(28,46,cadence?'二王 50% · 连续加速演示':'二王 50% · 走位提示动态演示',32,C.text,700);
  s+=text(1012,39,'演示数据 · 非实战录像',16,C.gold,500,'end');
- s+=text(1012,65,`${elapsed.toFixed(1)} / 16.0 s`,15,C.muted,400,'end');
- s+=text(30,76,'人物由演示脚本移动；插件只提示，不控制角色。',16,C.muted);
+ s+=text(1012,65,`${elapsed.toFixed(1)} / ${duration.toFixed(1)} s`,15,C.muted,400,'end');
+ s+=text(30,76,cadence?'出线节奏取自视频模拟器；致命延迟和角色移动为示例。':'人物由演示脚本移动；插件只提示，不控制角色。',16,C.muted);
  s+=rect(28,98,528,500,C.panel,16,`stroke="${C.border}"`);
  s+=text(50,130,step===0?'地图示意':'12 点落石区 · 放大',20,C.text,700)+text(532,130,step===0?'地图上方 = 12 点':'圆圈是落石区边界',14,C.muted,400,'end');
  s+=circle(292,346,202,'#122533',`stroke="${C.border}" stroke-width="2"`);
@@ -65,7 +67,7 @@ function frameSVG(frame){
  s+=circle(p.x,p.y,12,C.blue,'fill-opacity=".13"')+circle(p.x,p.y,5.5,C.text,`stroke="${C.blue}" stroke-width="2"`);
  }else{
   s+=`<g clip-path="url(#arena)">${rayShapes(frame.rays,now,292,346,202,202)}`;
-  if(step===3){
+  if(!cadence && step===3){
    // Number the nine cells defined by the TWO EDGES of each wide band.
    let cell=1;
    for(const y of [.64,-.12,-.73])for(const x of [-.59,0,.59]){
@@ -73,10 +75,10 @@ function frameSVG(frame){
    }
   }
   const p={x:292+frame.player.x*202,y:346-frame.player.y*202};
-  s+=circle(p.x,p.y,.08*202,C.text,`stroke="${C.blue}" stroke-width="2"`);
+  s+=circle(p.x,p.y,.08*202,frame.contact?C.red:C.text,`stroke="${C.blue}" stroke-width="2"`);
   s+='</g>';
   s+=circle(292,346,202,'none',`stroke="${C.border}" stroke-width="2"`);
-  s+=text(50,155,step===3?'纵带约 40% 直径 · 横带约 51%':'危险带按实际宽度参与路径判断',14,C.muted);
+  s+=text(50,155,cadence?`第 ${frame.wave} 条 · 出线间隔 ${frame.gapMs?(frame.gapMs/1000).toFixed(2)+' s':'—'}`:step===3?'纵带约 40% 直径 · 横带约 51%':'宽度参与路径判断 · 不仅看中心线',14,C.muted);
  }
  s+=text(50,574,frame.caption,17,step===5?C.gold:C.text,600);
 
@@ -84,7 +86,9 @@ function frameSVG(frame){
  s+=text(602,136,'二王 50% · 走位提示',21,C.text,700);
  s+=rect(938,116,54,25,'#153042',5)+text(965,134,'演示',13,C.blue,500,'middle');
  s+=line(600,153,992,153,C.border);
- for(const [i,clock] of [12,3,6,9].entries()){
+ if(cadence){
+ s+=text(604,185,`机制剩余 ${(frame.remainingMs/1000).toFixed(1)} s · 第 ${frame.wave} 条`,19,C.cyan,600);
+ }else for(const [i,clock] of [12,3,6,9].entries()){
   const x=604+i*98,on=clock===12||clock===9;
   s+=text(x,185,`${clock}点 ${on?'◆':'—'}`,17,clock===12?C.cyan:on?C.gold:C.faint,600);
   if(clock===12)s+=line(x,194,x+66,194,C.cyan,2);
@@ -101,20 +105,20 @@ function frameSVG(frame){
  s+=text(818,269,'最早射线致命',15,C.muted);
  s+=text(818,321,deadline,deadline==='已致命'?34:45,C.gold,700);
  s+=text(818,355,'12点区域',17,C.muted,500);
- const action=fresh?v.instruction:'数据过期 · 停止走位引导';
- const detail=fresh?v.detail:'等待新的识别结果';
+ const action=cadence && step===5?'演示结束':frame.contact?'示例判定命中 · 警惕风险':fresh?v.instruction:'数据过期 · 停止走位引导';
+ const detail=frame.contact?'仅展示参数下的风险，不代表实战伤害判定':fresh?v.detail:'等待新的识别结果';
  s+=text(602,442,action,20,move?C.cyan:step===5?C.gold:C.text,700);
  s+=text(602,476,detail,14,C.muted);
  s+=line(600,509,992,509,C.border);
- s+=text(602,540,'地图方向 · 对侧 6点',17,C.text,500);
- s+=text(602,569,step===3?'下方小角：本例容不下人物与余量':'宽度按参考图示意 · 待实测校准',14,C.muted);
- const labels=['入场','纵线','横线','多条射线','仅方向','数据中断'];
+ s+=text(602,540,cadence?`预警 ${(frame.leadMs/1000).toFixed(2)} s（演示设定）`:'地图方向 · 对侧 6点',17,C.text,500);
+ s+=text(602,569,cadence?'出线间隔 ≠ 致命延迟 · 尚未实战校准':step===3?'下方小角：本例容不下人物与余量':'宽度按参考图示意 · 待实测校准',14,C.muted);
+ const labels=cadence?['等待入场','初段','加速','持续高频','归零待判','结束']:['入场','纵线','横线','多条射线','仅方向','数据中断'];
  for(let i=0;i<labels.length;i++){
   const x=28+i*164;
   s+=rect(x,612,154,30,i===step?'#183b49':'#101e29',6);
   s+=text(x+77,633,labels[i],14,i===step?C.cyan:C.muted,i===step?700:400,'middle');
  }
- s+=rect(28,651,984*Math.min(1,elapsed/16),3,C.cyan);
+ s+=rect(28,651,984*Math.min(1,elapsed/duration),3,C.cyan);
  return s+'</svg>';
 }
 
@@ -125,7 +129,7 @@ await fs.mkdir(path.dirname(output),{recursive:true});
 const samples=[0,22,38,61,92,130,160,190].map(i=>new Resvg(frameSVG(demo.frames[i]),options).render().pixels);
 const palette=quantize(Buffer.concat(samples),256,{format:'rgb565'});
 const gif=GIFEncoder();
-const captureFrames=new Set([22,38,61,92,130,160]);
+const captureFrames=new Set(cadence?[20,42,75,130,190,215,240]:[22,38,61,92,130,160]);
 for(let i=0;i<demo.frames.length;i++){
  const svg=frameSVG(demo.frames[i]);
  const rendered=new Resvg(svg,options).render();
@@ -136,4 +140,4 @@ for(let i=0;i<demo.frames.length;i++){
 }
 gif.finish();
 await fs.writeFile(output,gif.bytes());
-console.log(`Saved ${output}: ${demo.frames.length} frames, 16 seconds.`);
+console.log(`Saved ${output}: ${demo.frames.length} frames, ${duration} seconds.`);

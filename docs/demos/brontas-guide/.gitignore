@@ -1,4 +1,4 @@
 node_modules/
-frames.json
+frames*.json
 *.gif
 *.png
