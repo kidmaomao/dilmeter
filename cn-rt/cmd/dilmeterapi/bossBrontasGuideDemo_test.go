@@ -52,7 +52,7 @@ func TestExportBrontasGuideDemo(t *testing.T) {
 			step, caption = 2, "等待新的观察，不预判下一条射线"
 		case ms < 9280:
 			wave, start, lethal, end = "cross", 7200, 8200, 9280
-			step, caption = 3, "新射线加入 → 同时检查两条射线"
+			step, caption = 3, "宽射线分出九宫格 → 下方两个角很小"
 		case ms < 9600:
 			step, caption = 3, "当前已识别射线结束"
 		case ms < 11520:
@@ -73,11 +73,19 @@ func TestExportBrontasGuideDemo(t *testing.T) {
 			if axis == "horizontal" {
 				offset = origin.Y
 			}
-			width := .12
+			// Illustrative proportions from the user's sketch, not game measurements.
+			// Half-width / zone radius also equals full width / zone diameter.
+			width := .40
+			if axis == "horizontal" {
+				width = .51
+			}
+			if wave == "cross" {
+				offset = 0
+			}
 			f.Rays = []brontasGuideRay{{ID: wave, Axis: axis, WarningAtMs: base + start, LethalAtMs: base + lethal, EndsAtMs: base + end, Offset: &offset, HalfWidth: &width}}
 			if wave == "cross" {
-				y := origin.Y
-				f.Rays = append(f.Rays, brontasGuideRay{ID: "additional-ray", Axis: "horizontal", WarningAtMs: base + start, LethalAtMs: base + lethal, EndsAtMs: base + end, Offset: &y, HalfWidth: &width})
+				y, horizontalWidth := -.12, .51
+				f.Rays = append(f.Rays, brontasGuideRay{ID: "additional-ray", Axis: "horizontal", WarningAtMs: base + start, LethalAtMs: base + lethal, EndsAtMs: base + end, Offset: &y, HalfWidth: &horizontalWidth})
 			}
 			f.Player = &brontasGuidePlayer{brontasPoint: player, Radius: .08, Speed: 1.2}
 			if wave != lastWave && wave != "axis-only" {

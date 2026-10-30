@@ -25,8 +25,8 @@ function rayShapes(rays,now,cx,cy,radius,extent){
  return (rays||[]).filter(r=>r.offset!==undefined && r.halfWidth!==undefined && (!r.endsAtMs || now<r.endsAtMs)).map(r=>{
   const fill=now<r.lethalAtMs?C.gold:C.red, hw=r.halfWidth*radius;
   return r.axis==='vertical'
-   ?rect(cx+r.offset*radius-hw,cy-extent,hw*2,extent*2,fill,0,'fill-opacity=".40"')
-   :rect(cx-extent,cy-r.offset*radius-hw,extent*2,hw*2,fill,0,'fill-opacity=".40"');
+   ?rect(cx+r.offset*radius-hw,cy-extent,hw*2,extent*2,fill,0,`fill-opacity=".40" stroke="${fill}" stroke-width="1"`)
+   :rect(cx-extent,cy-r.offset*radius-hw,extent*2,hw*2,fill,0,`fill-opacity=".40" stroke="${fill}" stroke-width="1"`);
  }).join('');
 }
 
@@ -48,8 +48,9 @@ function frameSVG(frame){
  s+=text(1012,65,`${elapsed.toFixed(1)} / 16.0 s`,15,C.muted,400,'end');
  s+=text(30,76,'人物由演示脚本移动；插件只提示，不控制角色。',16,C.muted);
  s+=rect(28,98,528,500,C.panel,16,`stroke="${C.border}"`);
- s+=text(50,130,'地图示意',20,C.text,700)+text(532,130,'地图上方 = 12 点',14,C.muted,400,'end');
+ s+=text(50,130,step===0?'地图示意':'12 点落石区 · 放大',20,C.text,700)+text(532,130,step===0?'地图上方 = 12 点':'圆圈是落石区边界',14,C.muted,400,'end');
  s+=circle(292,346,202,'#122533',`stroke="${C.border}" stroke-width="2"`);
+ if(step===0){
  s+=circle(292,346,148,'none',`stroke="${C.border}" stroke-dasharray="4 9"`);
  s+=line(90,346,494,346,C.border,1)+line(292,144,292,548,C.border,1);
  s+=`<g clip-path="url(#arena)">${rayShapes(frame.rays,now,292,195,42,400)}</g>`;
@@ -62,6 +63,21 @@ function frameSVG(frame){
  s+=text(292,342,'二王',20,C.text,700,'middle')+text(292,365,'50%',15,C.muted,500,'middle');
  const p=mapPoint(frame.player);
  s+=circle(p.x,p.y,12,C.blue,'fill-opacity=".13"')+circle(p.x,p.y,5.5,C.text,`stroke="${C.blue}" stroke-width="2"`);
+ }else{
+  s+=`<g clip-path="url(#arena)">${rayShapes(frame.rays,now,292,346,202,202)}`;
+  if(step===3){
+   // Number the nine cells defined by the TWO EDGES of each wide band.
+   let cell=1;
+   for(const y of [.64,-.12,-.73])for(const x of [-.59,0,.59]){
+    s+=text(292+x*202,346-y*202+5,String(cell++),16,C.muted,500,'middle');
+   }
+  }
+  const p={x:292+frame.player.x*202,y:346-frame.player.y*202};
+  s+=circle(p.x,p.y,.08*202,C.text,`stroke="${C.blue}" stroke-width="2"`);
+  s+='</g>';
+  s+=circle(292,346,202,'none',`stroke="${C.border}" stroke-width="2"`);
+  s+=text(50,155,step===3?'纵带约 40% 直径 · 横带约 51%':'危险带按实际宽度参与路径判断',14,C.muted);
+ }
  s+=text(50,574,frame.caption,17,step===5?C.gold:C.text,600);
 
  s+=rect(580,98,432,500,'#09121b',16,`stroke="${C.border}" stroke-width="1.5"`);
@@ -91,7 +107,7 @@ function frameSVG(frame){
  s+=text(602,476,detail,14,C.muted);
  s+=line(600,509,992,509,C.border);
  s+=text(602,540,'地图方向 · 对侧 6点',17,C.text,500);
- s+=text(602,569,'仅针对当前已识别射线',14,C.muted);
+ s+=text(602,569,step===3?'下方小角：本例容不下人物与余量':'宽度按参考图示意 · 待实测校准',14,C.muted);
  const labels=['入场','纵线','横线','多条射线','仅方向','数据中断'];
  for(let i=0;i<labels.length;i++){
   const x=28+i*164;

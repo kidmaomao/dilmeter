@@ -56,6 +56,41 @@ func TestBrontasGuideCombinesOppositeAndRandomRays(t *testing.T) {
 	}
 }
 
+// A wide offset cross leaves nine visual cells, but the two lower corner
+// pockets cannot hold the player's entire disk plus the configured margin.
+// These are schematic proportions, not measured game constants.
+func TestBrontasGuideWideBandsRejectTinyCorners(t *testing.T) {
+	const now int64 = 1700000000000
+	f := brontasTestFrame(now)
+	f.Player.brontasPoint = brontasPoint{X: 0, Y: -.4}
+	x, y, verticalWidth, horizontalWidth := 0.0, -.12, .40, .51
+	f.Rays[0].Offset, f.Rays[0].HalfWidth = &x, &verticalWidth
+	horizontal := f.Rays[0]
+	horizontal.ID, horizontal.Axis = "wide-horizontal", "horizontal"
+	horizontal.Offset, horizontal.HalfWidth = &y, &horizontalWidth
+	f.Rays = append(f.Rays, horizontal)
+
+	for _, side := range []float64{-1, 1} {
+		q := brontasPoint{X: side * .45, Y: -.67}
+		if math.Hypot(q.X, q.Y) >= 1 || math.Abs(q.X) <= verticalWidth || math.Abs(q.Y-y) <= horizontalWidth {
+			t.Fatal("fixture should have a visibly clear point inside each small corner")
+		}
+		if brontasRouteClear(f, q, now) {
+			t.Fatal("clear center point does not imply the player fits", q)
+		}
+	}
+	// Even the closest potential center clearing both enlarged bands lies
+	// beyond the inset circle; neither lower corner can fit this player.
+	margin := f.Player.Radius + .03
+	if math.Hypot(verticalWidth+margin, -y+horizontalWidth+margin) <= 1-margin {
+		t.Fatal("fixture no longer excludes both lower pockets")
+	}
+	v := planBrontasGuide(f, now)
+	if v.Target == nil || v.Target.Y <= y+horizontalWidth+margin || !brontasRouteClear(f, *v.Target, now) {
+		t.Fatalf("must use a reachable upper pocket instead: %+v", v)
+	}
+}
+
 func TestBrontasGuideChecksTravelAndDeadlines(t *testing.T) {
 	const now int64 = 1700000000000
 	f := brontasTestFrame(now)
