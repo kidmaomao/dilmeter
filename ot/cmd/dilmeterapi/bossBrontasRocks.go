@@ -12,11 +12,12 @@ import (
 const brontasRockKey = "brontas-rocks"
 
 type nativeBrontasRockSettings struct {
-	Enabled      bool `json:"enabled"`
-	X            int  `json:"x"`
-	Y            int  `json:"y"`
-	ScalePercent int  `json:"scalePercent"`
-	Rotation     int  `json:"rotation"`
+	Enabled         bool `json:"enabled"`
+	GuidanceEnabled bool `json:"guidanceEnabled"`
+	X               int  `json:"x"`
+	Y               int  `json:"y"`
+	ScalePercent    int  `json:"scalePercent"`
+	Rotation        int  `json:"rotation"`
 }
 type nativeBrontasRock struct {
 	BossID   string
@@ -135,5 +136,9 @@ func (r *nativeReminderRuntime) brontasRockOverlay(now time.Time) *nativeBossMec
 		return nil
 	}
 	sort.Slice(markers, func(i, j int) bool { return markers[i].Clock < markers[j].Clock })
-	return &nativeBossMechanicOverlayItem{Key: brontasRockKey, Name: "二王 50% 落石", Rocks: markers, HideCountdown: true, StartedAtMs: start, EndsAtMs: end, Generation: uint64(start), X: s.X, Y: s.Y, ScalePercent: s.ScalePercent}
+	item := &nativeBossMechanicOverlayItem{Key: brontasRockKey, Name: "二王 50% 落石", Rocks: markers, HideCountdown: true, StartedAtMs: start, EndsAtMs: end, Generation: uint64(start), X: s.X, Y: s.Y, ScalePercent: s.ScalePercent}
+	if s.GuidanceEnabled {
+		item.BrontasGuide = r.brontasGuideView(nowMs)
+	}
+	return item
 }

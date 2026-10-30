@@ -621,6 +621,9 @@ func drawNativeAimReminder(canvas *image.RGBA, item nativeAimReminderOverlayItem
 }
 
 func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverlayItem, offset image.Point, dpiScale float64, nowMs int64) []nativeReminderText {
+	if item.BrontasGuide != nil {
+		return drawNativeBrontasGuide(canvas, item, offset, dpiScale, nowMs)
+	}
 	if len(item.Rocks) > 0 {
 		return drawNativeBrontasRocks(canvas, item, offset, dpiScale, nowMs)
 	}

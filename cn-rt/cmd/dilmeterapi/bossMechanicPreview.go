@@ -16,6 +16,7 @@ var bossPreviewNames = map[string]string{
 
 type bossMechanicPreviewRequest struct {
 	Rotation        int     `json:"rotation"`
+	GuidanceEnabled bool    `json:"guidanceEnabled"`
 	PassiveStyle    string  `json:"passiveStyle"`
 	OpacityPercent  int     `json:"opacityPercent"`
 	Key             string  `json:"key"`
@@ -77,6 +78,14 @@ func setBossMechanicPreview(request bossMechanicPreviewRequest, nowMs int64) {
 			}
 		}
 		item.HideCountdown = true
+		if request.GuidanceEnabled {
+			zero, width := 0.0, 0.13
+			f := brontasGuideFrame{Active: true, Clock: 12, ObservedAtMs: nowMs, GeometryComplete: true, Player: &brontasGuidePlayer{brontasPoint: brontasPoint{X: 0, Y: -.35}, Radius: .08, Speed: 1.2}, Rays: []brontasGuideRay{{ID: "preview", Axis: "vertical", WarningAtMs: nowMs, LethalAtMs: nowMs + 1600, EndsAtMs: nowMs + 3000, Offset: &zero, HalfWidth: &width}}}
+			item.BrontasGuide = planBrontasGuide(f, nowMs)
+			item.BrontasGuide.Detail = "预览数据 · 非实战识别"
+			item.BrontasGuide.ValidUntilMs = nowMs + 1600 - brontasGuideReactionMs - brontasGuideGuardMs
+			rotateBrontasGuide(item.BrontasGuide, request.Rotation)
+		}
 	}
 	skillOverlayState.Lock()
 	var message nativeSkillOverlayMessage

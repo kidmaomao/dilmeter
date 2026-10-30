@@ -1,0 +1,12 @@
+{
+  "name": "dilmeter-brontas-guide-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "gifenc": "1.0.3"
+  }
+}

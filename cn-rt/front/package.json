@@ -7,6 +7,7 @@
     "serve": "vite serve",
     "build": "vite build",
     "verify:live-battles": "node scripts/verify-live-battles.mjs",
+    "verify:brontas-guide": "node scripts/verify-brontas-guide.mjs",
     "verify:monitor-extensions": "node scripts/verify-monitor-extensions.mjs",
     "verify:frenzy-kpi": "node scripts/verify-frenzy-kpi.mjs",
     "verify:arcana-kpi": "node scripts/verify-arcana-kpi.mjs",

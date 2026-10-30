@@ -162,6 +162,7 @@ export interface BurstEffectActor {
 }
 
 export interface BossMechanicOverlayItem {
+    brontasGuide?: import("./brontasGuide").BrontasGuideView;
     rocks?: { clock: number }[];
     passiveStyle?: "timer" | "bar";
     opacityPercent?: number;

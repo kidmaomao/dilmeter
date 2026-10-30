@@ -138,6 +138,7 @@
                 :title="$ui(mechanic.name)"
             >
                 <BurstReminderPopup v-if="mechanic.label" :item="mechanic" :now-ms="nowMs" :translate="$ui" />
+                <BrontasGuideOverlay v-else-if="mechanic.brontasGuide" :view="mechanic.brontasGuide" :rocks="mechanic.rocks || []" :now-ms="nowMs" :preview="Boolean(mechanic.previewExpiresAtMs)" :translate="$ui" />
                 <div v-else-if="mechanic.rocks?.length" class="brontas-rock-card">
                     <strong>二王落石 · {{ mechanic.rocks.length }} 处</strong>
                     <div class="brontas-compass"><span v-for="clock in [12, 3, 6, 9]" :key="clock" :class="[`clock-${clock}`, { present: mechanic.rocks.some(rock => rock.clock === clock) }]">{{ clock }}{{ $ui(" 点") }}<span>{{ mechanic.rocks.some(rock => rock.clock === clock) ? '◆' : '·' }}</span></span><small>{{ $ui("地图方位") }}</small></div>
@@ -176,6 +177,7 @@
 import { isSpiritAwakeningSkill } from "@/skillEnergy";
 import { burstPopupDimensions } from "@/burstReminderView";
 import BurstReminderPopup from "./BurstReminderPopup.vue";
+import BrontasGuideOverlay from "./BrontasGuideOverlay.vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { loadBuffOverlaySettings, resolveOverlayDpiPercent } from "@/buffAlert";
 import { loadUiColorTheme, uiColorThemeStyle } from "@/uiColorTheme";

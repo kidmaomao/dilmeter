@@ -1177,11 +1177,13 @@
                                 <div class="boss-mechanic-identity"><v-icon icon="mdi-compass-outline" size="24" /><strong>布隆塔纳斯 50% 落石方位</strong><ReminderHelpTooltip label="落石方位说明" text="按实际生成的矿石显示并闪烁高亮；以固定地图上方为 12 点，不随镜头转动。可用方向校准调整朝向。" /></div>
                                 <div class="reminder-rule-controls">
                                     <label><input v-model="bossMechanicSettings.brontasRocks.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用方位提示</label>
+                                    <label><input v-model="bossMechanicSettings.brontasRocks.guidanceEnabled" type="checkbox" @change="markBossMechanicSettingsDirty" />显示走位提示（需射线输入）</label>
                                     <label>X <input v-model.number="bossMechanicSettings.brontasRocks.x" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
                                     <label>Y <input v-model.number="bossMechanicSettings.brontasRocks.y" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
                                     <label>大小 <input v-model.number="bossMechanicSettings.brontasRocks.scalePercent" type="number" min="50" max="200" @input="markBossMechanicSettingsDirty" />%</label>
                                     <label>方向校准 <select v-model.number="bossMechanicSettings.brontasRocks.rotation" @change="markBossMechanicSettingsDirty"><option :value="0">默认</option><option :value="90">顺时针 90°</option><option :value="180">旋转 180°</option><option :value="270">逆时针 90°</option></select></label>
-                                    <button type="button" class="buff-alert-preview" @click="previewBrontasRocks">预览方位</button>
+                                    <button type="button" class="buff-alert-preview" @click="previewBrontasRocks">预览覆盖层</button>
+                                    <ReminderHelpTooltip label="走位提示说明" text="在游戏上显示实际落石、射线倒计时和方向提示。识别器提供完整位置与宽度时才显示区内走位箭头。数据过期立即撤回箭头；本版本仍需接入二王射线识别器。" />
                                 </div>
                             </div>
                             <div class="boss-mechanic-rule boss-mechanic-health-rule boss-reminder-editor">

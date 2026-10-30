@@ -312,6 +312,8 @@ type nativeEffectTimerRuntime struct {
 
 type nativeReminderRuntime struct {
 	brontasRocks     map[string]nativeBrontasRock
+	brontasGuide     brontasGuideFrame
+	brontasGuideCh   chan brontasGuideFrame
 	partyLocalID     string
 	partySkills      map[string]map[uint16]*partySkillObservation
 	ctx              context.Context
@@ -372,6 +374,7 @@ var stackCountPattern = regexp.MustCompile(`(?i)(?:^|[^A-Z0-9_])MCSTCT\s*:\s*\d+
 func startNativeReminderRuntime(ctx context.Context, publisher *eventPublisher) *nativeReminderRuntime {
 	runtime := &nativeReminderRuntime{
 		ctx:                    ctx,
+		brontasGuideCh:         make(chan brontasGuideFrame, 4),
 		settingsCh:             make(chan nativeReminderSettings, 4),
 		positionCh:             make(chan nativeReminderPositionUpdate, 32),
 		eventsCh:               make(chan []event.IEvent, 10000),
@@ -436,6 +439,13 @@ func (runtime *nativeReminderRuntime) loop() {
 			runtime.lastSkillStateKey = ""
 			runtime.evaluate(time.Now())
 			markNativeReminderDragCommitted(position.Kind, position.ID)
+		case frame := <-runtime.brontasGuideCh:
+			now := time.Now()
+			previous := runtime.brontasGuide
+			if validateBrontasGuideFrame(frame, now.UnixMilli()) == nil && frame.ObservedAtMs >= previous.ObservedAtMs && (frame.Session != previous.Session || frame.Sequence > previous.Sequence) {
+				runtime.brontasGuide = frame
+				runtime.evaluate(now)
+			}
 		case events := <-runtime.eventsCh:
 			for _, current := range events {
 				runtime.onEvent(current)
@@ -466,6 +476,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		}
 		if value.Reset {
 			runtime.brontasRocks = nil
+			runtime.brontasGuide = brontasGuideFrame{}
 			for _, entity := range runtime.entities {
 				entity.Active = false
 				entity.HealthKnown, entity.Defeated = false, false
@@ -499,6 +510,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	case *event.EventEntityDisappear:
 		if value.Id == runtime.localID {
 			runtime.brontasRocks = nil
+			runtime.brontasGuide = brontasGuideFrame{}
 		}
 		if value.Id == runtime.greenCurtain.BossID || value.Id == runtime.localID {
 			runtime.clearGreenCurtain()
@@ -2067,6 +2079,7 @@ type nativeBurstEffectActor struct {
 }
 
 type nativeBossMechanicOverlayItem struct {
+	BrontasGuide       *nativeBrontasGuideView   `json:"brontasGuide,omitempty"`
 	Rocks              []nativeBrontasRockMarker `json:"rocks,omitempty"`
 	PassiveStyle       string                    `json:"passiveStyle,omitempty"`
 	OpacityPercent     int                       `json:"opacityPercent,omitempty"`

@@ -291,6 +291,9 @@ func burstPowerEffectGroup(item nativeBossMechanicOverlayItem) bool {
 }
 
 func burstPopupDimensions(item nativeBossMechanicOverlayItem) (int, int) {
+	if item.BrontasGuide != nil {
+		return 320, 340
+	}
 	if len(item.Rocks) > 0 {
 		return 260, 180
 	}
