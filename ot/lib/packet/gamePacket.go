@@ -9,10 +9,12 @@ import (
 var logger = util.NewLogger("packet")
 
 type GamePacket struct {
-	At     time.Time
-	Sign   uint8
-	Length uint32
-	Flag   uint8
+	// True only for packets from a live NIC or WinDivert stream, never files.
+	LiveCapture bool `json:"-"`
+	At          time.Time
+	Sign        uint8
+	Length      uint32
+	Flag        uint8
 
 	// ConnectionEpoch identifies the capture/TCP session that produced this
 	// packet. It changes when the game reconnects or switches channel, allowing

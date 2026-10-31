@@ -236,6 +236,11 @@ let scheduledAimBestPointKey = "";
 let nativeClockTickListener: EventListener | undefined;
 let lastOverlayPollAtMs = 0;
 let lastMessageAt = 0;
+let stateStream: EventSource | undefined;
+let streamLastSeenAt = 0;
+let stateRevision = 0;
+let pollInFlight = false;
+let overlayDisposed = false;
 let nativeStateKey = "";
 let nativeStateSequence = 0;
 
@@ -561,8 +566,12 @@ function hideImage(event: Event) {
     (event.currentTarget as HTMLImageElement).style.display = "none";
 }
 
-function applyMessage(message: SkillCooldownOverlayMessage) {
-    if (message.type !== "skill-cooldown-state" || message.atMs < lastMessageAt) return;
+function applyMessage(message: SkillCooldownOverlayMessage & {revision?:number}, fromServer = false) {
+    if (overlayDisposed || message.type !== "skill-cooldown-state") return;
+    if (fromServer && message.revision) {
+        if (message.revision <= stateRevision) return;
+        stateRevision = message.revision;
+    } else if (stateRevision || message.atMs < lastMessageAt) return;
     lastMessageAt = message.atMs;
     items.value = Array.isArray(message.items) ? message.items : [];
     aimReminder.value = message.aimReminder?.active || message.aimReminder?.alwaysVisible
@@ -608,16 +617,18 @@ function scheduleAimBestPoint(item: AimReminderOverlayItem | undefined) {
 }
 
 async function pollState(atMs = Date.now(), force = false) {
-    if (!force && atMs - lastOverlayPollAtMs < 175) return;
+    if (overlayDisposed || pollInFlight) return;
+    if (!force && (atMs - streamLastSeenAt < 4500 || atMs - lastOverlayPollAtMs < 175)) return;
+    pollInFlight = true;
     lastOverlayPollAtMs = atMs;
     refreshOverlayAppearance();
     try {
         const response = await fetch("/api/skill_overlay/state", { cache: "no-store" });
         if (!response.ok) return;
-        applyMessage(await response.json() as SkillCooldownOverlayMessage);
+        applyMessage(await response.json() as SkillCooldownOverlayMessage, true);
     } catch {
         // The desktop host may be closing.
-    }
+    } finally { pollInFlight = false; }
 }
 
 function syncNativeVisibility() {
@@ -660,8 +671,16 @@ onMounted(() => {
     } catch {
         channel = undefined;
     }
+    overlayDisposed = false;
+    stateStream = new EventSource("/api/skill_overlay/stream");
+    stateStream.onmessage = event => {
+        streamLastSeenAt = Date.now();
+        try { applyMessage(JSON.parse(event.data), true); } catch { /* reconnect/fallback handles invalid frames */ }
+    };
+    stateStream.addEventListener("ping", () => { streamLastSeenAt = Date.now(); });
+    stateStream.onerror = () => { streamLastSeenAt = 0; void pollState(Date.now(), true); };
     void pollState(Date.now(), true);
-    pollTimer = window.setInterval(() => void pollState(Date.now()), 200);
+    pollTimer = window.setInterval(() => { refreshOverlayAppearance(); void pollState(Date.now()); }, 200);
     clockTimer = window.setInterval(() => {
         nowMs.value = Date.now();
         observedDevicePixelRatio.value = window.devicePixelRatio;
@@ -678,6 +697,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    overlayDisposed = true;
+    stateStream?.close();
     nativeStateKey = "false:0:0";
     const clockSequence = Math.round((performance.timeOrigin + performance.now()) * 1000);
     nativeStateSequence = Math.max(nativeStateSequence + 1, clockSequence);

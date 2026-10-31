@@ -16,6 +16,7 @@ var bossPreviewNames = map[string]string{
 
 type bossMechanicPreviewRequest struct {
 	Rotation        int     `json:"rotation"`
+	Facing          string  `json:"facing"`
 	GuidanceEnabled bool    `json:"guidanceEnabled"`
 	PassiveStyle    string  `json:"passiveStyle"`
 	OpacityPercent  int     `json:"opacityPercent"`
@@ -44,6 +45,9 @@ func mergeBossMechanicPreviewsLocked(message nativeSkillOverlayMessage, nowMs in
 	}
 	for _, key := range []string{greenCurtainKey, "miel-orb", "miel-laser", brontasRockKey} {
 		if item, ok := skillOverlayState.bossPreviews[key]; ok {
+			if key == brontasRockKey && item.BrontasGuide != nil {
+				item.BrontasGuide = brontasStationPreview(item.StartedAtMs, nowMs, item.BrontasGuide.Clock, item.BrontasGuide.Facing)
+			}
 			items = append(items, item)
 		}
 	}
@@ -72,18 +76,11 @@ func setBossMechanicPreview(request bossMechanicPreviewRequest, nowMs int64) {
 	}
 	if request.Key == brontasRockKey {
 		item.Rocks = []nativeBrontasRockMarker{{Clock: 12}, {Clock: 9}}
-		for i := range item.Rocks {
-			if request.Rotation == 90 || request.Rotation == 180 || request.Rotation == 270 {
-				item.Rocks[i].Clock = (item.Rocks[i].Clock+request.Rotation/30-1)%12 + 1
-			}
-		}
+
 		item.HideCountdown = true
 		if request.GuidanceEnabled {
-			zero, width, _ := brontasGuidePreviewGrid().rayGeometry("vertical", 1)
-			f := brontasGuideFrame{Active: true, Clock: 12, ObservedAtMs: nowMs, GeometryComplete: true, Player: &brontasGuidePlayer{brontasPoint: brontasPoint{X: 0, Y: -.35}, Radius: .08, Speed: 1.2}, Rays: []brontasGuideRay{{ID: "preview", Axis: "vertical", WarningAtMs: nowMs, LethalAtMs: nowMs + 1600, EndsAtMs: nowMs + 3000, Offset: &zero, HalfWidth: &width}}}
-			item.BrontasGuide = planBrontasGuide(f, nowMs)
-			item.BrontasGuide.Detail = "预览数据 · 非实战识别"
-			rotateBrontasGuide(item.BrontasGuide, request.Rotation)
+			clock := 9
+			item.BrontasGuide = brontasStationPreview(nowMs, nowMs, clock, request.Facing)
 		}
 	}
 	skillOverlayState.Lock()
@@ -117,4 +114,12 @@ func handleBossMechanicPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	setBossMechanicPreview(request, time.Now().UnixMilli())
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// The preview animates even when ordinary combat state is unchanged.
+func brontasGuidePreviewNeedsRefresh() bool {
+	skillOverlayState.RLock()
+	defer skillOverlayState.RUnlock()
+	item, ok := skillOverlayState.bossPreviews[brontasRockKey]
+	return ok && item.BrontasGuide != nil
 }

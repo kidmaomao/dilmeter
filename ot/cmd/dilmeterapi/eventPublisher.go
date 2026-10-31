@@ -115,6 +115,7 @@ func (t *eventPublisher) loop() {
 				}
 			}
 			t.publishWorldPropPacket(p)
+			t.publishBrontasRayPacket(p)
 			t.publishPartyBurstSignal(p)
 			// Boss mechanism deployment packets use a small family of shared
 			// opcodes. Keep their opcode and payload dispatch in one testable path.

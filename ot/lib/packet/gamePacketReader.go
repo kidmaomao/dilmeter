@@ -52,6 +52,7 @@ type GameServerPacketReaderOpt struct {
 }
 
 type gamePacketPayload struct {
+	liveCapture     bool
 	relSeq          uint32
 	data            []byte
 	at              time.Time
@@ -120,7 +121,7 @@ func (t *GameServerPacketReader) openNicWithFilter(name string, filter string, t
 
 	logger.Printf("OpenNic %s filter=%s timeout=%v", name, filter, timeout)
 
-	handle, err := pcap.OpenLive(name, pcapBufferSize, pcapPromisc, timeout)
+	handle, err := openLowLatencyCapture(name, timeout)
 	if err != nil {
 		logger.Println(err)
 		return err
@@ -143,7 +144,7 @@ func (t *GameServerPacketReader) openNicWithFilter(name string, filter string, t
 
 	payloadCh := make(chan gamePacketPayload, pcapQueueSize)
 	epoch := t.connectionEpoch.Add(1)
-	go t.readPacketLoop(handle, payloadCh, epoch)
+	go t.readPacketLoop(handle, payloadCh, epoch, true)
 	go t.forwardPayloads(payloadCh)
 
 	return nil
@@ -222,7 +223,7 @@ func (t *GameServerPacketReader) OpenFile(file string) error {
 	// Delay replay 20 seconds so a WebSocket client has time to connect.
 	time.AfterFunc(2*time.Second, func() {
 		logger.Println("start readPacketLoop", file)
-		go t.readPacketLoop(handle, payloadCh, epoch)
+		go t.readPacketLoop(handle, payloadCh, epoch, false)
 	})
 
 	return nil
@@ -250,7 +251,7 @@ func (t *GameServerPacketReader) OpenStdin() error {
 
 	payloadCh := make(chan gamePacketPayload, pcapQueueSize)
 	epoch := t.connectionEpoch.Add(1)
-	go t.readPacketLoop(handle, payloadCh, epoch)
+	go t.readPacketLoop(handle, payloadCh, epoch, false)
 	go t.forwardPayloads(payloadCh)
 
 	return nil
@@ -382,6 +383,9 @@ func (t *GameServerPacketReader) packetLoop(payloadCh <-chan gamePacketPayload) 
 				buffer.Next(consumed)
 				t.parsedCount++
 				msg.ConnectionEpoch = currentEpoch
+				if len(payloads) > 0 {
+					msg.LiveCapture = payloads[0].liveCapture
+				}
 				t.packetCh <- msg
 				skipPayload(consumed)
 			}
@@ -389,7 +393,7 @@ func (t *GameServerPacketReader) packetLoop(payloadCh <-chan gamePacketPayload) 
 	}
 }
 
-func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- gamePacketPayload, connectionEpoch uint64) {
+func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- gamePacketPayload, connectionEpoch uint64, liveCapture bool) {
 	defer close(ch)
 
 	eth := layers.Ethernet{}
@@ -420,6 +424,7 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 		for _, p := range parts {
 			p.relSeq -= baseSeq
 			p.connectionEpoch = connectionEpoch
+			p.liveCapture = liveCapture
 			ch <- p
 		}
 	}
@@ -501,7 +506,7 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 			forward(stream.push(tcp.Seq, tcp.Payload, ci.Timestamp))
 		}
 
-		if i&((1<<10)-1) == 0 {
+		if !liveCapture && i&((1<<10)-1) == 0 {
 			time.Sleep(5 * time.Millisecond)
 		}
 	}

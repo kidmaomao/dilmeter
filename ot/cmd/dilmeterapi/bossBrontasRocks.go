@@ -12,12 +12,13 @@ import (
 const brontasRockKey = "brontas-rocks"
 
 type nativeBrontasRockSettings struct {
-	Enabled         bool `json:"enabled"`
-	GuidanceEnabled bool `json:"guidanceEnabled"`
-	X               int  `json:"x"`
-	Y               int  `json:"y"`
-	ScalePercent    int  `json:"scalePercent"`
-	Rotation        int  `json:"rotation"`
+	Enabled         bool   `json:"enabled"`
+	GuidanceEnabled bool   `json:"guidanceEnabled"`
+	X               int    `json:"x"`
+	Y               int    `json:"y"`
+	ScalePercent    int    `json:"scalePercent"`
+	Rotation        int    `json:"rotation"` // legacy saved field
+	Facing          string `json:"facing"`
 }
 type nativeBrontasRock struct {
 	BossID   string
@@ -77,6 +78,11 @@ func brontasRockClock(x, y float64) int {
 }
 
 func (r *nativeReminderRuntime) observeBrontasProp(e *event.EventWorldProp) {
+	defer func() {
+		if len(r.brontasRocks) == 0 {
+			r.clearBrontasLiveRays()
+		}
+	}()
 	if !e.Active {
 		delete(r.brontasRocks, e.Id)
 		return
@@ -118,10 +124,7 @@ func (r *nativeReminderRuntime) brontasRockOverlay(now time.Time) *nativeBossMec
 		if nowMs < rock.AtMs {
 			continue
 		}
-		clock := (rock.Clock + r.settings.BossMechanics.BrontasRocks.Rotation/30) % 12
-		if clock == 0 {
-			clock = 12
-		}
+		clock := rock.Clock
 		if !seen[clock] {
 			markers = append(markers, nativeBrontasRockMarker{Clock: clock})
 			seen[clock] = true

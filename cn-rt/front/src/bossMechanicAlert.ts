@@ -30,7 +30,7 @@ export interface BossMechanicAlertRule {
 }
 
 export interface BossMechanicAlertSettings {
-    brontasRocks: { guidanceEnabled: boolean; enabled: boolean; x: number; y: number; scalePercent: number; rotation: number };
+    brontasRocks: { guidanceEnabled: boolean; enabled: boolean; x: number; y: number; scalePercent: number; rotation: number; facing: 'outward' | 'inward' | 'north' | 'south' };
     ancientGiantHealthEnabled: boolean;
     ancientGiantHealthX: number;
     ancientGiantHealthY: number;
@@ -171,7 +171,7 @@ export function loadBossMechanicAlertSettings(): BossMechanicAlertSettings {
 
 export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanicAlertSettings {
     const fallback: BossMechanicAlertSettings = {
-        brontasRocks: { guidanceEnabled: false, enabled: false, x: 850, y: 450, scalePercent: 100, rotation: 0 },
+        brontasRocks: { guidanceEnabled: false, enabled: false, x: 850, y: 450, scalePercent: 100, rotation: 0, facing: 'outward' },
         ancientGiantHealthEnabled: false, ancientGiantHealthX: 750, ancientGiantHealthY: 330, ancientGiantHealthScalePercent: 100, ancientGiantHealthOpacityPercent: 100,
         volume: 80,
         x: defaultOverlayX(),
@@ -453,5 +453,5 @@ function cloneRules(value: Record<string, BossMechanicAlertRule>): Record<string
 }
 
 function normalizeBrontasRocks(value?: Partial<BossMechanicAlertSettings['brontasRocks']>): BossMechanicAlertSettings['brontasRocks'] {
- return { guidanceEnabled: value?.guidanceEnabled === true, enabled: value?.enabled === true, x: clampInteger(value?.x,-32000,32000,850), y: clampInteger(value?.y,-32000,32000,450), scalePercent: clampInteger(value?.scalePercent,50,200,100), rotation: [0,90,180,270].includes(Number(value?.rotation)) ? Number(value?.rotation) : 0 };
+ return { guidanceEnabled: value?.guidanceEnabled === true, enabled: value?.enabled === true, x: clampInteger(value?.x,-32000,32000,850), y: clampInteger(value?.y,-32000,32000,450), scalePercent: clampInteger(value?.scalePercent,50,200,100), rotation: [0,90,180,270].includes(Number(value?.rotation)) ? Number(value?.rotation) : 0, facing: value?.facing === 'inward' || value?.facing === 'north' || value?.facing === 'south' ? value.facing : 'outward' };
 }

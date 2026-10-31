@@ -44,6 +44,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run verify:v152
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:brontas-guide
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build embedded frontend
         working-directory: ${{ matrix.project }}

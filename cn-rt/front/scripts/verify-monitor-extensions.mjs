@@ -32,6 +32,8 @@ try {
     assert.equal(body.scalePercent, 180); assert.equal(body.passiveStyle, undefined);
     assert.deepEqual(burstPopupDimensions({ passiveStyle: 'bar' }), { width: 180, height: 30 });
     assert.deepEqual(burstPopupDimensions({ passiveStyle: 'timer' }), { width: 104, height: 34 });
+    assert.deepEqual(burstPopupDimensions({ brontasGuide: {} }), { width: 320, height: 224 });
+    assert.deepEqual(burstPopupDimensions({ brontasGuide: {stage:'station'} }), { width: 320, height: 278 }, 'action strip is included in native WebView/drag bounds');
     assert.deepEqual(burstPopupDimensions({ rocks: [{ clock: 12 }, { clock: 9 }] }), { width: 260, height: 180 });
     const own = makeHealerSelf();
     const savedSelf = makeHealerSettings(); savedSelf.members = [own];

@@ -179,7 +179,7 @@ func TestAncientGiantUsesOnlyLocalSelection(t *testing.T) {
 	}
 }
 
-func TestBrontasRocksActualSocketsRemovalAndRotation(t *testing.T) {
+func TestBrontasRocksActualSocketsRemovalAndWorldLabels(t *testing.T) {
 	var sounds []nativeReminderSoundRequest
 	r := newNativeReminderRuntimeForTest(nativeReminderSettings{BossMechanics: nativeBossMechanicSettings{BrontasRocks: nativeBrontasRockSettings{Enabled: true, Rotation: 90, ScalePercent: 100}}}, &sounds)
 	r.onEvent(liveTestAppear("boss", "brontas", 7602, 100))
@@ -194,8 +194,8 @@ func TestBrontasRocksActualSocketsRemovalAndRotation(t *testing.T) {
 	spawn("west", 20756, 36745)
 	spawn("north", 25156, 41145)
 	got := r.brontasRockOverlay(time.Unix(102, 0))
-	if got == nil || !reflect.DeepEqual(got.Rocks, []nativeBrontasRockMarker{{Clock: 3}, {Clock: 12}}) {
-		t.Fatalf("two observed stones/rotation %+v", got)
+	if got == nil || !reflect.DeepEqual(got.Rocks, []nativeBrontasRockMarker{{Clock: 9}, {Clock: 12}}) {
+		t.Fatalf("actual mineral labels must not rotate with facing %+v", got)
 	}
 	r.onEvent(&event.EventWorldProp{EventBase: event.EventBase{EventId: 24, Id: "west", At: 103}})
 	if len(r.brontasRockOverlay(time.Unix(103, 0)).Rocks) != 1 {

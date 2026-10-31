@@ -22,7 +22,10 @@ export function burstRemainingText(endsAtMs: number, nowMs: number): string {
 }
 
 export function burstPopupDimensions(item: BossMechanicOverlayItem): { width: number; height: number } {
- if (item.brontasGuide) return { width: 320, height: 340 };
+ if (item.brontasGuide) {
+  const v=item.brontasGuide;
+  return {width:320,height:v.stage==='station' || (!v.stage && !!v.clock && !!v.player) ? 278 : 224};
+ }
  if (item.rocks?.length) return { width: 260, height: 180 };
  if (item.passiveStyle) return item.passiveStyle === "bar" ? { width: 180, height: 30 } : { width: 104, height: 34 };
  if (isBurstPowerEffectGroup(item)) return { width: 128, height: Math.max(112, 80 + 18 * item.effectActors!.length) };

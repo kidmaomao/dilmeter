@@ -22,6 +22,7 @@ const (
 	EventIdArcanaSignal     EventId = 22
 	EventIdMusicPerformance EventId = 23
 	EventIdWorldProp        EventId = 24
+	EventIdBrontasRay       EventId = 25
 )
 
 const (
@@ -59,6 +60,26 @@ type EventEntityAppear struct {
 
 type EventEntityDisappear struct {
 	EventBase
+}
+
+// Verified effect-879 wire observations. Live is false for imported captures.
+// There is no per-ray end time in the observed protocol.
+type EventBrontasRay struct {
+	DestX    uint32 `json:",omitempty"`
+	DestY    uint32 `json:",omitempty"`
+	MoveMode uint64 `json:",omitempty"`
+	EventBase
+	AtMs      int64
+	Kind      string
+	Direction uint16
+	Lane      uint32
+	DelayMs   uint32
+	LeadMs    uint32
+	Live      bool
+	RegionID  uint32 `json:",omitempty"`
+	X         uint32 `json:",omitempty"`
+	Y         uint32 `json:",omitempty"`
+	Moving    bool   `json:",omitempty"`
 }
 
 type EventDamage struct {

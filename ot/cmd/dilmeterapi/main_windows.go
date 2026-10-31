@@ -298,7 +298,7 @@ func startNativeWebViewTicks(ctx context.Context, views ...webview2.WebView) fun
 		view := current
 		evaluators = append(evaluators, view.Eval)
 	}
-	return startNativeTickLoop(ctx, 200*time.Millisecond, views[0].Dispatch, evaluators...)
+	return startNativeTickLoop(ctx, 33*time.Millisecond, views[0].Dispatch, evaluators...)
 }
 
 // startNativeTickLoop deliberately dispatches only through the WebView whose
@@ -319,7 +319,7 @@ func startNativeTickLoop(ctx context.Context, interval time.Duration, dispatch f
 				// WebView2 runtime can therefore receive a burst of queued calls when
 				// it resumes. Coalesce using the renderer's current clock so stale
 				// host timestamps never replay hundreds of publish/poll cycles.
-				const script = `(function(){const now=Date.now();const last=Number(window.__dilmeterNativeTickAt)||0;if(now-last<150)return;window.__dilmeterNativeTickAt=now;window.dispatchEvent(new CustomEvent("dilmeter-native-tick",{detail:{nowMs:now}}));})()`
+				const script = `(function(){const now=Date.now();const last=Number(window.__dilmeterNativeTickAt)||0;if(now-last<25)return;window.__dilmeterNativeTickAt=now;window.dispatchEvent(new CustomEvent("dilmeter-native-tick",{detail:{nowMs:now}}));})()`
 				dispatch(func() {
 					for _, evaluate := range evaluators {
 						evaluate(script)

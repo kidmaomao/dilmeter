@@ -60,6 +60,7 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handl
 	emit := func(seq uint32, data []byte, at time.Time) {
 		dataCopy := append([]byte(nil), data...)
 		ch <- gamePacketPayload{
+			liveCapture:     true,
 			relSeq:          seq - baseSeq,
 			data:            dataCopy,
 			at:              at,

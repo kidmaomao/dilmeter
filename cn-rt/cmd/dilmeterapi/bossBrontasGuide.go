@@ -1,7 +1,7 @@
 package main
 
-// This is an observation consumer, not a guessed packet decoder. Brontas ray
-// opcodes are not established by the captures checked into this repository.
+// External geometry observations use this planner. Verified packet-only rays
+// are handled separately in bossBrontasLiveRays.go without inventing a player.
 import (
 	"encoding/json"
 	"errors"
@@ -57,15 +57,33 @@ type brontasGuideFrame struct {
 }
 
 type nativeBrontasGuideView struct {
-	Status       string              `json:"status"`
-	Instruction  string              `json:"instruction"`
-	Detail       string              `json:"detail"`
-	Clock        int                 `json:"clock"`
-	ValidUntilMs int64               `json:"validUntilMs"`
-	LethalAtMs   int64               `json:"lethalAtMs,omitempty"`
-	Player       *brontasGuidePlayer `json:"player,omitempty"`
-	Target       *brontasPoint       `json:"target,omitempty"`
-	Rays         []brontasGuideRay   `json:"rays,omitempty"`
+	rhythm               *brontasRhythmPlan
+	GuidanceKind         string              `json:"guidanceKind,omitempty"`
+	GuidanceReason       string              `json:"guidanceReason,omitempty"`
+	PaceUntilMs          int64               `json:"paceUntilMs,omitempty"`
+	SourceAtMs           int64               `json:"sourceAtMs,omitempty"`
+	ComputedAtMs         int64               `json:"computedAtMs,omitempty"`
+	Motion               *brontasGuideMotion `json:"motion,omitempty"`
+	RayLifetimeModel     string              `json:"rayLifetimeModel,omitempty"`
+	Facing               string              `json:"facing,omitempty"`
+	Guidance             string              `json:"guidance,omitempty"`
+	GuidanceValidUntilMs int64               `json:"guidanceValidUntilMs,omitempty"`
+	Source               string              `json:"source,omitempty"`
+	Stage                string              `json:"stage,omitempty"`
+	PlayerValidUntilMs   int64               `json:"playerValidUntilMs,omitempty"`
+	ReceivedCount        int                 `json:"receivedCount,omitempty"`
+	PendingCount         int                 `json:"pendingCount,omitempty"`
+	Status               string              `json:"status"`
+	Instruction          string              `json:"instruction"`
+	Detail               string              `json:"detail"`
+	Clock                int                 `json:"clock"`
+	ValidUntilMs         int64               `json:"validUntilMs"`
+	LethalAtMs           int64               `json:"lethalAtMs,omitempty"`
+	Player               *brontasGuidePlayer `json:"player,omitempty"`
+	Target               *brontasPoint       `json:"target,omitempty"`
+	NextTarget           *brontasPoint       `json:"nextTarget,omitempty"`
+	StepAxis             string              `json:"stepAxis,omitempty"`
+	Rays                 []brontasGuideRay   `json:"rays,omitempty"`
 }
 
 func validBrontasClock(clock int) bool {
@@ -281,9 +299,26 @@ func rotateBrontasGuide(v *nativeBrontasGuideView, rotation int) {
 		p.brontasPoint = rotateBrontasPoint(p.brontasPoint, rotation)
 		v.Player = &p
 	}
+	if v.Motion != nil {
+		m := *v.Motion
+		m.From = rotateBrontasPoint(m.From, rotation)
+		m.To = rotateBrontasPoint(m.To, rotation)
+		v.Motion = &m
+	}
 	if v.Target != nil {
 		p := rotateBrontasPoint(*v.Target, rotation)
 		v.Target = &p
+	}
+	if v.NextTarget != nil {
+		p := rotateBrontasPoint(*v.NextTarget, rotation)
+		v.NextTarget = &p
+	}
+	if v.StepAxis != "" && rotation%180 != 0 {
+		if v.StepAxis == "horizontal" {
+			v.StepAxis = "vertical"
+		} else {
+			v.StepAxis = "horizontal"
+		}
 	}
 	for i := range v.Rays {
 		ray := &v.Rays[i]
@@ -315,12 +350,16 @@ func (r *nativeReminderRuntime) brontasGuideView(nowMs int64) *nativeBrontasGuid
 	if !matched {
 		f = brontasGuideFrame{}
 	}
+	if live := r.brontasLiveRayView(nowMs); live != nil && (!f.Active || !f.GeometryComplete || nowMs >= f.ObservedAtMs+brontasGuideFreshMs) {
+		return live
+	}
 	v := planBrontasGuide(f, nowMs)
 	if !matched || !f.Active || nowMs >= f.ObservedAtMs+brontasGuideFreshMs {
+		v.Source, v.Stage = "packet", "map"
 		v.ValidUntilMs = nowMs + brontasGuideFreshMs
-		v.Detail = "射线识别未接入或数据已过期"
+		v.Detail = "等待本轮实战射线数据"
 	}
-	rotateBrontasGuide(v, r.settings.BossMechanics.BrontasRocks.Rotation)
+	orientBrontasStation(v, r.settings.BossMechanics.BrontasRocks.Facing)
 	return v
 }
 

@@ -74,7 +74,7 @@ jobs:
             try {
               npx vue-tsc --noEmit
               if ($LASTEXITCODE -ne 0) { throw "Type check failed: $frontend" }
-              foreach ($check in @('verify:arcana-kpi', 'verify:lancer-kpi', 'verify:aim-kpi-sampling', 'verify:burst-reminders', 'verify:healer-templates', 'verify:battle-record', 'verify:v152', 'verify:external-links', 'verify:native-ready', 'verify:effect-timer', 'verify:spirit-awakening', 'verify:monitor-extensions', 'verify:frenzy-kpi')) {
+              foreach ($check in @('verify:brontas-guide', 'verify:arcana-kpi', 'verify:lancer-kpi', 'verify:aim-kpi-sampling', 'verify:burst-reminders', 'verify:healer-templates', 'verify:battle-record', 'verify:v152', 'verify:external-links', 'verify:native-ready', 'verify:effect-timer', 'verify:spirit-awakening', 'verify:monitor-extensions', 'verify:frenzy-kpi')) {
                 npm run $check
                 if ($LASTEXITCODE -ne 0) { throw "Check failed: $frontend $check" }
               }

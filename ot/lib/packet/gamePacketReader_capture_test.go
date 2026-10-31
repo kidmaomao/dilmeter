@@ -61,7 +61,7 @@ func TestPcapInitialFourByteSegmentIsNotDiscarded(t *testing.T) {
 	defer handle.Close()
 	r := &GameServerPacketReader{ctx: context.Background(), clientIpCh: make(chan string, 1), linkType: layers.LinkTypeRaw}
 	out := make(chan gamePacketPayload, 3)
-	r.readPacketLoop(handle, out, 1)
+	r.readPacketLoop(handle, out, 1, false)
 	var got []byte
 	for p := range out {
 		got = append(got, p.data...)

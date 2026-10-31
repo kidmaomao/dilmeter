@@ -13,6 +13,8 @@ const emptySkillOverlayState = `{"type":"skill-state","at":0,"items":[]}`
 var skillOverlayState = struct {
 	sync.RWMutex
 	data          []byte
+	revision      uint64
+	listeners     map[chan []byte]bool
 	burstPreview  *nativeBossMechanicOverlayItem
 	bossPreviews  map[string]nativeBossMechanicOverlayItem
 	healthPreview *nativeTargetHealthOverlayItem
@@ -34,8 +36,11 @@ func setSkillOverlayStateAt(data []byte, nowMs int64) bool {
 	message = mergeBurstPreviewLocked(message, nowMs)
 	message = mergeBossMechanicPreviewsLocked(message, nowMs)
 	message = mergeTargetHealthPreviewLocked(message, nowMs)
+	skillOverlayState.revision++
+	message.Revision = skillOverlayState.revision
 	data, _ = json.Marshal(message)
 	skillOverlayState.data = append(skillOverlayState.data[:0], data...)
+	publishSkillOverlaySnapshotLocked(data)
 	skillOverlayState.Unlock()
 	setNativeSkillOverlayActive(nativeSkillOverlayMessageVisible(message, nowMs))
 	refreshWebViewReminderHitRegions()

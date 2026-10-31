@@ -117,7 +117,7 @@ func (t *GameServerPacketReader) openNicWithFilter(name string, filter string, t
 
 	logger.Printf("OpenNic %s filter=%s timeout=%v", name, filter, timeout)
 
-	handle, err := pcap.OpenLive(name, pcapBufferSize, pcapPromisc, timeout)
+	handle, err := openLowLatencyCapture(name, timeout)
 	if err != nil {
 		logger.Println(err)
 		return err
@@ -513,7 +513,7 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 			forward(stream.pushObserved(tcp.Seq, tcp.Payload, ci.Timestamp, observedAt))
 		}
 
-		if i&((1<<10)-1) == 0 {
+		if t.offlineReplay && i&((1<<10)-1) == 0 {
 			time.Sleep(5 * time.Millisecond)
 		}
 	}

@@ -314,6 +314,8 @@ type nativeReminderRuntime struct {
 	brontasRocks     map[string]nativeBrontasRock
 	brontasGuide     brontasGuideFrame
 	brontasGuideCh   chan brontasGuideFrame
+	brontasLiveRays  nativeBrontasLiveRays
+	brontasPosition  nativeBrontasPosition
 	partyLocalID     string
 	partySkills      map[string]map[uint16]*partySkillObservation
 	ctx              context.Context
@@ -408,7 +410,8 @@ func startNativeReminderRuntime(ctx context.Context, publisher *eventPublisher) 
 }
 
 func (runtime *nativeReminderRuntime) loop() {
-	ticker := time.NewTicker(nativeReminderTickInterval)
+	ticker := time.NewTicker(25 * time.Millisecond)
+	lastPeriodic := time.Time{}
 	defer ticker.Stop()
 	for {
 		select {
@@ -447,11 +450,27 @@ func (runtime *nativeReminderRuntime) loop() {
 				runtime.evaluate(now)
 			}
 		case events := <-runtime.eventsCh:
-			for _, current := range events {
-				runtime.onEvent(current)
+			for batch := 0; ; batch++ {
+				for _, current := range events {
+					runtime.onEvent(current)
+				}
+				if batch >= 255 {
+					break
+				}
+				select {
+				case events = <-runtime.eventsCh:
+					continue
+				default:
+				}
+				break
 			}
 			runtime.evaluate(time.Now())
 		case now := <-ticker.C:
+			fast := runtime.settings.BossMechanics.BrontasRocks.GuidanceEnabled && !runtime.brontasLiveRays.Ended && runtime.brontasLiveRays.LastAtMs+brontasRayStreamTimeoutMs > now.UnixMilli()
+			if !fast && now.Sub(lastPeriodic) < nativeReminderTickInterval {
+				continue
+			}
+			lastPeriodic = now
 			runtime.evaluate(now)
 		}
 	}
@@ -465,6 +484,9 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	switch value := current.(type) {
 	case *event.EventLocalEntity:
 		if value.Reset || value.Id != runtime.localID {
+			runtime.brontasPosition = nativeBrontasPosition{}
+			runtime.brontasRocks = nil
+			runtime.clearBrontasLiveRays()
 			runtime.endTransformationEffectTimers(0, 0)
 			runtime.clearGreenCurtain()
 			runtime.dorcha = dorchaQuantityState{}
@@ -492,6 +514,8 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		runtime.localID = value.Id
 	case *event.EventWorldProp:
 		runtime.observeBrontasProp(value)
+	case *event.EventBrontasRay:
+		runtime.observeBrontasRay(value)
 	case *event.EventCombatTarget:
 		if value.Id == runtime.localID {
 			runtime.selectedTargetID = value.TargetId
@@ -509,6 +533,12 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		runtime.observeGreenCurtainBoss(entity, nativeEventAtMs(value.At, 0))
 	case *event.EventEntityDisappear:
 		if value.Id == runtime.localID {
+			runtime.brontasPosition = nativeBrontasPosition{}
+		}
+		if value.Id == runtime.brontasLiveRays.BossID || value.Id == runtime.localID {
+			runtime.clearBrontasLiveRays()
+		}
+		if value.Id == runtime.localID {
 			runtime.brontasRocks = nil
 			runtime.brontasGuide = brontasGuideFrame{}
 		}
@@ -525,6 +555,11 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 			entity.RefreshGuard = make(map[uint32]int64)
 		}
 	case *event.EventFinish:
+		if value.Id == runtime.brontasLiveRays.BossID || value.Id == runtime.localID {
+			runtime.brontasLiveRays.Ended = true
+			runtime.brontasLiveRays.Rays = nil
+			runtime.brontasGuide = brontasGuideFrame{}
+		}
 		if value.Id == runtime.localID {
 			// Finish carries seconds only; include the full second so a death
 			// immediately after activation can end the current transformation.
@@ -1923,7 +1958,7 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 		Visible      bool                            `json:"visible"`
 	}{items, aimReminder, targetHealth, effectTimers, mechanics, stackAlerts, settings, visible})
 	key := string(keyData)
-	if key == runtime.lastSkillStateKey {
+	if key == runtime.lastSkillStateKey && !brontasGuidePreviewNeedsRefresh() {
 		return
 	}
 	runtime.lastSkillStateKey = key
@@ -2133,6 +2168,7 @@ type nativeSkillOverlaySettings struct {
 }
 
 type nativeSkillOverlayMessage struct {
+	Revision     uint64                          `json:"revision,omitempty"`
 	Type         string                          `json:"type"`
 	AtMs         int64                           `json:"atMs"`
 	Items        []nativeSkillOverlayItem        `json:"items"`
@@ -2350,6 +2386,7 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 	settings.BossMechanics.BrontasRocks.X = clampNativeReminderInt(settings.BossMechanics.BrontasRocks.X, -32000, 32000, 850)
 	settings.BossMechanics.BrontasRocks.Y = clampNativeReminderInt(settings.BossMechanics.BrontasRocks.Y, -32000, 32000, 450)
 	settings.BossMechanics.BrontasRocks.ScalePercent = clampNativeReminderInt(settings.BossMechanics.BrontasRocks.ScalePercent, 50, 200, 100)
+	settings.BossMechanics.BrontasRocks.Facing = normalizeBrontasFacing(settings.BossMechanics.BrontasRocks.Facing)
 	if settings.BossMechanics.BrontasRocks.Rotation < 0 || settings.BossMechanics.BrontasRocks.Rotation > 270 || settings.BossMechanics.BrontasRocks.Rotation%90 != 0 {
 		settings.BossMechanics.BrontasRocks.Rotation = 0
 	}
