@@ -52,8 +52,8 @@ func TestHealerBuffAndSkillsShareMemberFrame(t *testing.T) {
 		{Key: "other", MemberKey: "b", Name: "B", Category: "skill", SkillID: 59005, X: 40, Y: 232},
 		{Key: "hp", MemberKey: "a", Name: "A", Category: "health", X: 600, Y: 180},
 	}
-	frame := buildHealerOverlayFrame(16, 30, cards, false, 100000)
-	if len(frame.Groups) != 3 || len(frame.Groups[0].Cards) != 2 || frame.Groups[0].Cards[1].SkillID != 59005 {
+	frame := buildHealerOverlayFrame(healerTextSettings{FontSize: 16, Width: 660}, 30, cards, nil, false, 100000)
+	if len(frame.Groups) != 1 || len(frame.Groups[0].Rows) != 2 || len(frame.Groups[0].Rows[0].Skills) != 1 || frame.Groups[0].Rows[0].Skills[0].SkillID != 59005 || frame.Groups[0].Rows[0].Health == nil {
 		t.Fatalf("mixed or split teammate strip: %+v", frame.Groups)
 	}
 	r, _ := partyFixture(t)

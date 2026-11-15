@@ -25,7 +25,7 @@ func TestSelfManaOctoberLog(t *testing.T) {
 	r.healer.settings = normalizeHealerSettings(healerSettings{Enabled: true, Members: []healerMemberSelection{{Self: true, Mana: true}}})
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 4096), 4<<20)
-	samples, low := 0, 0
+	samples, percentSamples, low := 0, 0, 0
 	minimum, maximum := 100.0, 0.0
 	for scanner.Scan() {
 		var base event.EventBase
@@ -61,11 +61,15 @@ func TestSelfManaOctoberLog(t *testing.T) {
 			}
 			healerTick(r, base.At*1000)
 			for _, m := range r.healer.state.Members {
-				if m.Key == "self" && m.ManaPercent != nil {
+				if m.Key == "self" && m.ManaCurrent != nil {
 					if m.ID != r.localID {
 						t.Fatal("self bound to a teammate")
 					}
 					samples++
+					if m.ManaPercent == nil {
+						continue
+					}
+					percentSamples++
 					minimum = min(minimum, *m.ManaPercent)
 					maximum = max(maximum, *m.ManaPercent)
 					if m.ManaState == "low" {
@@ -81,5 +85,7 @@ func TestSelfManaOctoberLog(t *testing.T) {
 	if samples == 0 {
 		t.Fatal("no self mana samples recognized")
 	}
-	t.Logf("self mana: %d observed samples, %.2f%%..%.2f%%, %d below threshold", samples, minimum, maximum, low)
+	if percentSamples > 0 {
+		t.Logf("self mana: %d observed samples, %d with a known maximum, %.2f%%..%.2f%%, %d below threshold", samples, percentSamples, minimum, maximum, low)
+	}
 }

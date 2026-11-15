@@ -321,6 +321,8 @@ func TestBattleRecordFavoriteAndDeleteRemovesAssociatedFiles(t *testing.T) {
 		name,
 		"log_2026-08-28_12-00-00.txt",
 		fmt.Sprintf("packet_capture_%d.pcapng", startedAt.Unix()),
+		fmt.Sprintf("packet_capture_%d_001.pcapng", startedAt.Unix()),
+		fmt.Sprintf("packet_capture_%d_002.pcapng", startedAt.Unix()),
 	}
 	for _, relatedName := range related {
 		if err := os.WriteFile(filepath.Join(dir, relatedName), []byte("test"), 0o644); err != nil {

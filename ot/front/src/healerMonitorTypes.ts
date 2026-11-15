@@ -5,7 +5,7 @@ export interface HealerBuffRule {
  flashEnabled: boolean; flashSeconds: number; durationMode: 'auto' | 'manual';
  manualDurationSeconds: number; sound: HealerSound; repeatCount: number; repeatIntervalSeconds: number;
 }
-export interface HealerSkillRule { skillId: number; name: string; cooldownSeconds: number; sound: HealerSound }
+export interface HealerSkillRule { skillId: number; name: string; cooldownSeconds: number; sound: HealerSound; fromArcana?: boolean }
 export interface HealerSkillSettings { enabled: boolean; soundEnabled: boolean; overlay: HealerPosition; rules: HealerSkillRule[] }
 // Power's preparation/charging does not start a cooldown. It belongs in burst cast/effect reminders.
 const cooldownSkills = (value: HealerSkillSettings | undefined, index = 0): HealerSkillSettings => ({ ...(value ?? makeHealerSkills(index)), rules: (value?.rules ?? []).filter(rule => rule.skillId !== 58014) });
@@ -14,34 +14,42 @@ export interface HealerPosition { enabled: boolean; x: number; y: number }
 export type HealerResourceSettings = { repeatCount: number; repeatIntervalSeconds: number; threshold: number; soundEnabled: boolean; sound: HealerSound; overlay: HealerPosition };
 export const makeHealerMana = (index = 0): HealerResourceSettings => ({ repeatCount: 1, repeatIntervalSeconds: 5, threshold: 25, soundEnabled: true, sound: makeHealerSound("electronic"), overlay: { enabled: true, x: 850, y: 180 + index * 110 } });
 export interface HealerMemberChoice {
- self?: boolean;
- mana: boolean; manaSettings: HealerResourceSettings;
+ self?: boolean; appliedArcana?: number;
+ mana?: boolean; manaSettings?: HealerResourceSettings;
  key: string; id: string; name: string; included: boolean; favorite: boolean; health: boolean;
  skillSettings: HealerSkillSettings;
  healthSettings: { repeatCount: number; repeatIntervalSeconds: number; threshold: number; soundEnabled: boolean; sound: HealerSound; overlay: HealerPosition };
  buffSettings: { enabled: boolean; soundEnabled: boolean; overlay: HealerPosition; rules: HealerBuffRule[] };
 }
-export type HealerMemberTemplate = Pick<HealerMemberChoice, 'mana' | 'manaSettings' | 'health' | 'healthSettings' | 'buffSettings' | 'skillSettings'> & { id: string; name: string };
+export type HealerMemberTemplate = Pick<HealerMemberChoice, 'health' | 'healthSettings' | 'buffSettings' | 'skillSettings'> & { id: string; name: string };
 export interface HealerSettings {
+ autoAddInDungeon: boolean; autoAddTemplateId: string;
  version: number; enabled: boolean; volume: number; iconSize: number; soundEnabled: boolean;
- text: { enabled: boolean; fontSize: number; x: number; y: number; width: number };
+ text: { enabled: boolean; fontSize: number; scalePercent: number; x: number; y: number; width: number };
  opacityPercent: number; templates: HealerMemberTemplate[]; members: HealerMemberChoice[];
 }
 export interface HealerBuffState { state: string; remainingSeconds: number | null; lossReason?: 'death' }
 export interface HealerMemberState {
  key: string; id: string; name: string; active: boolean; waitingReason?: string;
+ automatic?: boolean; arcana?: string; partySlot?: number; curtainAmount?: number;
  skills: Record<number, HealerBuffState>;
- manaState: string; manaPercent: number | null; healthState: string; healthPercent: number | null; buffs: Record<number, HealerBuffState>;
+ manaState?: string; manaPercent?: number | null; manaCurrent?: number; manaMaximum?: number; healthState: string; healthPercent: number | null; buffs: Record<number, HealerBuffState>;
 }
 export interface HealerMonitorState {
  settings: HealerSettings; members: HealerMemberState[]; alerts: { key: string; name: string; message: string }[];
- capturing: boolean; updatedAt: number;
+ capturing: boolean; inDungeon: boolean; updatedAt: number;
+ dungeonSession: number; temporaryMembers?: HealerMemberChoice[];
 }
 export interface HealerCard { skillId?: number; key: string; memberKey: string; name: string; title: string; value: string; ccId: number; category: string; state: string; flash: boolean; x: number; y: number }
-export interface HealerOverlaySection { kind: 'skill' | 'buff'; cards: HealerCard[] }
-export interface HealerStatusLayout { width: number; height: number; nameWidth: number; cellWidth: number; cellHeight: number; columns: number; labelWidth: number; labelFontSize: number; sections: HealerOverlaySection[] }
-export interface HealerOverlayGroup { key: string; name: string; kind: string; x: number; y: number; width: number; height: number; nameWidth: number; cellWidth: number; cards: HealerCard[]; cellHeight?: number; columns?: number; labelWidth?: number; labelFontSize?: number; sections?: HealerOverlaySection[] }
-export interface HealerOverlayFrame { groups: HealerOverlayGroup[]; x: number; y: number; width: number; height: number; fontSize: number; iconSize: number; opacityPercent: number; preview: boolean; updatedAt: number }
+export interface HealerTeamRow {
+ key: string; name: string; partySlot?: number; skills?: HealerCard[]; buffs?: HealerCard[];
+ health?: HealerCard; mana?: HealerCard; curtain?: string;
+}
+export interface HealerOverlayGroup {
+ key: string; kind: 'team'; x: number; y: number; width: number; height: number;
+ nameWidth?: number; cellWidth?: number; columns?: number; rows?: HealerTeamRow[];
+}
+export interface HealerOverlayFrame { groups: HealerOverlayGroup[]; x: number; y: number; width: number; height: number; fontSize: number; iconSize: number; scalePercent: number; opacityPercent: number; preview: boolean; updatedAt: number }
 export const makeHealerSound = (kind: string): HealerSound => ({ kind, soundId: '', name: '' });
 export const makeHealerRule = (ccId: number, name: string, warning = 10): HealerBuffRule => ({
  ccId, name, warningSeconds: warning, overlayEnabled: true, flashEnabled: true,
@@ -50,53 +58,34 @@ export const makeHealerRule = (ccId: number, name: string, warning = 10): Healer
  deathLoss: { enabled: true, sound: makeHealerSound('healer-death'), repeatCount: 1, repeatIntervalSeconds: 5 },
 });
 export const makeHealerMember = (member: Pick<HealerMemberState, 'id' | 'name'>, index: number): HealerMemberChoice => ({
- key: `player:${member.name}`, id: member.id, name: member.name, included: true, favorite: false, health: false, mana: false, manaSettings: makeHealerMana(index),
+ key: `player:${member.name}`, id: member.id, name: member.name, included: true, favorite: false, health: false,
  skillSettings: makeHealerSkills(index),
  healthSettings: { repeatCount: 1, repeatIntervalSeconds: 5, threshold: 25, soundEnabled: true, sound: makeHealerSound('healer-health'), overlay: { enabled: true, x: 600, y: 180 + index * 110 } },
  buffSettings: { enabled: false, soundEnabled: true, overlay: { enabled: true, x: 40, y: 160 + index * 72 }, rules: [] },
 });
-export const makeHealerSelf = (): HealerMemberChoice => ({ ...makeHealerMember({ id: '', name: '自身角色' }, 0), self: true, key: 'self', favorite: true, mana: true });
-export const healerTemplateSummary = (template: HealerMemberTemplate): string => `${template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭'} · ${template.mana ? `魔法值 ≤${template.manaSettings.threshold}%` : '魔法值关闭'} · ${template.buffSettings.rules.length} 个 Buff · ${template.skillSettings.rules.length} 个技能`;
-export const makeHealerSettings = (): HealerSettings => ({ version: 2, enabled: false, volume: 70, iconSize: 30, opacityPercent: 100, templates: [], soundEnabled: true, text: { enabled: true, fontSize: 16, x: 600, y: 180, width: 660 }, members: [] });
-export const cloneHealerSettings = (value: HealerSettings): HealerSettings => JSON.parse(JSON.stringify({ ...value, opacityPercent: value.opacityPercent ?? 100, templates: (value.templates ?? []).map((member, index) => ({ ...member, mana: member.mana ?? false, manaSettings: member.manaSettings ?? makeHealerMana(index), skillSettings: cooldownSkills(member.skillSettings, index) })), members: value.members.map((member, index) => ({ ...member, mana: member.mana ?? false, manaSettings: member.manaSettings ?? makeHealerMana(index), skillSettings: cooldownSkills(member.skillSettings, index) })) }));
+export const makeHealerSelf = (): HealerMemberChoice => ({ ...makeHealerMember({ id: '', name: '自身角色' }, 0), self: true, key: 'self', favorite: true, mana: true, manaSettings: makeHealerMana() });
+export const healerTemplateSummary = (template: HealerMemberTemplate): string => `${template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭'} · ${template.buffSettings.rules.length} 个 Buff · ${template.skillSettings.rules.length} 个技能`;
+export const makeHealerSettings = (): HealerSettings => ({ version: 3, enabled: false, autoAddInDungeon: false, autoAddTemplateId: '', volume: 70, iconSize: 20, opacityPercent: 100, templates: [], soundEnabled: true, text: { enabled: true, fontSize: 16, scalePercent: 100, x: 600, y: 180, width: 660 }, members: [] });
+export const cloneHealerSettings = (value: HealerSettings): HealerSettings => JSON.parse(JSON.stringify({
+ ...value, autoAddInDungeon: value.autoAddInDungeon ?? false, autoAddTemplateId: value.autoAddTemplateId ?? '',
+ opacityPercent: value.opacityPercent ?? 100,
+ text: { ...value.text, scalePercent: value.text.scalePercent ?? 100 },
+ templates: (value.templates ?? []).map(({ id, name, health, healthSettings, buffSettings, skillSettings }, index) => ({
+  id, name, health, healthSettings, buffSettings, skillSettings: cooldownSkills(skillSettings, index),
+ })),
+ members: value.members.map(({ mana, manaSettings, ...member }, index) => ({
+  ...member, skillSettings: cooldownSkills(member.skillSettings, index),
+  ...(member.self ? { mana: mana ?? false, manaSettings: manaSettings ?? makeHealerMana(index) } : {}),
+ })),
+}));
 // Copy only reminder preferences so templates never replace the target identity or share mutable rules.
 export function healerTemplateFromMember(member: HealerMemberChoice, id: string, name: string): HealerMemberTemplate {
- return JSON.parse(JSON.stringify({ id, name, mana: member.mana ?? false, manaSettings: member.manaSettings ?? makeHealerMana(), health: member.health, healthSettings: member.healthSettings, buffSettings: member.buffSettings, skillSettings: cooldownSkills(member.skillSettings) }));
+ return JSON.parse(JSON.stringify({ id, name, health: member.health, healthSettings: member.healthSettings, buffSettings: member.buffSettings, skillSettings: cooldownSkills(member.skillSettings) }));
 }
 export function applyHealerTemplate(member: HealerMemberChoice, template: HealerMemberTemplate): void {
  const copy = JSON.parse(JSON.stringify(template)) as HealerMemberTemplate;
- member.mana = copy.mana ?? false;
- member.manaSettings = copy.manaSettings ?? makeHealerMana();
  member.health = copy.health;
  member.healthSettings = copy.healthSettings;
  member.buffSettings = copy.buffSettings;
  member.skillSettings = cooldownSkills(copy.skillSettings);
-}
-
-export const healerLabelWidth = (text: string, fontSize: number) => Math.ceil([...text].reduce((units, char) => units + (char.codePointAt(0)! < 128 ? 6 : 10), 0) * fontSize / 10) + 4;
-
-// Mirror layoutHealerStatusGroup in Go for settings previews and live window bounds.
-export function healerStatusLayout(name: string, cards: HealerCard[], fontSize: number, iconSize: number): HealerStatusLayout {
- const nameWidth = Math.min(Math.max(120, fontSize * 8), Math.max(healerLabelWidth('队友', Math.min(12, fontSize)), healerLabelWidth(name, fontSize)));
- const labelFontSize = Math.max(10, Math.min(16, Math.floor(fontSize * 3 / 4)));
- const labelWidth = healerLabelWidth('Buff', labelFontSize);
- const cellHeight = iconSize + 2 + Math.ceil(fontSize * 6 / 5);
- const sections: HealerOverlaySection[] = (['skill', 'buff'] as const).map(kind => ({ kind, cards: cards.filter(card => (card.category === 'skill') === (kind === 'skill')) })).filter(section => section.cards.length);
- const columns = Math.max(1, ...sections.map(section => Math.min(4, section.cards.length)));
- const cellWidth = Math.max(iconSize, ...cards.map(card => healerLabelWidth(card.value.replace(/s$/, ''), fontSize)), ...sections.map(section => healerLabelWidth(section.kind === 'skill' ? '未观测' : '00000', fontSize)));
- const contentHeight = sections.reduce((height, section, index) => {
-  const rows = Math.ceil(section.cards.length / columns);
-  return height + rows * cellHeight + (rows - 1) * 6 + (index ? 7 : 0);
- }, 0);
- return { nameWidth, labelFontSize, labelWidth, cellWidth, cellHeight, columns, sections, width: 18 + nameWidth + 6 + labelWidth + 4 + columns * cellWidth + (columns - 1) * 4, height: 14 + Math.max(cellHeight, contentHeight) };
-}
-
-// Both settings previews mirror the single live Buff/skill strip.
-export function healerCombinedPreview(member: HealerMemberChoice, fontSize: number, iconSize: number): HealerOverlayGroup {
- const base = { memberKey: member.key, name: member.name, flash: false, x: 0, y: 0 };
- const cards: HealerCard[] = [
-  ...member.buffSettings.rules.filter(rule => rule.overlayEnabled).map((rule, index) => ({ ...base, key: `buff:${rule.ccId}`, title: rule.name, value: ['1380', '24', '生效'][index % 3], ccId: rule.ccId, category: 'buff', state: 'active' })),
-  ...member.skillSettings.rules.map((rule, index) => ({ ...base, key: `skill:${rule.skillId}`, title: rule.name, value: ['就绪', '24', '未观测'][index % 3], ccId: 0, skillId: rule.skillId, category: 'skill', state: index % 3 === 2 ? 'unknown' : 'ready' })),
- ];
- return { key: 'buff', kind: 'buff', name: member.name, cards, x: 0, y: 0, ...healerStatusLayout(member.name, cards, fontSize, iconSize) };
 }

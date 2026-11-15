@@ -221,6 +221,7 @@ func startWebsocketServer(ctx context.Context, cfg config, newClientCb func(*web
 	mux.HandleFunc("/api/skill_overlay/state", handleSkillOverlayState)
 	mux.HandleFunc("/api/skill_overlay/stream", handleSkillOverlayStream)
 	mux.HandleFunc("/api/burst_preview", handleBurstReminderPreview)
+	mux.HandleFunc("/api/reminder_preview", handleReminderPreview)
 	mux.HandleFunc("/api/boss_mechanic_preview", handleBossMechanicPreview)
 	mux.HandleFunc("/api/brontas_guide", handleBrontasGuide)
 	mux.HandleFunc("/api/buff_sound", handleBuffSound)

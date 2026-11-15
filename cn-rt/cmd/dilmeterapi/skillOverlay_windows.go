@@ -34,7 +34,19 @@ var (
 	skillOverlayBoundsMu sync.Mutex
 )
 
-func setNativeSkillOverlayActive(active bool) { skillOverlayActive.Store(active) }
+var skillOverlayWake = make(chan struct{}, 1)
+
+func wakeNativeSkillOverlay() {
+	select {
+	case skillOverlayWake <- struct{}{}:
+	default:
+	}
+}
+
+func setNativeSkillOverlayActive(active bool) {
+	skillOverlayActive.Store(active)
+	wakeNativeSkillOverlay()
+}
 
 type skillOverlayRequest struct {
 	Active   *bool `json:"active,omitempty"`
@@ -110,7 +122,7 @@ func handleSkillOverlay(w http.ResponseWriter, r *http.Request) {
 			skillOverlayStateSeq.Store(request.Sequence)
 		}
 		if request.Active != nil {
-			skillOverlayActive.Store(*request.Active)
+			setNativeSkillOverlayActive(*request.Active)
 		}
 		x, y, width, height := currentSkillOverlayBounds()
 		if request.X != nil {
@@ -161,6 +173,7 @@ func applySkillOverlayBounds(x, y, width, height int, frameChanged bool) {
 	}
 	procSetWindowPos.Call(skillOverlayHWND, ^uintptr(0), uintptr(int32(x)), uintptr(int32(y)), uintptr(width), uintptr(height), flags)
 	paintSkillOverlayBackground()
+	wakeNativeSkillOverlay()
 }
 
 func paintSkillOverlayBackground() {
@@ -227,7 +240,11 @@ func monitorSkillOverlayForeground(hwnd uintptr) {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 	visible := false
-	for range ticker.C {
+	for {
+		select {
+		case <-ticker.C: // Continue tracking foreground changes while idle.
+		case <-skillOverlayWake: // New state/bounds need no 200 ms timer wait.
+		}
 		if hwnd == 0 || skillOverlayClosing.Load() || skillOverlayHWND != hwnd {
 			return
 		}

@@ -4,22 +4,24 @@ package main
 
 import "testing"
 
-func TestHealerWebViewFrameKeepsIndependentCoordinates(t *testing.T) {
-	frame := buildHealerOverlayFrame(16, 30, []healerCard{
-		{MemberKey: "one", Name: "Oneforall", Category: "health", X: -500, Y: 220, Value: "20%"},
-		{MemberKey: "one", Name: "Oneforall", Category: "buff", X: 40, Y: 160, Value: "1380s", CCID: 680},
-		{MemberKey: "one", Name: "Oneforall", Category: "buff", X: 40, Y: 160, Value: "25s", CCID: 192},
-		{MemberKey: "two", Name: "第二位队友", Category: "buff", X: 40, Y: 240, Value: "9s", CCID: 680},
+func TestHealerWebViewScalesOneTeamPanelWithSelfMana(t *testing.T) {
+	text := healerTextSettings{FontSize: 16, ScalePercent: 155, Width: 660, X: -500, Y: 160}
+	frame := buildHealerOverlayFrame(text, 20, []healerCard{
+		{MemberKey: "self", Name: "Oneforall", Category: "mana", X: 40, Y: 220, Value: "20%"},
+		{MemberKey: "one", Name: "另一位队友", Category: "buff", Value: "1380s", CCID: 680},
+	}, []healerMemberState{
+		{Key: "self", Name: "Oneforall", PartySlot: 2, showHealth: true},
+		{Key: "one", Name: "另一位队友", PartySlot: 1, showHealth: true},
 	}, false, 1000)
-	if len(frame.Groups) != 3 || frame.X != -512 || frame.Y != 148 {
-		t.Fatalf("incorrect independent positions: %+v", frame)
+	if len(frame.Groups) != 1 || frame.X != -512 || frame.Y != 148 || frame.ScalePercent != 155 {
+		t.Fatalf("incorrect overlay bounds: %+v", frame)
 	}
-	if frame.Groups[1].Cards[0].Value != "1380" || frame.Groups[1].Height != 66 || len(frame.Groups[1].Cards) != 2 {
-		t.Fatal("Buffs must share a compact per-member row")
+	panel := frame.Groups[0]
+	if len(panel.Rows) != 2 || panel.Rows[0].PartySlot != 1 || panel.Rows[1].Key != "self" ||
+		panel.Rows[1].Mana == nil || panel.Rows[1].Mana.Value != "20%" || panel.Rows[1].Health == nil {
+		t.Fatalf("ordered team rows did not include the local mana bar: %+v", panel.Rows)
 	}
-	for _, group := range frame.Groups {
-		if group.X < frame.X || group.Y < frame.Y || group.X+group.Width > frame.X+frame.Width || group.Y+group.Height > frame.Y+frame.Height {
-			t.Fatal("clipped overlay group")
-		}
+	if frame.Width != (panel.Width*155+99)/100+24 || frame.Height != (panel.Height*155+99)/100+24 {
+		t.Fatal("scaled overlay bounds do not fit the entire panel")
 	}
 }

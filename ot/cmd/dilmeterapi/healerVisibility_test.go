@@ -70,7 +70,7 @@ func TestHealerReplayCrombasVisibilityAndMusic(t *testing.T) {
 						t.Logf("%s %s recognized; music=%ds", check.Format("15:04:05"), member.Name, *member.Overture.RemainingSeconds)
 					}
 					frame := runtime.healer.overlaySnapshot(check.UnixMilli())
-					if len(frame.Groups) != 2 {
+					if len(frame.Groups) != 1 || len(frame.Groups[0].Rows) != 2 {
 						t.Fatalf("%s overlay groups=%d, want both teammates", check.Format("15:04:05"), len(frame.Groups))
 					}
 					checked++

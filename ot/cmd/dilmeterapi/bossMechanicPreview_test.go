@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func preserveBossPreviewState(t *testing.T) {
@@ -20,6 +21,62 @@ func preserveBossPreviewState(t *testing.T) {
 		skillOverlayState.bossPreviews = old
 		skillOverlayState.Unlock()
 	})
+}
+
+func TestBrontasPreviewShowsPendingThenConfirmedDirections(t *testing.T) {
+	preserveBossPreviewState(t)
+	setBossMechanicPreview(bossMechanicPreviewRequest{Key: brontasRockKey, DurationSeconds: 8, Rotation: 90, ScalePercent: 100}, 100000)
+	for _, at := range []int64{100000, 102499, 102500, 107999, 108000} {
+		setSkillOverlayStateAt([]byte(emptySkillOverlayState), at)
+		message := readBurstPreviewState(t)
+		if at == 108000 {
+			if len(message.Mechanics) != 0 {
+				t.Fatal("preview did not expire")
+			}
+			continue
+		}
+		if len(message.Mechanics) != 1 || !nativeSkillOverlayMessageVisible(message, at) {
+			t.Fatal("preview disappeared")
+		}
+		item := message.Mechanics[0]
+		if at < 102500 {
+			if len(item.Rocks) != 0 {
+				t.Fatal("preview guessed directions before preparation")
+			}
+		} else if len(item.Rocks) != 2 || item.Rocks[0].Clock != 3 || item.Rocks[1].Clock != 12 {
+			t.Fatal("confirmed preview did not retain rotation")
+		}
+	}
+}
+
+func TestBrontasPreviewAdvancesWhileLiveStateIsIdle(t *testing.T) {
+	preserveBossPreviewState(t)
+	var sounds []nativeReminderSoundRequest
+	runtime := newNativeReminderRuntimeForTest(nativeReminderSettings{}, &sounds)
+	now := time.Now()
+	runtime.publishNativeSkillState(now) // Prime the unchanged live-state key.
+	setBossMechanicPreview(bossMechanicPreviewRequest{Key: brontasRockKey, DurationSeconds: 8, ScalePercent: 100}, now.UnixMilli())
+	if state := readBurstPreviewState(t); len(state.Mechanics) != 1 || len(state.Mechanics[0].Rocks) != 0 {
+		t.Fatal("preview should start pending")
+	}
+	// Age the canonical preview while keeping the delivered pending frame.
+	skillOverlayState.Lock()
+	preview := skillOverlayState.bossPreviews[brontasRockKey]
+	preview.StartedAtMs -= 3000
+	skillOverlayState.bossPreviews[brontasRockKey] = preview
+	skillOverlayState.Unlock()
+	runtime.publishNativeSkillState(now)
+	if state := readBurstPreviewState(t); len(state.Mechanics) != 1 || len(state.Mechanics[0].Rocks) != 2 {
+		t.Fatal("unchanged live state froze the preview before confirmed directions")
+	}
+	skillOverlayState.Lock()
+	preview.PreviewExpiresAtMs = now.UnixMilli() - 1
+	skillOverlayState.bossPreviews[brontasRockKey] = preview
+	skillOverlayState.Unlock()
+	runtime.publishNativeSkillState(now)
+	if state := readBurstPreviewState(t); len(state.Mechanics) != 0 {
+		t.Fatal("unchanged live state retained the expired preview")
+	}
 }
 
 func TestBossMechanicPreviewsSurviveLiveFramesUntilTheirDeadline(t *testing.T) {

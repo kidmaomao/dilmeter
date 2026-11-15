@@ -46,7 +46,10 @@ func replayWinDivert(t *testing.T, packets [][]byte) []gamePacketPayload {
 	r := &GameServerPacketReader{ctx: context.Background(), clientIpCh: make(chan string, 10)}
 	r.connectionEpoch.Store(1)
 	out := make(chan gamePacketPayload, len(packets)+1)
-	r.readWinDivertPacketLoop(&replayWinDivertReceiver{packets}, out, 1)
+	r.readWinDivertPacketLoop(&replayWinDivertReceiver{packets}, out, 1, nil)
+	if r.LivePayloadCount() != uint64(len(packets)) {
+		t.Fatalf("WinDivert activity count=%d, want %d", r.LivePayloadCount(), len(packets))
+	}
 	var parts []gamePacketPayload
 	for p := range out {
 		parts = append(parts, p)

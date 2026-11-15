@@ -240,6 +240,7 @@ function defaultAimReminderSettings(): AimReminderSettings {
 
 function emptyBossMechanicSettings(): BossMechanicAlertSettings {
     return {
+        perlonHealth: { enabled: false, x: 750, y: 380, scalePercent: 100, opacityPercent: 100 },
         volume: 80,
         x: 850,
         y: 280,

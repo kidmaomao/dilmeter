@@ -22,6 +22,20 @@ func TestRockMarkersFlashOnlyAtObservedSockets(t *testing.T) {
 	}
 }
 
+func TestPendingRockMapKeepsNativeSizeAndDoesNotFlash(t *testing.T) {
+	item := nativeBossMechanicOverlayItem{Key: brontasRockKey, ScalePercent: 100}
+	width, height := burstPopupDimensions(item)
+	if width != 260 || height != 180 {
+		t.Fatal("pending map has different bounds")
+	}
+	a, b := image.NewRGBA(image.Rect(0, 0, width, height)), image.NewRGBA(image.Rect(0, 0, width, height))
+	texts := drawNativeMechanicReminder(a, item, image.Point{}, 1, 100)
+	drawNativeMechanicReminder(b, item, image.Point{}, 1, 600)
+	if !bytes.Equal(a.Pix, b.Pix) || len(texts) != 6 || texts[0].text != "二王落石 · 等待落点" {
+		t.Fatal("pending map flashes, uses the wrong card, or shows an invented count")
+	}
+}
+
 func TestGreenCurtainCompactRender(t *testing.T) {
 	for _, style := range []string{"timer", "bar"} {
 		item := nativeBossMechanicOverlayItem{PassiveStyle: style, ScalePercent: 100, StartedAtMs: 1000, EndsAtMs: 64000, OpacityPercent: 75}

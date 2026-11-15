@@ -91,6 +91,7 @@ export interface SkillCooldownAdjustmentObservation {
 }
 
 export interface SkillCooldownOverlayItem extends SkillCooldownRuntime {
+    previewExpiresAtMs?: number;
     skillId: number;
     name: string;
     iconUrl: string;
@@ -112,6 +113,7 @@ export interface SkillCooldownOverlayItem extends SkillCooldownRuntime {
 }
 
 export interface AimReminderOverlayItem {
+    previewExpiresAtMs?: number;
     active: boolean;
     alwaysVisible: boolean;
     startedAtMs: number;
@@ -128,6 +130,7 @@ export interface AimReminderOverlayItem {
 }
 
 export interface SkillCooldownOverlayMessage {
+    revision?: number;
     type: "skill-cooldown-state";
     atMs: number;
     items: SkillCooldownOverlayItem[];
@@ -163,6 +166,10 @@ export interface BurstEffectActor {
 
 export interface BossMechanicOverlayItem {
     brontasGuide?: import("./brontasGuide").BrontasGuideView;
+    tornadoStartsAtMs?: number;
+    tornadoTarget?: "self" | "teammate" | "unknown";
+    resonanceMode?: "absorb" | "release";
+    areaWarningUntilMs?: number;
     rocks?: { clock: number }[];
     passiveStyle?: "timer" | "bar";
     opacityPercent?: number;
@@ -193,6 +200,7 @@ export interface BossMechanicOverlayItem {
 }
 
 export interface BuffStackAlertOverlayItem {
+    previewExpiresAtMs?: number;
     ccId: number;
     skillId?: number;
     quantityText?: string;

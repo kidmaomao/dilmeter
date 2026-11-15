@@ -112,6 +112,7 @@ export type eventSkillAction = eventBase & {
     AtMs: number;
     /** Dedicated derived mechanic signal; normal skill actions omit it. */
     MechanicSignal?: string;
+    MechanicTargetId?: string;
     /** Entity that produced the action; owned marionettes/deployables differ from Id. */
     SourceId?: string;
     /** Damage-derived actions may start an idle timer but never restart a running one. */

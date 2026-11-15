@@ -28,7 +28,10 @@ type eventPublisher struct {
 	clientMap   map[uint32]*eventClient
 	entityCache entityCache
 
-	worldProps map[uint64]bool
+	perlonTarget perlonTornadoTarget
+	worldProps   map[uint64]bool
+	healerRegion healerRegionTracker
+	healerParty  healerPartyTracker
 	// mutable
 	currentClientId        uint32
 	localEntityId          uint64
@@ -114,8 +117,11 @@ func (t *eventPublisher) loop() {
 					logger.Println("* msg", i, msg.Type(), msg.String())
 				}
 			}
+			t.publishPerlonPacket(p)
 			t.publishWorldPropPacket(p)
 			t.publishBrontasRayPacket(p)
+			t.publishHealerRegion(p)
+			t.publishHealerParty(p)
 			t.publishPartyBurstSignal(p)
 			// Boss mechanism deployment packets use a small family of shared
 			// opcodes. Keep their opcode and payload dispatch in one testable path.
@@ -148,17 +154,24 @@ func (t *eventPublisher) loop() {
 					}
 				}
 				stats, err := packet.ParseStatUpdatePacket(p.Msg)
-				if err == nil && len(stats) > 0 {
-					values := t.filterChangedStats(p.Id, stats)
-					if len(values) == 0 {
-						continue
-					}
-					t.publish(&event.EventStatUpdate{
-						EventBase: event.EventBase{EventId: event.EventIdStatUpdate, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)},
-						Private:   isPrivate,
-						Stats:     values,
-					})
+				if err != nil {
+					continue
 				}
+				maximum := 0.0
+				if isPrivate {
+					maximum = packet.ReadPrivateManaMaximum(p.Msg)
+				}
+				values := t.filterChangedStats(p.Id, stats)
+				if len(values) == 0 && maximum == 0 {
+					continue
+				}
+				t.publish(&event.EventStatUpdate{
+					EventBase:   event.EventBase{EventId: event.EventIdStatUpdate, At: p.At.Unix(), Id: strconv.FormatUint(p.Id, 10)},
+					AtMs:        p.At.UnixMilli(),
+					Private:     isPrivate,
+					Stats:       values,
+					ManaMaximum: maximum,
+				})
 				continue
 
 			case packet.OpcodeEntityAppear:
@@ -1015,6 +1028,7 @@ func toEventEntityAppear(now int64, p *packet.EntityInfo) *event.EventEntityAppe
 		},
 		Name:      p.Name,
 		RaceId:    p.RaceId,
+		RegionID:  p.RegionID,
 		Height:    p.Height,
 		Weight:    p.Weight,
 		Upper:     p.Upper,
@@ -1057,6 +1071,9 @@ func (t *eventPublisher) beginConnectionEpoch(epoch uint64, at time.Time) {
 	t.activeAimTargetID = 0
 	t.combatTargetID = 0
 	t.finalShotActive = false
+	t.perlonTarget = perlonTornadoTarget{}
+	t.healerRegion = healerRegionTracker{}
+	t.healerParty = healerPartyTracker{}
 	t.gunnerSniper = nil
 	t.gunnerHeavy = nil
 	t.gunnerPendingDomains = nil
@@ -1187,6 +1204,7 @@ func (t *eventPublisher) updateLocalEntityId(candidate uint64) (uint64, bool, bo
 
 	t.localEntityId = resolved
 	t.localEntityReliable = reliable
+	t.perlonTarget = perlonTornadoTarget{}
 	t.gunnerSniper = nil
 	t.gunnerHeavy = nil
 	t.gunnerPendingDomains = nil
@@ -1232,6 +1250,7 @@ func (t *eventPublisher) reconcileLocalEntityInfo(entity *packet.EntityInfo) (ui
 
 	t.localEntityId = resolved
 	t.localEntityReliable = true
+	t.perlonTarget = perlonTornadoTarget{}
 	t.gunnerSniper = nil
 	t.gunnerHeavy = nil
 	t.gunnerPendingDomains = nil

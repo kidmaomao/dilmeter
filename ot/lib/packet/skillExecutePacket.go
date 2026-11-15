@@ -38,6 +38,11 @@ func ParseSkillExecutePacket(msg Message) (*SkillExecutePacket, error) {
 		}
 		result.ActionId = msg[1].Data().(uint32)
 	case MessageElemTypeLong:
+		// Healing Hands confirms the healed entity followed by (0,1).
+		// Repeated heals on the same entity are distinct successful casts.
+		if result.SkillId == 59000 && len(msg) == 4 && msg[2].Type() == MessageElemTypeInt && msg[3].Type() == MessageElemTypeInt && msg[2].Data().(uint32) == 0 && msg[3].Data().(uint32) == 1 {
+			return result, nil
+		}
 		// These two-field packets carry a target entity, not an execution
 		// token. Hashing that target suppressed later skills at the same boss.
 		// Heavy Artillery also appends the captured (0,1) flags to a target;

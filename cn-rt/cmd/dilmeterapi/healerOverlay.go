@@ -6,31 +6,33 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type healerOverlayGroup struct {
-	Key           string                 `json:"key"`
-	Name          string                 `json:"name"`
-	Kind          string                 `json:"kind"`
-	X             int                    `json:"x"`
-	Y             int                    `json:"y"`
-	Width         int                    `json:"width"`
-	Height        int                    `json:"height"`
-	CellWidth     int                    `json:"cellWidth"`
-	NameWidth     int                    `json:"nameWidth"`
-	Cards         []healerCard           `json:"cards"`
-	Columns       int                    `json:"columns"`
-	CellHeight    int                    `json:"cellHeight"`
-	LabelWidth    int                    `json:"labelWidth"`
-	LabelFontSize int                    `json:"labelFontSize"`
-	Sections      []healerOverlaySection `json:"sections"`
+	Key       string          `json:"key"`
+	Kind      string          `json:"kind"`
+	X         int             `json:"x"`
+	Y         int             `json:"y"`
+	Width     int             `json:"width"`
+	Height    int             `json:"height"`
+	NameWidth int             `json:"nameWidth,omitempty"`
+	CellWidth int             `json:"cellWidth,omitempty"`
+	Columns   int             `json:"columns,omitempty"`
+	Rows      []healerTeamRow `json:"rows,omitempty"`
 }
 
-type healerOverlaySection struct {
-	Kind  string       `json:"kind"`
-	Cards []healerCard `json:"cards"`
+type healerTeamRow struct {
+	PartySlot int          `json:"partySlot,omitempty"`
+	Key       string       `json:"key"`
+	Name      string       `json:"name"`
+	Skills    []healerCard `json:"skills,omitempty"`
+	Buffs     []healerCard `json:"buffs,omitempty"`
+	Health    *healerCard  `json:"health,omitempty"`
+	Mana      *healerCard  `json:"mana,omitempty"`
+	Curtain   string       `json:"curtain,omitempty"`
 }
 
 type healerOverlayFrame struct {
@@ -39,6 +41,7 @@ type healerOverlayFrame struct {
 	Y              int                  `json:"y"`
 	Width          int                  `json:"width"`
 	Height         int                  `json:"height"`
+	ScalePercent   int                  `json:"scalePercent"`
 	FontSize       int                  `json:"fontSize"`
 	IconSize       int                  `json:"iconSize"`
 	OpacityPercent int                  `json:"opacityPercent"`
@@ -107,8 +110,17 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if request.Stop {
+		h.previewUntilMs, h.previewCards = 0, nil
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if request.Kind == "mana" && (request.Member == nil || !request.Member.Self) {
+		http.Error(w, "仅支持预览自身魔法值", http.StatusBadRequest)
+		return
+	}
 	h.previewText = normalizeHealerText(request.Text)
-	h.previewIconSize = clampNativeReminderInt(request.IconSize, 16, 80, 30)
+	h.previewIconSize = clampNativeReminderInt(request.IconSize, 16, 80, 20)
 	h.previewOpacityPercent = h.settings.OpacityPercent
 	if request.OpacityPercent != nil {
 		h.previewOpacityPercent = clampNativeReminderInt(*request.OpacityPercent, 20, 100, 100)
@@ -141,9 +153,6 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if request.Stop {
-		h.previewUntilMs = 0
-	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -156,24 +165,39 @@ func (h *healerMonitor) textSnapshotLocked(nowMs int64) (healerTextSettings, []h
 	if nowMs < h.previewUntilMs {
 		cards := h.previewCards
 		if cards == nil {
-			cards = []healerCard{{Key: "preview-health", MemberKey: "preview", Name: "Oneforall", Title: "血量≤25%", Value: "20%", Category: "health", X: h.previewText.X, Y: h.previewText.Y}, {Key: "preview-music", MemberKey: "preview", Name: "Oneforall", Title: "战争序曲", Value: "11s", CCID: 680, Category: "music", X: h.previewText.X, Y: h.previewText.Y + 240}, {Key: "preview-mana", MemberKey: "preview", Name: "Oneforall", Title: "魔法值≤25%", Value: "20%", Category: "mana", X: h.previewText.X, Y: h.previewText.Y + 120}}
+			cards = []healerCard{
+				{Key: "sample-health", MemberKey: "self", Name: "自身角色", Title: "血量", Category: "health", Value: "76%"},
+				{Key: "sample-mana", MemberKey: "self", Name: "自身角色", Title: "魔法值", Category: "mana", Value: "62%"},
+				{Key: "sample-skill", MemberKey: "sample-2", Name: "小月亮", Title: "崩坏波动", Category: "skill", SkillID: 59005, Value: "24s", State: "cooling"},
+				{Key: "sample-curtain", MemberKey: "sample-2", Name: "小月亮", Category: "curtain", Value: "2480"},
+				{Key: "sample-buff", MemberKey: "sample-2", Name: "小月亮", Title: "战争序曲", Category: "music", CCID: 680, Value: "132s", State: "active"},
+				{Key: "sample-health-2", MemberKey: "sample-2", Name: "小月亮", Title: "血量", Category: "health", Value: "93%"},
+			}
 		}
 		return h.previewText, append([]healerCard(nil), cards...), true
 	}
-	if !h.settings.Enabled || !h.settings.Text.Enabled || nowMs-h.state.UpdatedAt > 1500 {
+	if !h.liveOverlay(nowMs) {
 		return h.settings.Text, nil, false
 	}
 	return h.settings.Text, append([]healerCard(nil), h.state.Cards...), false
 }
+
+func (h *healerMonitor) liveOverlay(nowMs int64) bool {
+	return h.settings.Enabled && h.settings.Text.Enabled && nowMs-h.state.UpdatedAt <= 1500
+}
+
 func (h *healerMonitor) overlaySnapshot(nowMs int64) healerOverlayFrame {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	settings, cards, preview := h.textSnapshotLocked(nowMs)
 	iconSize := h.settings.IconSize
+	var members []healerMemberState
 	if preview {
 		iconSize = h.previewIconSize
+	} else if h.liveOverlay(nowMs) {
+		members = h.state.Members
 	}
-	frame := buildHealerOverlayFrame(settings.FontSize, iconSize, cards, preview, nowMs)
+	frame := buildHealerOverlayFrame(settings, iconSize, cards, members, preview, nowMs)
 	frame.OpacityPercent = h.settings.OpacityPercent
 	if preview {
 		frame.OpacityPercent = h.previewOpacityPercent
@@ -181,108 +205,151 @@ func (h *healerMonitor) overlaySnapshot(nowMs int64) healerOverlayFrame {
 	frame.OpacityPercent = clampNativeReminderInt(frame.OpacityPercent, 20, 100, 100)
 	return frame
 }
-func buildHealerOverlayFrame(fontSize, iconSize int, cards []healerCard, preview bool, nowMs int64) healerOverlayFrame {
-	frame := healerOverlayFrame{OpacityPercent: 100, Groups: []healerOverlayGroup{}, FontSize: clampNativeReminderInt(fontSize, 12, 72, 24), IconSize: clampNativeReminderInt(iconSize, 16, 80, 30), Preview: preview, UpdatedAt: nowMs, Width: 1, Height: 1}
-	indices := map[string]int{}
-	for _, card := range cards {
-		kind := "buff"
-		if card.Category == "health" || card.Category == "mana" {
-			kind = card.Category
-		}
-		key := card.MemberKey + ":" + kind
-		index, exists := indices[key]
-		if !exists {
-			index = len(frame.Groups)
+func buildHealerOverlayFrame(settings healerTextSettings, iconSize int, cards []healerCard, members []healerMemberState, preview bool, nowMs int64) healerOverlayFrame {
+	frame := healerOverlayFrame{
+		OpacityPercent: 100, Groups: []healerOverlayGroup{}, Preview: preview, UpdatedAt: nowMs, Width: 1, Height: 1,
+		ScalePercent: clampNativeReminderInt(settings.ScalePercent, 50, 200, 100),
+		FontSize:     clampNativeReminderInt(settings.FontSize, 12, 72, 16), IconSize: clampNativeReminderInt(iconSize, 16, 80, 20),
+	}
+	team := healerOverlayGroup{Key: "team", Kind: "team", X: settings.X, Y: settings.Y}
+	indices := make(map[string]int)
+	rowFor := func(key, name string) *healerTeamRow {
+		index, ok := indices[key]
+		if !ok {
+			index = len(team.Rows)
 			indices[key] = index
-			frame.Groups = append(frame.Groups, healerOverlayGroup{Key: key, Name: card.Name, Kind: kind, X: card.X, Y: card.Y, Cards: []healerCard{}})
+			team.Rows = append(team.Rows, healerTeamRow{Key: key, Name: name})
 		}
-		card.Value = strings.TrimSuffix(card.Value, "s")
-		frame.Groups[index].Cards = append(frame.Groups[index].Cards, card)
+		return &team.Rows[index]
 	}
-	for i := range frame.Groups {
-		group := &frame.Groups[i]
-		if group.Kind == "health" || group.Kind == "mana" {
-			group.Width = max(220, frame.FontSize*13)
-			group.Height = frame.FontSize*4 + 24
-		} else {
-			layoutHealerStatusGroup(group, frame.FontSize, frame.IconSize)
+
+	for _, member := range members {
+		row := rowFor(member.Key, member.Name)
+		row.PartySlot = member.PartySlot
+		if member.showHealth {
+			row.Health = healerResourceBar(member.HealthPercent, "血量")
 		}
-	}
-	// Saved coordinates are anchors. If wrapped status panels overlap, move the
-	// lower panel down for this frame only; never rewrite the user's settings.
-	statusIndices := []int{}
-	for i, group := range frame.Groups {
-		if group.Kind != "health" && group.Kind != "mana" {
-			statusIndices = append(statusIndices, i)
-		}
-	}
-	sort.SliceStable(statusIndices, func(i, j int) bool {
-		return frame.Groups[statusIndices[i]].Y < frame.Groups[statusIndices[j]].Y
-	})
-	for position, index := range statusIndices {
-		group := &frame.Groups[index]
-		for _, previous := range statusIndices[:position] {
-			above := frame.Groups[previous]
-			if group.X < above.X+above.Width && group.X+group.Width > above.X && group.Y < above.Y+above.Height+6 {
-				group.Y = above.Y + above.Height + 6
+		if member.showMana {
+			row.Mana = &healerCard{Title: "魔法值", Value: "—", State: member.ManaState}
+			if member.ManaPercent != nil {
+				row.Mana.Value = healerManaPercentText(*member.ManaPercent)
+				if member.ManaCurrent != nil {
+					row.Mana.Title = fmt.Sprintf("魔法值 %.0f / %.0f", *member.ManaCurrent, member.ManaMaximum)
+				}
+			} else if member.ManaCurrent != nil {
+				row.Mana.Value = fmt.Sprintf("%.0f", *member.ManaCurrent)
+				row.Mana.Title = "已同步当前魔法值，等待上限"
 			}
 		}
-	}
-	for i, group := range frame.Groups {
-		if i == 0 {
-			frame.X, frame.Y = group.X-12, group.Y-12
-		} else {
-			frame.X = min(frame.X, group.X-12)
-			frame.Y = min(frame.Y, group.Y-12)
+		if member.CurtainAmount != nil {
+			row.Curtain = strconv.FormatInt(*member.CurtainAmount, 10)
 		}
 	}
-	for _, group := range frame.Groups {
-		frame.Width = max(frame.Width, group.X+group.Width+12-frame.X)
-		frame.Height = max(frame.Height, group.Y+group.Height+12-frame.Y)
+	for _, card := range cards {
+		row := rowFor(card.MemberKey, card.Name)
+		switch card.Category {
+		case "health":
+			row.Health = &card
+		case "mana":
+			row.Mana = &card
+		case "curtain":
+			row.Curtain = card.Value
+		case "skill":
+			row.Skills = append(row.Skills, card)
+		default:
+			row.Buffs = append(row.Buffs, card)
+		}
 	}
+	visible := team.Rows[:0]
+	for _, row := range team.Rows {
+		if row.PartySlot > 0 || len(row.Skills)+len(row.Buffs) > 0 || row.Health != nil || row.Mana != nil || row.Curtain != "" {
+			visible = append(visible, row)
+		}
+	}
+	team.Rows = visible
+	if len(team.Rows) == 0 {
+		return frame
+	}
+	sort.SliceStable(team.Rows, func(i, j int) bool {
+		return healerTeamRowOrder(team.Rows[i]) < healerTeamRowOrder(team.Rows[j])
+	})
+	layoutHealerTeam(&team, frame.FontSize, frame.IconSize, settings.Width)
+	frame.Groups = append(frame.Groups, team)
+
+	// The WebView scales the entire panel from its top left. Give the native
+	// window the matching scaled dimensions, plus room for its shadow.
+	const windowMargin = 12
+	frame.X, frame.Y = team.X-windowMargin, team.Y-windowMargin
+	frame.Width = (team.Width*frame.ScalePercent+99)/100 + 2*windowMargin
+	frame.Height = (team.Height*frame.ScalePercent+99)/100 + 2*windowMargin
 	return frame
 }
 
-// Keep this geometry in sync with healerStatusLayout in healerMonitorTypes.ts:
-// the native window must contain every wrapped row drawn by the WebView.
-func layoutHealerStatusGroup(group *healerOverlayGroup, fontSize, iconSize int) {
-	group.NameWidth = min(max(120, fontSize*8), max(healerLabelWidth("队友", min(12, fontSize)), healerLabelWidth(group.Name, fontSize)))
-	group.LabelFontSize = max(10, min(16, fontSize*3/4))
-	group.LabelWidth = healerLabelWidth("Buff", group.LabelFontSize)
-	group.CellWidth = iconSize
-	group.CellHeight = iconSize + 2 + (fontSize*6+4)/5
-	group.Columns = 1
-	group.Sections = []healerOverlaySection{}
-	for _, kind := range []string{"skill", "buff"} {
-		section := healerOverlaySection{Kind: kind, Cards: []healerCard{}}
-		for _, card := range group.Cards {
-			if (card.Category == "skill") == (kind == "skill") {
-				section.Cards = append(section.Cards, card)
-				group.CellWidth = max(group.CellWidth, healerLabelWidth(card.Value, fontSize))
-			}
-		}
-		if len(section.Cards) == 0 {
-			continue
-		}
-		// Reserve normal status/digit widths so ticking does not move the icons.
-		baseline := "00000" // Buff durations may contain five digits.
-		if kind == "skill" {
-			baseline = "未观测"
-		}
-		group.CellWidth = max(group.CellWidth, healerLabelWidth(baseline, fontSize))
-		group.Columns = max(group.Columns, min(4, len(section.Cards)))
-		group.Sections = append(group.Sections, section)
+func healerTeamRowOrder(row healerTeamRow) int {
+	if row.PartySlot > 0 {
+		return row.PartySlot
 	}
-	contentHeight := 0
-	for index, section := range group.Sections {
-		rows := (len(section.Cards) + group.Columns - 1) / group.Columns
-		contentHeight += rows*group.CellHeight + (rows-1)*6
-		if index > 0 {
-			contentHeight += 7 // 3px space on each side of the divider.
-		}
+	if row.Key == "self" {
+		return healerMaxPartySlots + 1
 	}
-	group.Width = 18 + group.NameWidth + 6 + group.LabelWidth + 4 + group.Columns*group.CellWidth + (group.Columns-1)*4
-	group.Height = 14 + max(group.CellHeight, contentHeight)
+	return healerMaxPartySlots + 2
+}
+
+func healerResourceBar(percent *float64, title string) *healerCard {
+	value := "—"
+	if percent != nil {
+		value = fmt.Sprintf("%.0f%%", *percent)
+	}
+	return &healerCard{Title: title, Value: value}
+}
+
+// Match the padding, row heights and gaps in HealerOverlayVisual.vue so the
+// native window contains all rows, including status grids that wrap.
+func layoutHealerTeam(group *healerOverlayGroup, fontSize, iconSize, widthLimit int) {
+	const panelPaddingX, panelPaddingY, rowPaddingY = 8, 4, 4
+	const nameGap, cellGap, vitalsGap = 8, 4, 3
+	textSize := max(10, fontSize*3/4)
+	group.CellWidth = iconSize + cellGap + healerLabelWidth("死亡丢失", textSize)
+	maxCards := 0
+	for _, row := range group.Rows {
+		name := row.Name
+		if row.PartySlot > 0 {
+			name = strconv.Itoa(row.PartySlot) + "  " + name
+		}
+		group.NameWidth = max(group.NameWidth, healerLabelWidth(name, fontSize))
+		maxCards = max(maxCards, len(row.Skills)+len(row.Buffs))
+	}
+	group.NameWidth = min(group.NameWidth, fontSize*8)
+	group.Width = panelPaddingX*2 + group.NameWidth
+	group.Height = panelPaddingY * 2
+	group.Columns = min(max(1, maxCards), 4, max(1, (widthLimit-group.Width-nameGap+cellGap)/(group.CellWidth+cellGap)))
+	if maxCards > 0 {
+		group.Width += nameGap + group.Columns*group.CellWidth + (group.Columns-1)*cellGap
+	}
+	for _, row := range group.Rows {
+		cards := len(row.Skills) + len(row.Buffs)
+		height := fontSize + 4
+		if cards > 0 {
+			rows := (cards + group.Columns - 1) / group.Columns
+			height = rows*max(iconSize, height) + (rows-1)*cellGap
+		}
+		vitals := 0
+		if row.Health != nil || row.Curtain != "" {
+			vitals++
+		}
+		if row.Mana != nil {
+			vitals++
+		}
+		if vitals > 0 {
+			group.Width = max(group.Width, 156)
+			height += cellGap + vitals*max(14, textSize+4) + (vitals-1)*vitalsGap
+		}
+		if row.Curtain != "" {
+			commas := (len(row.Curtain) - 1) / 3
+			group.Width = max(group.Width, panelPaddingX*2+healerLabelWidth(row.Curtain+strings.Repeat(",", commas), textSize))
+		}
+		group.Height += rowPaddingY*2 + height
+	}
 }
 
 func healerLabelWidth(text string, fontSize int) int {

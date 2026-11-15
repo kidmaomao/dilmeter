@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.com/prilus/mabidilmeter/lib/packet"
 )
 
 const (
@@ -673,7 +675,12 @@ func battleRecordRelatedFiles(dir, name string) []string {
 	stamp := strings.TrimSuffix(strings.TrimPrefix(name, "packet_log_"), ".ndjson")
 	candidates := []string{name, name + ".checkpoints", "log_" + stamp + ".txt"}
 	if startedAt, ok := battleRecordTimeFromName(name); ok {
-		candidates = append(candidates, fmt.Sprintf("packet_capture_%d.pcapng", startedAt.Unix()))
+		entries, _ := os.ReadDir(dir)
+		for _, entry := range entries {
+			if packet.IsCaptureLogForSession(entry.Name(), startedAt.Unix()) {
+				candidates = append(candidates, entry.Name())
+			}
+		}
 	}
 	related := make([]string, 0, len(candidates))
 	for _, candidate := range candidates {

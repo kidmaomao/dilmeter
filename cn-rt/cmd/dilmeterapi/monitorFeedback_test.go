@@ -54,7 +54,7 @@ func TestSelfManaFollowsLocalIdentityAndResets(t *testing.T) {
 	r, sounds := healerFixture(t)
 	r.healer.settings.Members = []healerMemberSelection{{Self: true, Mana: true}}
 	mp := func(id string, at int64, value float64) {
-		r.onEvent(&event.EventStatUpdate{EventBase: event.EventBase{EventId: 17, Id: id, At: at}, Stats: []event.EventStatUpdateEntry{{StatId: 32, Value: value}, {StatId: 34, Value: 500}, {StatId: 35, Value: 500}}})
+		r.onEvent(&event.EventStatUpdate{EventBase: event.EventBase{EventId: 17, Id: id, At: at}, Stats: []event.EventStatUpdateEntry{{StatId: 32, Value: value}, {StatId: 33, Value: 500}, {StatId: 34, Value: 500}}})
 	}
 	mp("self", 101, 200)
 	healerTick(r, 101000)
@@ -86,7 +86,7 @@ func TestSelfManaFollowsLocalIdentityAndResets(t *testing.T) {
 	}
 }
 
-func TestManaPreviewUsesManaLayoutForEightSeconds(t *testing.T) {
+func TestManaPreviewUsesTeamLayoutForEightSeconds(t *testing.T) {
 	r, _ := healerFixture(t)
 	nativeReminderRuntimeHolder.Lock()
 	old := nativeReminderRuntimeHolder.runtime
@@ -97,7 +97,7 @@ func TestManaPreviewUsesManaLayoutForEightSeconds(t *testing.T) {
 		nativeReminderRuntimeHolder.runtime = old
 		nativeReminderRuntimeHolder.Unlock()
 	})
-	request := httptest.NewRequest("POST", "/api/healer_monitor/text_preview", strings.NewReader(`{"kind":"mana","member":{"self":true,"mana":true,"manaSettings":{"overlay":{"x":350,"y":200}}},"text":{"fontSize":16},"iconSize":30}`))
+	request := httptest.NewRequest("POST", "/api/healer_monitor/text_preview", strings.NewReader(`{"kind":"mana","member":{"self":true,"mana":true,"manaSettings":{"overlay":{"x":350,"y":200}}},"text":{"fontSize":16,"x":510,"y":170,"scalePercent":140},"iconSize":30}`))
 	request.RemoteAddr = "127.0.0.1:8000"
 	response := httptest.NewRecorder()
 	handleHealerTextPreview(response, request)
@@ -105,10 +105,18 @@ func TestManaPreviewUsesManaLayoutForEightSeconds(t *testing.T) {
 		t.Fatal(response.Body.String())
 	}
 	deadline := r.healer.previewUntilMs
+	teammate := httptest.NewRequest("POST", "/api/healer_monitor/text_preview", strings.NewReader(`{"kind":"mana","member":{"name":"队友","mana":true}}`))
+	teammate.RemoteAddr = request.RemoteAddr
+	rejected := httptest.NewRecorder()
+	handleHealerTextPreview(rejected, teammate)
+	if rejected.Code != 400 || r.healer.previewUntilMs != deadline {
+		t.Fatalf("teammate request changed the self preview: %d %s", rejected.Code, rejected.Body)
+	}
 	for _, at := range []int64{deadline - 7900, deadline - 1000, deadline - 1} {
 		healerTick(r, at)
 		frame := r.healer.overlaySnapshot(at)
-		if !frame.Preview || len(frame.Groups) != 1 || frame.Groups[0].Kind != "mana" || frame.Groups[0].X != 350 || frame.Groups[0].Cards[0].Value != "20%" {
+		if !frame.Preview || len(frame.Groups) != 1 || frame.Groups[0].Kind != "team" || frame.Groups[0].X != 510 || frame.ScalePercent != 140 ||
+			len(frame.Groups[0].Rows) != 1 || frame.Groups[0].Rows[0].Key != "self" || frame.Groups[0].Rows[0].Mana == nil || frame.Groups[0].Rows[0].Mana.Value != "20%" {
 			t.Fatalf("mana preview: %+v", frame)
 		}
 	}

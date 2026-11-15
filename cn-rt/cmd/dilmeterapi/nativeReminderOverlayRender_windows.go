@@ -333,12 +333,12 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 	}
 	stacks := make([]nativeBuffStackOverlayItem, 0, len(message.StackAlerts))
 	for _, item := range message.StackAlerts {
-		if item.Persistent || item.EndsAtMs > nowMs {
+		if (item.PreviewExpiresAtMs == 0 || item.PreviewExpiresAtMs > nowMs) && (item.Persistent || item.EndsAtMs > nowMs) {
 			stacks = append(stacks, item)
 		}
 	}
 	aim := message.AimReminder
-	if aim != nil && !aim.Active && !aim.AlwaysVisible {
+	if aim != nil && ((aim.PreviewExpiresAtMs > 0 && aim.PreviewExpiresAtMs <= nowMs) || (!aim.Active && !aim.AlwaysVisible)) {
 		aim = nil
 	}
 	bounds := image.Rectangle{}
@@ -359,10 +359,14 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 	for _, item := range mechanics {
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
 		width, height := 118, 118
-		if item.Label != "" || item.Compact || item.PassiveStyle != "" || len(item.Rocks) > 0 {
+		if item.Label != "" || item.Compact || item.PassiveStyle != "" || item.Key == brontasRockKey {
 			width, height = burstPopupDimensions(item)
 		}
-		addBounds(image.Rect(item.X-48, item.Y-48, item.X+int(math.Ceil(float64(width)*factor))+48, item.Y+int(math.Ceil(float64(height)*factor))+48))
+		glowPadding := 48
+		if item.Key == perlonTornadoKey || item.Key == perlonResonanceKey {
+			glowPadding = max(glowPadding, int(math.Ceil(34*factor)))
+		}
+		addBounds(image.Rect(item.X-glowPadding, item.Y-glowPadding, item.X+int(math.Ceil(float64(width)*factor))+glowPadding, item.Y+int(math.Ceil(float64(height)*factor))+glowPadding))
 	}
 	for _, item := range stacks {
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
@@ -401,7 +405,7 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 		size := max(59, int(math.Ceil(118*factor)))
 		width, height := size, size
 		id := item.Key
-		if item.PassiveStyle != "" || len(item.Rocks) > 0 {
+		if item.PassiveStyle != "" || item.Key == brontasRockKey {
 			w, h := burstPopupDimensions(item)
 			width, height = int(math.Ceil(float64(w)*factor)), int(math.Ceil(float64(h)*factor))
 			if item.PassiveStyle != "" {
@@ -426,26 +430,6 @@ func renderNativeSkillReminder(hwnd uintptr) bool {
 	skillOverlayWidth.Store(int32(width))
 	skillOverlayHeight.Store(int32(height))
 	return true
-}
-
-func nativeSkillReminderItemVisible(item nativeSkillOverlayItem, nowMs int64) bool {
-	if item.EnergyGate {
-		return !item.BarOnly && (item.AlwaysVisible || item.EnergyReady)
-	}
-	if item.BarOnly {
-		return false
-	}
-	if item.ProgressObserved != nil {
-		progress, threshold := 0.0, 95.0
-		if item.ProgressPercent != nil {
-			progress = *item.ProgressPercent
-		}
-		if item.ProgressThresholdPercent != nil {
-			threshold = *item.ProgressThresholdPercent
-		}
-		return item.AlwaysVisible || (*item.ProgressObserved && progress >= threshold && progress < 100)
-	}
-	return item.AlwaysVisible || (item.ReadyAtMs > 0 && nowMs >= item.ReadyAtMs && nowMs-item.ReadyAtMs < 2600)
 }
 
 func drawNativeSkillReminderItem(canvas *image.RGBA, item nativeSkillOverlayItem, offset image.Point, iconSize int, nowMs int64) []nativeReminderText {
@@ -624,7 +608,10 @@ func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverl
 	if item.BrontasGuide != nil {
 		return drawNativeBrontasGuide(canvas, item, offset, dpiScale, nowMs)
 	}
-	if len(item.Rocks) > 0 {
+	if item.Key == perlonTornadoKey || item.Key == perlonResonanceKey {
+		return drawNativePerlonReminder(canvas, item, offset, dpiScale, nowMs)
+	}
+	if item.Key == brontasRockKey || len(item.Rocks) > 0 {
 		return drawNativeBrontasRocks(canvas, item, offset, dpiScale, nowMs)
 	}
 	if item.PassiveStyle != "" {
@@ -668,7 +655,8 @@ func drawNativeMechanicReminder(canvas *image.RGBA, item nativeBossMechanicOverl
 	if !nativeReminderOverlaysAreLocked() {
 		drawNativeUnlockedFrame(canvas, rect)
 	}
-	return []nativeReminderText{{text: item.Name, rect: imageRectToNative(image.Rect(left+4, top+4, rect.Max.X-4, top+max(22, int(30*factor)))), color: nativeColorRef(255, 248, 225), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(9, int(11*factor)), fontWeight: nativeFontBold}, {text: fmt.Sprintf("%.1f", remaining), rect: imageRectToNative(image.Rect(left+4, top+max(20, int(26*factor)), rect.Max.X-4, rect.Max.Y-10)), color: nativeColorRef(255, 255, 255), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(20, int(46*factor)), fontWeight: 900}}
+	value := fmt.Sprintf("%.1f", remaining)
+	return []nativeReminderText{{text: item.Name, rect: imageRectToNative(image.Rect(left+4, top+4, rect.Max.X-4, top+max(22, int(30*factor)))), color: nativeColorRef(255, 248, 225), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix | dtEndEllipsis, fontHeight: max(9, int(11*factor)), fontWeight: nativeFontBold}, {text: value, rect: imageRectToNative(image.Rect(left+4, top+max(20, int(26*factor)), rect.Max.X-4, rect.Max.Y-10)), color: nativeColorRef(255, 255, 255), flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(20, int(46*factor)), fontWeight: 900}}
 }
 
 // Keep the native fallback and WebView roster at the same size and row positions.

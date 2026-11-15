@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"gitlab.com/prilus/mabidilmeter/constants"
+	"gitlab.com/prilus/mabidilmeter/lib/packet"
 )
 
 const logCleanupSizeThreshold int64 = 10 * 1024 * 1024 * 1024
@@ -162,7 +163,7 @@ func scanManagedLogFiles(dir string) ([]managedLogFile, error) {
 			Name:     entry.Name(),
 			Size:     info.Size(),
 			Modified: info.ModTime(),
-			Active:   activeNames[strings.ToLower(entry.Name())],
+			Active:   activeNames[strings.ToLower(entry.Name())] || packet.IsCaptureLogForSession(entry.Name(), constants.SERVER_START_AT),
 		})
 	}
 	return files, nil

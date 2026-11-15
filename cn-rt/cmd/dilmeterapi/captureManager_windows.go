@@ -21,6 +21,7 @@ func startCaptureManager(ctx context.Context, reader *packet.GameServerPacketRea
 	go func() {
 		capturing := false
 		captureFollowsConfiguredConnections := false
+		connectionMonitor := captureConnectionMonitor{}
 		setAppStatus(appStatus{
 			State:   statusWaiting,
 			Message: "等待洛奇启动。仍可加载和查看历史战斗日志。",
@@ -38,6 +39,7 @@ func startCaptureManager(ctx context.Context, reader *packet.GameServerPacketRea
 				reader.CloseNic()
 				capturing = false
 				captureFollowsConfiguredConnections = false
+				connectionMonitor = captureConnectionMonitor{}
 				acceleratorMode = change.AcceleratorMode
 				modeMessage := ""
 				if acceleratorMode {
@@ -51,12 +53,18 @@ func startCaptureManager(ctx context.Context, reader *packet.GameServerPacketRea
 			case <-ticker.C:
 			}
 
-			gameRunning := pcaputil.HasGameConnectionWithMode(acceleratorMode)
+			connections, checkErr := pcaputil.CheckCaptureConnections(acceleratorMode)
+			now := time.Now()
+			connectionMonitor.reportError(now, checkErr)
+			gameRunning := connections.GameConnected
 			if capturing {
-				if gameRunning && (captureFollowsConfiguredConnections || pcaputil.HasActiveCaptureConnection()) {
+				connected := gameRunning && (captureFollowsConfiguredConnections || connections.ActiveConnected)
+				if !connectionMonitor.shouldClose(now, reader.LivePayloadCount(), connected, checkErr) {
 					continue
 				}
 
+				logger.Printf("capture disconnect confirmed: checks=%d idle=%s game_connected=%t active_connected=%t",
+					connectionMonitor.missingChecks, now.Sub(connectionMonitor.lastPayloadAt).Round(time.Millisecond), gameRunning, connections.ActiveConnected)
 				if gameRunning {
 					logger.Println("game connection changed; rebinding capture for the new channel")
 				} else {
@@ -67,12 +75,12 @@ func startCaptureManager(ctx context.Context, reader *packet.GameServerPacketRea
 				captureFollowsConfiguredConnections = false
 				setAppStatus(appStatus{
 					State:   statusWaiting,
-					Message: "游戏已关闭，监测器正在等待下次启动。",
+					Message: "游戏连接已断开，监测器正在等待重新连接。",
 				})
 				continue
 			}
 
-			if !gameRunning {
+			if checkErr != nil || !gameRunning {
 				continue
 			}
 
@@ -93,6 +101,7 @@ func startCaptureManager(ctx context.Context, reader *packet.GameServerPacketRea
 				logger.Println("automatic capture detection failed:", err)
 				if attempted, started := tryAlternateCapture(reader); attempted {
 					capturing = started
+					connectionMonitor = captureConnectionMonitor{lastPayloadAt: time.Now(), lastPayloadCount: reader.LivePayloadCount()}
 					continue
 				}
 				setAppStatus(appStatus{
@@ -122,6 +131,7 @@ func startCaptureManager(ctx context.Context, reader *packet.GameServerPacketRea
 			}
 
 			capturing = true
+			connectionMonitor = captureConnectionMonitor{lastPayloadAt: time.Now(), lastPayloadCount: reader.LivePayloadCount()}
 			setAppStatus(appStatus{
 				State:       statusCapturing,
 				Message:     "正在监测洛奇战斗数据。",

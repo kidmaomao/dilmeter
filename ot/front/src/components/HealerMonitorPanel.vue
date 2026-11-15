@@ -7,9 +7,14 @@
      <div class="healer-basics-row teammate-basics-row">
       <label class="healer-master"><input v-model="draft.enabled" :disabled="saving || isRecordReplay" type="checkbox" @change="changed" />{{ $ui("启用提醒") }}</label>
       <label>{{ $ui("音量 ") }}<input v-model.number="draft.volume" :disabled="saving || isRecordReplay" type="number" min="0" max="100" :aria-label="$ui('圣歌提示音量')" @input="changed" /> %</label>
-      <label>{{ $ui("悬浮图标 ") }}<input v-model.number="draft.iconSize" :disabled="saving || isRecordReplay" type="number" min="16" max="80" :aria-label="$ui('悬浮图标大小')" @input="changed" /> px</label>
-      <label>{{ $ui("提示字号 ") }}<input v-model.number="draft.text.fontSize" :disabled="saving || isRecordReplay" type="number" min="12" max="72" :aria-label="$ui('提示字号')" @input="changed" /> px</label>
-      <label :title="$ui('100% 完全不透明，数值越低越透明')">{{ $ui("悬浮窗透明度 ") }}<input v-model.number="draft.opacityPercent" :disabled="saving || isRecordReplay" type="number" min="20" max="100" step="5" :aria-label="$ui('悬浮窗透明度')" @input="changed" /> %</label>
+     </div>
+     <div class="healer-basics-row healer-team-controls" :aria-label="$ui('队友浮窗')">
+      <strong>{{ $ui("队友浮窗") }}</strong>
+      <label>{{ $ui("队友浮窗 X") }} <input v-model.number="draft.text.x" :disabled="saving || isRecordReplay" type="number" min="-32000" max="32000" :aria-label="$ui('队友浮窗横坐标')" @input="changed" /></label>
+      <label>Y <input v-model.number="draft.text.y" :disabled="saving || isRecordReplay" type="number" min="-32000" max="32000" :aria-label="$ui('队友浮窗纵坐标')" @input="changed" /></label>
+      <label>{{ $ui("大小") }} <input v-model.number="draft.text.scalePercent" :disabled="saving || isRecordReplay" type="number" min="50" max="200" step="5" :aria-label="$ui('队友浮窗大小')" @input="changed" /> %</label>
+      <label :title="$ui('100% 完全不透明，数值越低越透明')">{{ $ui("队友浮窗透明度 ") }}<input v-model.number="draft.opacityPercent" :disabled="saving || isRecordReplay" type="number" min="20" max="100" step="5" :aria-label="$ui('队友浮窗透明度')" @input="changed" /> %</label>
+      <button type="button" :disabled="saving || isRecordReplay" @click="preview()">{{ $ui("预览队友浮窗") }}</button>
      </div>
     </section>
    <v-card-text class="healer-panel-body teammate-panel-body">
@@ -18,31 +23,45 @@
     <p v-if="notice" class="healer-notice" role="status">{{ $ui(notice) }}<button v-if="previewing" type="button" @click="stopPreview">{{ $ui("停止预览") }}</button></p>
     <section class="healer-templates" :aria-label="$ui('通用队友模板')">
      <div class="healer-section-title"><h2>{{ $ui("通用模板 ") }}<span>{{ $ui(draft.templates.length) }}/32</span></h2><button type="button" :disabled="saving || audioBusy || isRecordReplay || draft.templates.length >= 32" @click="openTemplate()">{{ $ui("＋ 新建模板") }}</button></div>
-     <p class="healer-help">{{ $ui("预先配置「队友1」「队友2」等模板；识别角色后即可套用血量、魔法值、Buff、技能、声音及坐标。套用后可单独微调，悬浮窗仍显示真实角色 ID。") }}</p>
+     <p class="healer-help">{{ $ui("预先配置「队友1」「队友2」等模板。识别角色后可套用血量、Buff、技能和音效，手动套用后也可单独微调。") }}</p>
      <div class="healer-template-list"><div v-for="template in draft.templates" :key="template.id" class="healer-template-entry"><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`编辑模板 ${template.name}`" @click="openTemplate(undefined, template)"><strong>{{ template.name }}</strong><small>{{ $ui(healerTemplateSummary(template)) }}</small><span>{{ $ui("编辑") }}</span></button><button type="button" :disabled="saving || audioBusy || isRecordReplay" :aria-label="`删除模板 ${template.name}`" @click="removeTarget = { kind: 'template', key: template.id, name: template.name }">×</button></div></div>
      <p v-if="!draft.templates.length" class="healer-help">{{ $ui("可新建模板，也可在已配置的队友上点击「存为模板」。") }}</p>
     </section>
     <section class="healer-self-mana" aria-label="自身魔法值监测">
      <div class="healer-section-title"><h2>{{ $ui("自身魔法值") }}</h2><button v-if="!selfMember" type="button" :disabled="saving || audioBusy || isRecordReplay || draft.members.length >= 32" @click="addSelfMana">{{ $ui("＋ 添加自身魔法值监测") }}</button></div>
-     <p class="healer-help">{{ $ui("自动识别当前登录的角色；切换角色后跟随当前角色，不需要手动填写 ID。") }}</p>
-     <HealerMemberEditor v-if="selfMember" :member="selfMember" :live="memberState(selfMember)" :index="99" :expanded="expandedMember === selfMember.key" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :disabled="saving || audioBusy || isRecordReplay" @expand="expandedMember = selfMember.key" @change="changed" @remove="removeSelfMana" @preview="preview(selfMember, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
+     <p class="healer-help">{{ $ui("本人常驻队友浮窗。启用自身魔法值监测后，蓝条显示在本人血条下方。") }}</p>
+     <HealerMemberEditor v-if="selfMember" :member="selfMember" :live="memberState(selfMember)" :index="99" :expanded="expandedMember === selfMember.key" :volume="draft.volume" :disabled="saving || audioBusy || isRecordReplay" @expand="expandedMember = selfMember.key" @change="changed" @remove="removeSelfMana" @preview="preview(selfMember, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
     </section>
     <section class="healer-roster" :aria-label="$ui('管理队友')">
-     <div class="healer-section-title"><h2>{{ $ui("管理队友 ") }}<span>{{ $ui(teammateMembers.length) }}</span></h2><button type="button" :aria-expanded="manageOpen" @click="manageOpen = !manageOpen">{{ $ui(manageOpen ? '收起可见角色' : '＋ 添加队友') }}</button></div>
-     <p class="healer-help">{{ $ui("勾选或取消「保存为常用」会立即保存当前设定，无需再点保存。常用队友及其设置会一直保留；开启软件后，请让队友切换一次地图以完成识别，未识别时暂停提醒。") }}</p>
+     <div class="healer-section-title"><h2>{{ $ui("管理队友 ") }}<span>{{ $ui(favoriteMembers.length + temporaryMembers.length) }}</span></h2><button type="button" :aria-expanded="manageOpen" @click="manageOpen = !manageOpen">{{ $ui(manageOpen ? '收起可见角色' : '＋ 添加队友') }}</button></div>
+     <div class="healer-auto-add">
+      <label><input v-model="draft.autoAddInDungeon" type="checkbox" :disabled="saving || isRecordReplay" @change="changeAutoAdd" />{{ $ui("自动添加组队成员和副本队友") }}</label>
+      <label v-if="draft.autoAddInDungeon">{{ $ui("使用模板") }} <select v-model="draft.autoAddTemplateId" :disabled="saving || isRecordReplay" :aria-label="$ui('自动添加队友模板')" @change="changed">
+       <option value="">{{ $ui("选择通用模板") }}</option>
+       <option v-for="template in draft.templates" :key="template.id" :value="template.id">{{ template.name }}</option>
+      </select></label>
+      <p class="healer-help">{{ $ui("收到游戏队伍名单后直接显示队员。开启自动添加可给队员套用模板，也可在副本内名单尚未同步时监测附近角色。") }}</p>
+      <p v-if="draft.autoAddInDungeon && !draft.templates.length" class="healer-help">{{ $ui("请先在通用模板中新建一个模板。") }}</p>
+     </div>
      <div v-if="manageOpen" class="healer-candidates">
       <input v-model="memberSearch" type="search" :aria-label="$ui('搜索可见队友')" :placeholder="$ui('搜索当前可见角色的 ID')" />
       <label class="healer-add-template">{{ $ui("添加时套用 ") }}<select v-model="addTemplateId" :aria-label="$ui('添加队友时使用的模板')"><option value="">{{ $ui("不使用模板") }}</option><option v-for="template in draft.templates" :key="template.id" :value="template.id">{{ template.name }}</option></select></label>
-      <p class="healer-help">{{ $ui("这里只提供可见角色，请添加实际队友；未添加的角色不会被监控。") }}</p>
+      <p class="healer-help">{{ $ui("在附近角色中选择需要手动添加的队友。") }}</p>
       <div class="healer-candidate-list"><button v-for="member in candidates" :key="member.id" type="button" :disabled="saving || isRecordReplay || inRoster(member) || draft.members.length >= 32" @click="addMember(member)"><span>{{ member.name }}</span><small>{{ $ui(inRoster(member) ? '已添加 ✓' : '＋ 添加') }}</small></button></div>
       <p v-if="!candidates.length" class="healer-empty">{{ $ui("暂未识别到可选角色，请让队友切换地图后重试。") }}</p>
      </div>
-     <fieldset :disabled="saving || isRecordReplay">
-      <HealerMemberEditor v-for="(member, index) in teammateMembers" :key="member.key" :expanded="expandedMember === member.key" @expand="expandedMember = member.key" :member="member" :live="memberState(member)" :index="index" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :templates="draft.templates" :disabled="saving || audioBusy" @change="changed" @favorite-change="saveFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
-     </fieldset>
-     <div v-if="!teammateMembers.length" class="healer-empty healer-empty-roster"><v-icon icon="mdi-account-multiple-outline" size="30" /><strong>{{ $ui("先添加需要关注的队友") }}</strong><span>{{ $ui("然后分别设置血量、魔法值、Buff 和技能提醒。") }}</span></div>
+     <div v-for="group in rosterGroups" :key="group.key" class="healer-roster-group">
+      <button v-if="group.favorite" type="button" class="healer-roster-toggle" aria-controls="healer-favorite-members" :aria-expanded="favoritesOpen" :aria-label="$ui(favoritesOpen ? '收起常用队友' : '展开常用队友')" @click="favoritesOpen = !favoritesOpen">
+       <v-icon :icon="favoritesOpen ? 'mdi-chevron-down' : 'mdi-chevron-right'" size="16" /><strong>{{ $ui("常用队友") }}</strong><span>{{ group.members.length }}</span>
+      </button>
+      <h3 v-else>{{ $ui("临时队友") }} <span>{{ group.members.length }}</span></h3>
+      <fieldset v-show="!group.favorite || favoritesOpen" :id="group.favorite ? 'healer-favorite-members' : undefined" :disabled="saving || isRecordReplay">
+       <HealerMemberEditor v-for="(member, index) in group.members" :key="member.key" :expanded="expandedMember === member.key" @expand="expandedMember = member.key" :member="member" :live="memberState(member)" :index="group.favorite ? index : index + 32" :volume="draft.volume" :templates="draft.templates" :automatic="isInstanceMember(member)" :disabled="saving || audioBusy" @change="memberChanged(member)" @favorite-change="toggleFavorite(member)" @remove="removeTarget = { kind: 'member', key: member.key, name: member.name }" @save-template="openTemplate(member)" @apply-template="applyTemplate(member, $event)" @preview="preview(member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
+       <p v-if="!group.members.length" class="healer-help">{{ $ui(group.favorite ? '暂无常用队友' : '暂无临时队友') }}</p>
+      </fieldset>
+     </div>
     </section>
-    <p class="healer-footnote">{{ $ui("常用状态更改后自动保存；其他修改请点击顶部闪烁的「保存设定」。保存成功后停止闪烁，保存失败会保留修改并提示重试。血量超过 30 秒未更新会暂停提醒；已识别队友的已配置 Buff 窗立即显示，未观测的 Buff 按失效样式显示“补充”，不触发声音提醒。声音不依赖此窗口保持打开。") }}</p>
+    <p class="healer-footnote">{{ $ui("识别到阿尔卡纳职业后会添加默认乐曲和技能，可在队友设置中编辑或删除。改动请点击「保存设定」。") }}</p>
    </v-card-text>
   </v-card>
  </component>
@@ -51,10 +70,10 @@
    <v-card-title class="healer-dialog-title">{{ $ui(draft.templates.some(item => item.id === templateEdit!.id) ? '编辑通用模板' : '保存为通用模板') }}</v-card-title>
    <v-card-text class="healer-panel-body">
     <label class="healer-template-name">{{ $ui("模板名称 ") }}<input v-model="templateEdit.member.name" type="text" maxlength="48" :aria-label="$ui('模板名称')" :disabled="audioBusy" /></label>
-    <p class="healer-help">{{ $ui("完成编辑后，点击主面板的「保存设定」长期保留。模板不绑定角色，不会自动开启监控。") }}</p>
+    <p class="healer-help">{{ $ui("完成编辑后，点击主面板的「保存设定」长期保留。模板可用于手动添加或副本自动添加。") }}</p>
     <p v-if="error" role="alert" class="healer-error">{{ $ui(error) }}</p>
     <p v-if="notice" role="status" class="healer-notice">{{ $ui(notice) }}</p>
-    <HealerMemberEditor :key="templateEdit.id" template-mode :member="templateEdit.member" :index="100" :volume="draft.volume" :font-size="validFontSize" :icon-size="validIconSize" :opacity-percent="validOpacity" :disabled="audioBusy" @preview="preview(templateEdit!.member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
+    <HealerMemberEditor :key="templateEdit.id" template-mode :member="templateEdit.member" :index="100" :volume="draft.volume" :disabled="audioBusy" @preview="preview(templateEdit!.member, $event)" @busy="audioBusy = $event" @notice="showNotice" @error="error = $event" />
    </v-card-text>
    <div class="healer-dialog-actions"><button type="button" :disabled="audioBusy" @click="templateEdit = null">{{ $ui("取消") }}</button><button type="button" class="healer-primary" :disabled="audioBusy" @click="completeTemplate">{{ $ui("完成编辑") }}</button></div>
   </v-card>
@@ -75,26 +94,71 @@ import { cloneHealerSettings, makeHealerMember, makeHealerSelf, healerTemplateSu
 const props = defineProps<{ open: boolean; isRecordReplay: boolean; embedded?: boolean }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const state = ref<HealerMonitorState | null>(null), draft = ref(makeHealerSettings());
-const dirty = ref(false), saving = ref(false), audioBusy = ref(false), error = ref(''), notice = ref('');
-const expandedMember = ref('');
+const settingsDirty = ref(false), saving = ref(false), audioBusy = ref(false), error = ref(''), notice = ref('');
+const temporaryEdits = ref<Record<string, HealerMemberChoice>>({});
+const dirty = computed(() => settingsDirty.value || Object.keys(temporaryEdits.value).length > 0);
+const expandedMember = ref(''), favoritesOpen = ref(false);
 const selfMember = computed(() => draft.value.members.find(member => member.self));
-const teammateMembers = computed(() => draft.value.members.filter(member => !member.self));
+const favoriteMembers = computed(() => draft.value.members.filter(member => !member.self && member.favorite).sort(byPartyOrder));
+const temporaryMembers = computed(() => {
+ const manual = draft.value.members.filter(member => !member.self && !member.favorite);
+ if (!draft.value.autoAddInDungeon) return manual.sort(byPartyOrder);
+ const automatic = (state.value?.temporaryMembers ?? []).filter(member => !inRoster(member))
+  .map(member => temporaryEdits.value[member.key] ?? member);
+ return [...manual, ...automatic].sort(byPartyOrder);
+});
+const rosterGroups = computed(() => [
+ { key: 'temporary', favorite: false, members: temporaryMembers.value },
+ { key: 'favorite', favorite: true, members: favoriteMembers.value },
+]);
 function addSelfMana() { if (selfMember.value || draft.value.members.length >= 32) return; draft.value.members.push(makeHealerSelf()); expandedMember.value = 'self'; changed(); }
 function removeSelfMana() { draft.value.members = draft.value.members.filter(member => !member.self); changed(); }
 
 const manageOpen = ref(false), memberSearch = ref(''), previewing = ref(false), addTemplateId = ref('');
 const templateEdit = ref<{ id: string; member: HealerMemberChoice } | null>(null);
 const removeTarget = ref<{ kind: 'member' | 'template'; key: string; name: string } | null>(null);
-const validOpacity = computed(() => Math.max(20, Math.min(100, Number(draft.value.opacityPercent) || 100)));
-const validFontSize = computed(() => Math.max(12, Math.min(72, Number(draft.value.text.fontSize) || 16)));
-const validIconSize = computed(() => Math.max(16, Math.min(80, Number(draft.value.iconSize) || 30)));
-const candidates = computed(() => (state.value?.members || []).filter(member => member.key !== 'self' && member.id && member.active && member.name.toLowerCase().includes(memberSearch.value.trim().toLowerCase())));
-const inRoster = (member: HealerMemberState) => draft.value.members.some(choice => choice.name === member.name || choice.id === member.id && !!choice.id);
-const memberState = (member: HealerMemberChoice) => state.value?.members.find(value => value.key === member.key || !member.self && value.name === member.name);
-const changed = () => { dirty.value = true; notice.value = ''; };
-function saveFavorite(member: HealerMemberChoice) {
+const candidates = computed(() => (state.value?.members || []).filter(member => member.key !== 'self' && member.id && member.active && (!member.automatic || !draft.value.autoAddInDungeon) && member.name.toLowerCase().includes(memberSearch.value.trim().toLowerCase())));
+const inRoster = (member: Pick<HealerMemberChoice, 'name' | 'id'>) => draft.value.members.some(choice => !choice.self && (choice.name === member.name || choice.id === member.id && !!choice.id));
+const isInstanceMember = (member: HealerMemberChoice) => member.key.startsWith('instance:');
+const memberState = (member: HealerMemberChoice) => state.value?.members.find(value => value.key === member.key)
+ ?? state.value?.members.find(value => !member.self && (member.id ? value.id === member.id : value.name === member.name));
+function byPartyOrder(first: HealerMemberChoice, second: HealerMemberChoice): number {
+ const firstSlot = memberState(first)?.partySlot ?? Number.MAX_SAFE_INTEGER;
+ const secondSlot = memberState(second)?.partySlot ?? Number.MAX_SAFE_INTEGER;
+ return firstSlot - secondSlot;
+}
+const changed = () => { settingsDirty.value = true; notice.value = ''; };
+function memberChanged(member: HealerMemberChoice) {
+ if (isInstanceMember(member)) {
+  temporaryEdits.value[member.key] = member;
+  notice.value = '';
+ } else {
+  changed();
+ }
+}
+function changeAutoAdd() {
+ if (draft.value.autoAddInDungeon && !draft.value.autoAddTemplateId) {
+  draft.value.autoAddTemplateId = draft.value.templates[0]?.id ?? '';
+ }
  changed();
- void save(member.favorite ? `已将 ${member.name} 保存为常用，当前设定已保存。` : `已取消 ${member.name} 的常用状态，当前设定已保存。`);
+}
+async function toggleFavorite(member: HealerMemberChoice) {
+ if (member.favorite) {
+  member.favorite = false;
+  changed();
+  await save(`已取消 ${member.name} 的常用状态。`);
+  return;
+ }
+ if (isInstanceMember(member) && draft.value.members.length >= 32) {
+  error.value = '队友列表已满，请先移除一位队友。';
+  return;
+ }
+ const favorite = { ...member, key: `player:${member.name}`, favorite: true };
+ const saved = await save(`已将 ${member.name} 添加为常用。`, favorite);
+ if (saved) {
+  favoritesOpen.value = true;
+  expandedMember.value = favorite.key;
+ }
 }
 function showNotice(value: string) { notice.value = value; error.value = ''; }
 function addMember(member: HealerMemberState) {
@@ -107,7 +171,7 @@ function addMember(member: HealerMemberState) {
 function applyTemplate(member: HealerMemberChoice, id: string) {
  const template = draft.value.templates.find(item => item.id === id);
  if (!template) return;
- applyHealerTemplate(member, template); changed();
+ applyHealerTemplate(member, template); memberChanged(member);
  showNotice(`已为 ${member.name} 套用「${template.name}」，请保存设定。`);
 }
 function openTemplate(source?: HealerMemberChoice, template?: HealerMemberTemplate) {
@@ -136,7 +200,14 @@ function confirmRemove() {
  const target = removeTarget.value;
  if (!target) return;
  if (target.kind === 'member') draft.value.members = draft.value.members.filter(member => member.key !== target.key);
- else { draft.value.templates = draft.value.templates.filter(template => template.id !== target.key); if (addTemplateId.value === target.key) addTemplateId.value = ''; }
+ else {
+  draft.value.templates = draft.value.templates.filter(template => template.id !== target.key);
+  if (addTemplateId.value === target.key) addTemplateId.value = '';
+  if (draft.value.autoAddTemplateId === target.key) {
+   draft.value.autoAddInDungeon = false;
+   draft.value.autoAddTemplateId = '';
+  }
+ }
  removeTarget.value = null; changed();
 }
 let loading = false, disposed = false, generation = 0;
@@ -150,56 +221,77 @@ async function refresh() {
   const value = await response.json() as HealerMonitorState;
   if (!value.settings || !Array.isArray(value.members)) throw new Error('状态异常');
   if (disposed || current !== generation) return;
+  if (state.value?.dungeonSession !== value.dungeonSession) temporaryEdits.value = {};
   state.value = value;
-  if (!dirty.value) draft.value = cloneHealerSettings(value.settings);
+  if (!settingsDirty.value) draft.value = cloneHealerSettings(value.settings);
   if (error.value.startsWith('无法获取')) error.value = '';
  } catch { if (!disposed && current === generation) error.value = '无法获取实时监控状态，请确认桌面监测器仍在运行。'; }
  finally { loading = false; }
 }
 function validSettings(extra: HealerMemberChoice[] = []): boolean {
- const numbers = [[draft.value.volume, 0, 100], [draft.value.text.fontSize, 12, 72], [draft.value.iconSize, 16, 80], [draft.value.opacityPercent, 20, 100]];
+ const numbers = [[draft.value.volume, 0, 100], [draft.value.text.scalePercent, 50, 200], [draft.value.opacityPercent, 20, 100], [draft.value.text.x, -32000, 32000], [draft.value.text.y, -32000, 32000]];
+ const mana = selfMember.value?.manaSettings;
+ if (mana) numbers.push([mana.threshold, 5, 95], [mana.repeatCount, 1, 10], [mana.repeatIntervalSeconds, 2, 300]);
  const choices = [...draft.value.members, ...draft.value.templates, ...extra];
  for (const member of choices) {
-  numbers.push([member.manaSettings.threshold, 5, 95], [member.manaSettings.repeatCount, 1, 10], [member.manaSettings.repeatIntervalSeconds, 2, 300]);
   numbers.push([member.healthSettings.threshold, 5, 95], [member.healthSettings.repeatCount, 1, 10], [member.healthSettings.repeatIntervalSeconds, 2, 300]);
-  for (const position of [member.manaSettings.overlay, member.healthSettings.overlay, member.buffSettings.overlay, member.skillSettings.overlay]) numbers.push([position.x, -32000, 32000], [position.y, -32000, 32000]);
   for (const rule of member.skillSettings.rules) { if (!Number.isInteger(rule.skillId) || rule.skillId < 1 || rule.skillId > 65535 || !Number.isFinite(rule.cooldownSeconds) || rule.cooldownSeconds < .1 || rule.cooldownSeconds > 86400) { error.value = '请填写有效技能 ID 和冷却时间（0.1–86400 秒）。'; return false; } }
   for (const rule of member.buffSettings.rules) numbers.push([rule.warningSeconds, 0, 60], [rule.flashSeconds, 0, 60], [rule.manualDurationSeconds, 1, 86400], [rule.repeatCount, 1, 10], [rule.repeatIntervalSeconds, 2, 300], [rule.deathLoss.repeatCount, 1, 10], [rule.deathLoss.repeatIntervalSeconds, 2, 300]);
  }
  if (!numbers.every(([value, min, max]) => Number.isInteger(value) && value >= min && value <= max)) { error.value = '请填写有效数值：图标 16–80、字号 12–72、透明度 20–100%、血量/魔法值 5–95%、提前时间 0–60 秒、提醒次数 1–10 次、间隔 2–300 秒。'; return false; }
+ if (mana?.sound.kind === 'custom' && !mana.sound.soundId) { error.value = '自身魔法值的自定义音效尚未选择文件。'; return false; }
  for (const member of choices) {
-  const sounds = [member.manaSettings.sound, member.healthSettings.sound, ...member.skillSettings.rules.map(rule => rule.sound), ...member.buffSettings.rules.flatMap(rule => [rule.sound, rule.deathLoss.sound])];
+  const sounds = [member.healthSettings.sound, ...member.skillSettings.rules.map(rule => rule.sound), ...member.buffSettings.rules.flatMap(rule => [rule.sound, rule.deathLoss.sound])];
   if (sounds.some(sound => sound.kind === 'custom' && !sound.soundId)) { error.value = `${member.name} 的自定义音效尚未选择文件。`; return false; }
  }
  return true;
 }
-async function save(successNotice = '已保存。通用模板和常用队友将在下次启动后继续保留。') {
- if (!state.value || saving.value || audioBusy.value || props.isRecordReplay || !validSettings()) return;
+async function save(successNotice?: string, favorite?: HealerMemberChoice) {
+ if (!state.value || saving.value || audioBusy.value || props.isRecordReplay) return false;
+ const temporary = draft.value.autoAddInDungeon
+  ? Object.values(temporaryEdits.value).filter(member => member.id !== favorite?.id)
+  : [];
+ if (!validSettings(favorite ? [...temporary, favorite] : temporary)) return false;
+ if (draft.value.autoAddInDungeon && !draft.value.templates.some(template => template.id === draft.value.autoAddTemplateId)) {
+  error.value = '请为自动添加的队友选择一个通用模板。';
+  return false;
+ }
  saving.value = true; generation++;
  try {
   const settings = cloneHealerSettings(draft.value);
+  if (favorite) {
+   const index = settings.members.findIndex(member => member.key === favorite.key);
+   if (index < 0) settings.members.push(favorite); else settings.members[index] = favorite;
+  }
   settings.soundEnabled = true; settings.text.enabled = true;
-  const response = await fetch('/api/healer_monitor', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings), signal: AbortSignal.timeout(8000) });
+  const body = { ...settings, dungeonSession: state.value.dungeonSession, temporaryMembers: temporary };
+  const response = await fetch('/api/healer_monitor', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error((await response.text()).trim());
-  draft.value = cloneHealerSettings(await response.json()); dirty.value = false;
-  showNotice(successNotice);
- } catch (reason) { error.value = `保存失败：${String(reason)}`; }
- finally { saving.value = false; void refresh(); }
+  draft.value = cloneHealerSettings(await response.json());
+  settingsDirty.value = false;
+  temporaryEdits.value = {};
+  const dungeonChanged = response.headers.get('X-Dilmeter-Dungeon-Changed') === '1';
+  showNotice(dungeonChanged ? '已保存设定。队伍或副本已切换，临时队友的修改已失效。' : successNotice ?? (temporary.length ? '已保存。临时队友的修改在当前队伍或副本内有效。' : '已保存。'));
+  return true;
+ } catch (reason) {
+  error.value = `保存失败：${String(reason)}`;
+  return false;
+ } finally { saving.value = false; void refresh(); }
 }
-async function preview(member: HealerMemberChoice, kind: 'health' | 'mana' | 'buff' | 'skill') {
- if (!validSettings([member])) return;
+async function preview(member?: HealerMemberChoice, kind: 'team' | 'health' | 'mana' | 'buff' | 'skill' = 'team') {
+ if (!validSettings(member ? [member] : [])) return;
  try {
   const response = await fetch('/api/healer_monitor/text_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: draft.value.text, iconSize: draft.value.iconSize, opacityPercent: draft.value.opacityPercent, member, kind }), signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw new Error((await response.text()).trim());
   previewing.value = true; clearTimeout(previewTimer); previewTimer = setTimeout(() => { previewing.value = false; }, 8000);
-  showNotice(`${member.name} 的${kind === 'health' ? '血量' : kind === 'mana' ? '魔法值' : 'Buff / 技能'}悬浮窗已按当前坐标预览 8 秒；预览不触发声音。`);
+  showNotice(member ? `${member.name} 的浮窗预览持续 8 秒。` : '队友浮窗示例预览持续 8 秒。');
  } catch (reason) { error.value = `预览失败：${String(reason)}`; }
 }
 async function stopPreview() {
  previewing.value = false; clearTimeout(previewTimer);
  try { await fetch('/api/healer_monitor/text_preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stop: true }), signal: AbortSignal.timeout(3000) }); } catch { /* Preview expires automatically. */ }
 }
-watch(() => props.open, open => { generation++; clearInterval(timer); if (open) { void refresh(); timer = setInterval(refresh, 750); } else { templateEdit.value = null; removeTarget.value = null; if (previewing.value) void stopPreview(); } }, { immediate: true });
+watch(() => props.open, open => { generation++; clearInterval(timer); if (open) { void refresh(); timer = setInterval(refresh, 300); } else { templateEdit.value = null; removeTarget.value = null; if (previewing.value) void stopPreview(); } }, { immediate: true });
 onBeforeUnmount(() => { disposed = true; generation++; clearInterval(timer); clearTimeout(previewTimer); if (previewing.value) void stopPreview(); });
 </script>
 <style scoped>
@@ -248,8 +340,15 @@ button:disabled { opacity: .5; cursor: default; }
 .healer-candidate-list small { color: var(--ui-theme-muted); font-size: 11px; }
 fieldset { border: none; padding: 0; min-width: 0; }
 .healer-empty { color: var(--ui-theme-muted); font-size: 12px; text-align: center; margin: 14px 0; }
-.healer-empty-roster { display: grid; justify-items: center; gap: 8px; padding: 30px 12px; border: 1px dashed var(--ui-theme-border); }
-.healer-empty-roster strong { color: var(--ui-theme-text); font-size: 13px; font-weight: 500; }
 .healer-error, .healer-notice { margin: 12px 0; padding: 9px 12px; border-left: 2px solid currentColor; background: var(--ui-theme-control); font-size: 12px; line-height: 1.6; }
 .healer-error { color: #ffb4a7; }.healer-notice { color: #bcd3a0; }.healer-notice button { margin-left: 15px; }
+
+.healer-team-controls { margin-top: 12px; }
+.healer-auto-add { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; padding: 10px 0 12px; }
+.healer-auto-add .healer-help { flex-basis: 100%; margin: 0; }
+.healer-auto-add select { max-width: 230px; }
+.healer-roster-group { border-top: 1px solid var(--ui-theme-border); padding: 8px 0; }
+.healer-roster-group h3, .healer-roster-toggle { font-size: 13px; font-weight: 650; margin: 0 0 7px; }
+.healer-roster-toggle { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 3px 0; }
+.healer-roster-group h3 span, .healer-roster-toggle span { color: var(--ui-theme-muted); font-size: 11px; font-weight: 400; margin-left: 5px; }
 </style>

@@ -138,7 +138,7 @@ func TestHealerPerMemberPreviewDoesNotMutateLiveConfiguration(t *testing.T) {
 	member := normalizeHealerMember(healerMemberSelection{ID: "example", Name: "预览队友", Included: true, Overture: true}, h.settings, 0)
 	member.HealthSettings.Overlay = healerPosition{Enabled: true, X: -600, Y: 250}
 	before, _ := json.Marshal(h.settings)
-	data, _ := json.Marshal(map[string]any{"member": member, "kind": "health", "iconSize": 30, "opacityPercent": 35, "text": healerTextSettings{FontSize: 18}})
+	data, _ := json.Marshal(map[string]any{"member": member, "kind": "health", "iconSize": 30, "opacityPercent": 35, "text": healerTextSettings{FontSize: 18, X: -450, Y: 260}})
 	request := httptest.NewRequest("POST", "/api/healer_text_preview", strings.NewReader(string(data)))
 	request.RemoteAddr = "127.0.0.1:8000"
 	result := httptest.NewRecorder()
@@ -147,7 +147,7 @@ func TestHealerPerMemberPreviewDoesNotMutateLiveConfiguration(t *testing.T) {
 		t.Fatal(result.Body.String())
 	}
 	frame := h.overlaySnapshot(h.previewUntilMs - 1000)
-	if !frame.Preview || len(frame.Groups) != 1 || frame.Groups[0].Name != "预览队友" || frame.Groups[0].X != -600 || frame.FontSize != 18 || frame.OpacityPercent != 35 {
+	if !frame.Preview || len(frame.Groups) != 1 || len(frame.Groups[0].Rows) != 1 || frame.Groups[0].Rows[0].Name != "预览队友" || frame.Groups[0].X != -450 || frame.FontSize != 18 || frame.OpacityPercent != 35 {
 		t.Fatalf("draft preview incorrect: %+v", frame)
 	}
 	after, _ := json.Marshal(h.settings)

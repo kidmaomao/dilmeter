@@ -132,22 +132,23 @@
                 :key="mechanic.label ? mechanic.key : `${mechanic.key}-${mechanic.generation}`"
                 class="boss-mechanic-overlay-item"
                 :data-burst="Boolean(mechanic.label)"
-                :data-quiet="Boolean(mechanic.passiveStyle || mechanic.rocks?.length)"
+                :data-quiet="Boolean(mechanic.passiveStyle || mechanic.key === 'brontas-rocks' || mechanic.key === 'perlon-tornado')"
                 :class="mechanicAlertClass(mechanic)"
                 :style="mechanicPositionStyle(mechanic)"
                 :title="$ui(mechanic.name)"
             >
                 <BurstReminderPopup v-if="mechanic.label" :item="mechanic" :now-ms="nowMs" :translate="$ui" />
                 <BrontasGuideOverlay v-else-if="mechanic.brontasGuide" :view="mechanic.brontasGuide" :rocks="mechanic.rocks || []" :now-ms="nowMs" :preview="Boolean(mechanic.previewExpiresAtMs)" :translate="$ui" />
-                <div v-else-if="mechanic.rocks?.length" class="brontas-rock-card">
-                    <strong>二王落石 · {{ mechanic.rocks.length }} 处</strong>
-                    <div class="brontas-compass"><span v-for="clock in [12, 3, 6, 9]" :key="clock" :class="[`clock-${clock}`, { present: mechanic.rocks.some(rock => rock.clock === clock) }]">{{ clock }}{{ $ui(" 点") }}<span>{{ mechanic.rocks.some(rock => rock.clock === clock) ? '◆' : '·' }}</span></span><small>{{ $ui("地图方位") }}</small></div>
+                <div v-else-if="mechanic.key === 'brontas-rocks'" class="brontas-rock-card">
+                    <strong>{{ $ui("二王落石") }} · <template v-if="mechanic.rocks?.length">{{ mechanic.rocks.length }}{{ $ui(" 处") }}</template><template v-else>{{ $ui("等待落点") }}</template></strong>
+                    <div class="brontas-compass"><span v-for="clock in [12, 3, 6, 9]" :key="clock" :class="[`clock-${clock}`, { present: mechanic.rocks?.some(rock => rock.clock === clock) }]">{{ clock }}{{ $ui(" 点") }}<span>{{ mechanic.rocks?.some(rock => rock.clock === clock) ? '◆' : '·' }}</span></span><small>{{ $ui("地图方位") }}</small></div>
                 </div>
                 <div v-else-if="mechanic.passiveStyle" class="green-curtain-persistent" :class="`style-${mechanic.passiveStyle}`" :style="{ opacity: (mechanic.opacityPercent ?? 100) / 100 }">
                     <div v-if="mechanic.passiveStyle === 'bar'" class="curtain-track"><i :style="mechanic.timingUnknown ? { transform: 'scaleX(0)' } : mechanicProgressStyle(mechanic)" /></div>
                     <svg class="curtain-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M2 2h20v2H2z M3 5h8l-6 9 2 7H3z M13 5h8v16h-4l2-7z" /><path fill="#123322" d="M4 6h1v5H4z M19 6h1v5h-1z" /></svg>
                     <strong>{{ mechanic.timingUnknown ? '--' : mechanicRemainingText(mechanic) }}</strong>
                 </div>
+                <PerlonMechanicCard v-else-if="mechanic.key.startsWith('perlon-')" :item="mechanic" :now-ms="nowMs" />
                 <div v-else class="boss-mechanic-card">
                     <v-icon :icon="mechanic.icon" class="boss-mechanic-icon" aria-hidden="true" />
                     <strong v-if="!mechanic.hideCountdown">{{ mechanicRemainingText(mechanic) }}</strong>
@@ -178,6 +179,8 @@ import { isSpiritAwakeningSkill } from "@/skillEnergy";
 import { burstPopupDimensions } from "@/burstReminderView";
 import BurstReminderPopup from "./BurstReminderPopup.vue";
 import BrontasGuideOverlay from "./BrontasGuideOverlay.vue";
+import PerlonMechanicCard from "./PerlonMechanicCard.vue";
+import { createSkillOverlayMessageGate, subscribeNativeSkillOverlayPush } from "@/nativeSkillOverlayPush";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { loadBuffOverlaySettings, resolveOverlayDpiPercent } from "@/buffAlert";
 import { loadUiColorTheme, uiColorThemeStyle } from "@/uiColorTheme";
@@ -235,16 +238,17 @@ let aimBestPointTimer: number | undefined;
 let scheduledAimBestPointKey = "";
 let nativeClockTickListener: EventListener | undefined;
 let lastOverlayPollAtMs = 0;
-let lastMessageAt = 0;
 let stateStream: EventSource | undefined;
 let streamLastSeenAt = 0;
-let stateRevision = 0;
 let pollInFlight = false;
 let overlayDisposed = false;
+const acceptOverlayMessage = createSkillOverlayMessageGate();
+let stopNativeStatePush: (() => void) | undefined;
 let nativeStateKey = "";
 let nativeStateSequence = 0;
 
 const visibleItems = computed(() => items.value.filter((item) => {
+    if (item.previewExpiresAtMs) return item.previewExpiresAtMs > nowMs.value;
     if (item.barOnly) return false;
     if (item.energyGate) return item.alwaysVisible || item.energyReady;
     if (isProgressItem(item)) return shouldShowToahSpiritProgressOverlay(item);
@@ -253,12 +257,12 @@ const visibleItems = computed(() => items.value.filter((item) => {
     const elapsed = nowMs.value - item.readyAtMs;
     return elapsed >= 0 && elapsed < READY_ANIMATION_MS;
 }));
-const visibleAimReminder = computed(() => aimReminder.value?.active || aimReminder.value?.alwaysVisible
+const visibleAimReminder = computed(() => aimReminder.value && (!aimReminder.value.previewExpiresAtMs || aimReminder.value.previewExpiresAtMs > nowMs.value) && (aimReminder.value?.active || aimReminder.value?.alwaysVisible)
     ? aimReminder.value
     : undefined);
 const visibleMechanics = computed(() => mechanics.value.filter((item) => item.endsAtMs > nowMs.value));
-const visibleStackAlerts = computed(() => stackAlerts.value.filter((item) => item.persistent || item.endsAtMs > nowMs.value));
-const visibleEffectTimers = computed(() => effectTimers.value.filter((item) => item.enabled && (item.alwaysVisible || item.endsAtMs > nowMs.value)));
+const visibleStackAlerts = computed(() => stackAlerts.value.filter((item) => (!item.previewExpiresAtMs || item.previewExpiresAtMs > nowMs.value) && (item.persistent || item.endsAtMs > nowMs.value)));
+const visibleEffectTimers = computed(() => effectTimers.value.filter((item) => (!item.previewExpiresAtMs || item.previewExpiresAtMs > nowMs.value) && item.enabled && (item.alwaysVisible || item.endsAtMs > nowMs.value)));
 const visibleTargetHealth = computed(() => {
     const target = targetHealth.value;
     if (!target || !Number.isFinite(target.currentHealth) || !Number.isFinite(target.maximumHealth) || target.maximumHealth <= 0) {
@@ -566,13 +570,9 @@ function hideImage(event: Event) {
     (event.currentTarget as HTMLImageElement).style.display = "none";
 }
 
-function applyMessage(message: SkillCooldownOverlayMessage & {revision?:number}, fromServer = false) {
-    if (overlayDisposed || message.type !== "skill-cooldown-state") return;
-    if (fromServer && message.revision) {
-        if (message.revision <= stateRevision) return;
-        stateRevision = message.revision;
-    } else if (stateRevision || message.atMs < lastMessageAt) return;
-    lastMessageAt = message.atMs;
+function applyMessage(message: SkillCooldownOverlayMessage) {
+    if (overlayDisposed || !acceptOverlayMessage(message)) return;
+    nowMs.value = Date.now();
     items.value = Array.isArray(message.items) ? message.items : [];
     aimReminder.value = message.aimReminder?.active || message.aimReminder?.alwaysVisible
         ? message.aimReminder
@@ -625,7 +625,7 @@ async function pollState(atMs = Date.now(), force = false) {
     try {
         const response = await fetch("/api/skill_overlay/state", { cache: "no-store" });
         if (!response.ok) return;
-        applyMessage(await response.json() as SkillCooldownOverlayMessage, true);
+        applyMessage(await response.json() as SkillCooldownOverlayMessage);
     } catch {
         // The desktop host may be closing.
     } finally { pollInFlight = false; }
@@ -633,7 +633,9 @@ async function pollState(atMs = Date.now(), force = false) {
 
 function syncNativeVisibility() {
     const regularActive = overlayAppearance.enabled && (Boolean(visibleAimReminder.value) || visibleEffectTimers.value.length > 0 || visibleItems.value.length > 0 || visibleMechanics.value.length > 0 || visibleStackAlerts.value.length > 0);
-    const active = regularActive || visibleMechanics.value.some(item => (item.previewExpiresAtMs || 0) > nowMs.value) || Boolean(visibleTargetHealth.value);
+    const explicitPreview = [...visibleItems.value, ...visibleMechanics.value, ...visibleEffectTimers.value, ...visibleStackAlerts.value, ...(visibleAimReminder.value ? [visibleAimReminder.value] : [])]
+        .some(item => (item.previewExpiresAtMs || 0) > nowMs.value);
+    const active = regularActive || explicitPreview || Boolean(visibleTargetHealth.value);
     const bounds = layoutBounds.value;
     const stateKey = `${active}:${settings.iconSize}:${effectiveScalePercent.value}:${bounds.x}:${bounds.y}:${bounds.width}:${bounds.height}`;
     if (nativeStateKey === stateKey) return;
@@ -663,6 +665,7 @@ function refreshOverlayAppearance() {
 
 onMounted(() => {
     document.documentElement.classList.add("skill-overlay-page");
+    stopNativeStatePush = subscribeNativeSkillOverlayPush(window, applyMessage);
     try {
         channel = new BroadcastChannel(SKILL_COOLDOWN_CHANNEL);
         channel.onmessage = (event: MessageEvent<SkillCooldownOverlayMessage>) => {
@@ -675,7 +678,7 @@ onMounted(() => {
     stateStream = new EventSource("/api/skill_overlay/stream");
     stateStream.onmessage = event => {
         streamLastSeenAt = Date.now();
-        try { applyMessage(JSON.parse(event.data), true); } catch { /* reconnect/fallback handles invalid frames */ }
+        try { applyMessage(JSON.parse(event.data)); } catch { /* reconnect/fallback handles invalid frames */ }
     };
     stateStream.addEventListener("ping", () => { streamLastSeenAt = Date.now(); });
     stateStream.onerror = () => { streamLastSeenAt = 0; void pollState(Date.now(), true); };
@@ -699,6 +702,7 @@ onMounted(() => {
 onUnmounted(() => {
     overlayDisposed = true;
     stateStream?.close();
+    stopNativeStatePush?.();
     nativeStateKey = "false:0:0";
     const clockSequence = Math.round((performance.timeOrigin + performance.now()) * 1000);
     nativeStateSequence = Math.max(nativeStateSequence + 1, clockSequence);

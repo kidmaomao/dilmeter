@@ -19,6 +19,7 @@ type partySkillObservation struct {
 }
 
 type healerSkillRule struct {
+	FromArcana      bool        `json:"fromArcana,omitempty"`
 	SkillID         uint16      `json:"skillId"`
 	Name            string      `json:"name"`
 	CooldownSeconds float64     `json:"cooldownSeconds"`
@@ -252,6 +253,9 @@ func (runtime *nativeReminderRuntime) observePartyEvent(current event.IEvent) {
 		}
 		return
 	}
+	if skill == 59106 && action.SubSkillId > 1 {
+		return
+	}
 	if state.UsedAtMs > 0 && (atMs <= state.UsedAtMs || atMs-state.UsedAtMs < 1000 || action.CombatActionId != 0 && action.CombatActionId == state.ActionID) {
 		return
 	}
@@ -269,21 +273,24 @@ func (runtime *nativeReminderRuntime) partyCooldownSeconds(actor string, skill u
 		return 0
 	}
 	seconds := 30.0
+	if job := healerArcanaForSkill(skill); job > 0 {
+		if preset := healerArcanaPresets[job-1].skill; preset.SkillID == skill {
+			seconds = preset.CooldownSeconds
+		}
+	}
 	if rule, ok := runtime.settings.Burst.Rules[skill]; ok {
 		seconds = rule.CooldownSeconds
 	}
 	if runtime.healer != nil {
 		runtime.healer.mu.Lock()
 		defer runtime.healer.mu.Unlock()
-		for _, member := range runtime.healer.settings.Members {
-			if member.ID == actor && member.SkillSettings != nil {
-				for _, rule := range member.SkillSettings.Rules {
-					if rule.SkillID == skill {
-						if skill == 59005 {
-							return partySeconds(rule.CooldownSeconds, seconds)
-						}
-						seconds = max(seconds, rule.CooldownSeconds)
+		if settings := runtime.healer.memberSkillSettings(actor, runtime); settings != nil {
+			for _, rule := range settings.Rules {
+				if rule.SkillID == skill {
+					if skill == 59005 {
+						return partySeconds(rule.CooldownSeconds, seconds)
 					}
+					seconds = max(seconds, rule.CooldownSeconds)
 				}
 			}
 		}
@@ -371,8 +378,7 @@ func (runtime *nativeReminderRuntime) burstActors() []string {
 	}
 	if runtime.settings.Burst.IncludeTeammates && runtime.healer != nil {
 		runtime.healer.mu.Lock()
-		runtime.healer.resolveMembers(runtime)
-		for _, member := range runtime.healer.settings.Members {
+		for _, member := range runtime.healer.selectedMembers(runtime, true) {
 			if member.Included && member.ID != "" {
 				ids[member.ID] = true
 			}

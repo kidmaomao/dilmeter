@@ -8,32 +8,31 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync/atomic"
 	"time"
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcap"
-	"github.com/gopacket/gopacket/pcapgo"
 	"gitlab.com/prilus/mabidilmeter/constants"
 	"gitlab.com/prilus/mabidilmeter/lib/util"
 )
 
 type GameServerPacketReader struct {
 	// non-mutable
-	ctx             context.Context
-	packetCh        chan *GamePacket
-	clientIpCh      chan string
-	masterPayloadCh chan gamePacketPayload
-	connectionEpoch atomic.Uint64
+	ctx              context.Context
+	packetCh         chan *GamePacket
+	clientIpCh       chan string
+	masterPayloadCh  chan gamePacketPayload
+	connectionEpoch  atomic.Uint64
+	livePayloadCount atomic.Uint64
 
 	// mutable (set on OpenNic/OpenFile)
 	handle            *pcap.Handle
 	driverHandle      io.Closer
 	fd                *os.File
-	logHandle         *pcapgo.NgWriter
-	logFd             *os.File
+	captureLog        *captureLog
+	captureLogIndex   uint64
 	linkType          layers.LinkType
 	logDir            string
 	disableCaptureLog bool
@@ -140,7 +139,7 @@ func (t *GameServerPacketReader) openNicWithFilter(name string, filter string, t
 
 	payloadCh := make(chan gamePacketPayload, pcapQueueSize)
 	epoch := t.connectionEpoch.Add(1)
-	go t.readPacketLoop(handle, payloadCh, epoch)
+	go t.readPacketLoop(handle, payloadCh, epoch, t.captureLog)
 	go t.forwardPayloads(payloadCh)
 
 	return nil
@@ -162,14 +161,8 @@ func (t *GameServerPacketReader) CloseNic() {
 		}
 		t.driverHandle = nil
 	}
-	if t.logHandle != nil {
-		t.logHandle.Flush()
-		t.logHandle = nil
-	}
-	if t.logFd != nil {
-		t.logFd.Close()
-		t.logFd = nil
-	}
+	t.captureLog.close()
+	t.captureLog = nil
 }
 
 // SetClientIp updates the BPF filter to restrict capture to a specific client IP.
@@ -220,7 +213,7 @@ func (t *GameServerPacketReader) OpenFile(file string) error {
 	// Delay replay 20 seconds so a WebSocket client has time to connect.
 	time.AfterFunc(2*time.Second, func() {
 		logger.Println("start readPacketLoop", file)
-		go t.readPacketLoop(handle, payloadCh, epoch)
+		go t.readPacketLoop(handle, payloadCh, epoch, nil)
 	})
 
 	return nil
@@ -249,7 +242,7 @@ func (t *GameServerPacketReader) OpenStdin() error {
 
 	payloadCh := make(chan gamePacketPayload, pcapQueueSize)
 	epoch := t.connectionEpoch.Add(1)
-	go t.readPacketLoop(handle, payloadCh, epoch)
+	go t.readPacketLoop(handle, payloadCh, epoch, nil)
 	go t.forwardPayloads(payloadCh)
 
 	return nil
@@ -261,35 +254,6 @@ func (t *GameServerPacketReader) forwardPayloads(payloadCh <-chan gamePacketPayl
 	for p := range payloadCh {
 		t.masterPayloadCh <- p
 	}
-}
-
-func (t *GameServerPacketReader) openLog() error {
-	logDir := t.logDir
-	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-		logger.Println(err)
-		return err
-	}
-	fileName := filepath.Join(logDir, fmt.Sprintf("packet_capture_%v.pcapng", constants.SERVER_START_AT))
-	fd, err := os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-	if err != nil {
-		logger.Println(err)
-		return err
-	}
-	t.logFd = fd
-
-	linkType := t.linkType
-	if linkType == 0 {
-		linkType = layers.LinkTypeNull
-	}
-
-	handle, err := pcapgo.NewNgWriter(fd, linkType)
-	if err != nil {
-		logger.Println(err)
-		return err
-	}
-	t.logHandle = handle
-	logger.Printf("pcapng writer initialized with LinkType: %v", linkType)
-	return nil
 }
 
 func (t *GameServerPacketReader) packetLoop(payloadCh <-chan gamePacketPayload) {
@@ -392,7 +356,7 @@ func (t *GameServerPacketReader) packetLoop(payloadCh <-chan gamePacketPayload) 
 	}
 }
 
-func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- gamePacketPayload, connectionEpoch uint64) {
+func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- gamePacketPayload, connectionEpoch uint64, captureLog *captureLog) {
 	defer close(ch)
 
 	eth := layers.Ethernet{}
@@ -445,9 +409,7 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 			break
 		}
 
-		if t.logHandle != nil {
-			_ = t.logHandle.WritePacket(ci, b)
-		}
+		captureLog.write(ci, b)
 
 		if i%100 == 0 {
 			if stats, err := handle.Stats(); err == nil {
@@ -482,6 +444,10 @@ func (t *GameServerPacketReader) readPacketLoop(handle *pcap.Handle, ch chan<- g
 		for _, layer := range packetLayers {
 			if layer != layers.LayerTypeTCP || len(tcp.Payload) < 1 {
 				continue
+			}
+
+			if !t.offlineReplay {
+				t.livePayloadCount.Add(1)
 			}
 
 			// Detect client IP (destination of server→client packets).
@@ -540,6 +506,11 @@ func (t *GameServerPacketReader) PacketCh() <-chan *GamePacket {
 
 func (t *GameServerPacketReader) ClientIpCh() <-chan string {
 	return t.clientIpCh
+}
+
+// LivePayloadCount counts received TCP payloads independently of parsing and UI delivery.
+func (t *GameServerPacketReader) LivePayloadCount() uint64 {
+	return t.livePayloadCount.Load()
 }
 
 func (t *GameServerPacketReader) GetStats() (payloads, parsed, errors uint64) {

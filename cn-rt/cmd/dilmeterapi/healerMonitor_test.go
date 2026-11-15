@@ -286,8 +286,14 @@ func TestHealerTextIndependentOfSoundAndPreview(t *testing.T) {
 	}
 	h.previewText = healerTextSettings{FontSize: 48, X: 10, Y: 20, Width: 800}
 	h.previewUntilMs = 108_000
-	if settings, lines, preview := h.textSnapshot(101_000); !preview || len(lines) != 3 || lines[2].Category != "mana" || settings.FontSize != 48 {
-		t.Fatal("preview did not use draft appearance")
+	frame := h.overlaySnapshot(101_000)
+	if !frame.Preview || frame.FontSize != 48 || len(frame.Groups) != 1 || len(frame.Groups[0].Rows) != 2 {
+		t.Fatalf("preview did not use draft appearance: %+v", frame)
+	}
+	self, teammate := frame.Groups[0].Rows[0], frame.Groups[0].Rows[1]
+	if self.Key != "self" || self.Health == nil || self.Mana == nil || teammate.Health == nil ||
+		teammate.Mana != nil || teammate.Curtain == "" || len(teammate.Skills) != 1 {
+		t.Fatalf("preview did not show self mana and teammate life, curtain and skill: %+v", frame.Groups[0].Rows)
 	}
 	if _, lines, preview := h.textSnapshot(108_000); preview || len(lines) != 0 {
 		t.Fatal("preview did not expire")

@@ -17,16 +17,17 @@ import (
 	"gitlab.com/prilus/mabidilmeter/lib/event"
 )
 
-// Only server-observed HP and recipient conditions are used. Nearby players
-// are candidates, not an inferred party roster. Favorites are matched by exact
-// character name after a fresh appearance, never by a persisted entity ID.
+// Favorites are matched by exact character name after a fresh appearance.
+// Automatic selections are scoped to the observed instance.
 type healerMemberSelection struct {
+	automatic      bool
+	AppliedArcana  uint16                     `json:"appliedArcana,omitempty"`
 	Self           bool                       `json:"self,omitempty"`
 	Key            string                     `json:"key"`
 	Name           string                     `json:"name"`
 	Favorite       bool                       `json:"favorite"`
-	Mana           bool                       `json:"mana"`
-	ManaSettings   *healerHealthSettings      `json:"manaSettings"`
+	Mana           bool                       `json:"mana,omitempty"`
+	ManaSettings   *healerHealthSettings      `json:"manaSettings,omitempty"`
 	HealthSettings *healerHealthSettings      `json:"healthSettings,omitempty"`
 	SkillSettings  *healerMemberSkillSettings `json:"skillSettings"`
 	BuffSettings   *healerMemberBuffSettings  `json:"buffSettings,omitempty"`
@@ -89,11 +90,12 @@ type healerDeathLossSettings struct {
 }
 
 type healerTextSettings struct {
-	Enabled  bool `json:"enabled"`
-	FontSize int  `json:"fontSize"`
-	X        int  `json:"x"`
-	Y        int  `json:"y"`
-	Width    int  `json:"width"`
+	ScalePercent int  `json:"scalePercent"`
+	Enabled      bool `json:"enabled"`
+	FontSize     int  `json:"fontSize"`
+	X            int  `json:"x"`
+	Y            int  `json:"y"`
+	Width        int  `json:"width"`
 }
 
 // Templates hold reminder preferences only, never a bound character identity.
@@ -101,14 +103,14 @@ type healerMemberTemplate struct {
 	ID             string                     `json:"id"`
 	Name           string                     `json:"name"`
 	Health         bool                       `json:"health"`
-	Mana           bool                       `json:"mana"`
-	ManaSettings   *healerHealthSettings      `json:"manaSettings"`
 	HealthSettings *healerHealthSettings      `json:"healthSettings"`
 	SkillSettings  *healerMemberSkillSettings `json:"skillSettings"`
 	BuffSettings   *healerMemberBuffSettings  `json:"buffSettings"`
 }
 
 type healerSettings struct {
+	AutoAddInDungeon   bool                    `json:"autoAddInDungeon"`
+	AutoAddTemplateID  string                  `json:"autoAddTemplateId"`
 	Version            int                     `json:"version"`
 	IconSize           int                     `json:"iconSize"`
 	OpacityPercent     int                     `json:"opacityPercent"`
@@ -135,13 +137,21 @@ type healerBuffState struct {
 }
 
 type healerMemberState struct {
+	PartySlot     int    `json:"partySlot,omitempty"`
+	Arcana        string `json:"arcana,omitempty"`
+	Automatic     bool   `json:"automatic,omitempty"`
+	CurtainAmount *int64 `json:"curtainAmount,omitempty"`
+	showHealth    bool
+	showMana      bool
 	Key           string                     `json:"key"`
 	WaitingReason string                     `json:"waitingReason,omitempty"`
 	ID            string                     `json:"id"`
 	Name          string                     `json:"name"`
 	Active        bool                       `json:"active"`
-	ManaState     string                     `json:"manaState"`
-	ManaPercent   *float64                   `json:"manaPercent"`
+	ManaState     string                     `json:"manaState,omitempty"`
+	ManaPercent   *float64                   `json:"manaPercent,omitempty"`
+	ManaCurrent   *float64                   `json:"manaCurrent,omitempty"`
+	ManaMaximum   float64                    `json:"manaMaximum,omitempty"`
 	HealthState   string                     `json:"healthState"`
 	HealthPercent *float64                   `json:"healthPercent"`
 	Overture      healerBuffState            `json:"overture"`
@@ -183,28 +193,35 @@ type healerCard struct {
 }
 
 type healerMonitorState struct {
-	Cards     []healerCard        `json:"cards"`
-	Settings  healerSettings      `json:"settings"`
-	Members   []healerMemberState `json:"members"`
-	Alerts    []healerAlert       `json:"alerts"`
-	Capturing bool                `json:"capturing"`
-	UpdatedAt int64               `json:"updatedAt"`
+	DungeonSession   uint64                  `json:"dungeonSession"`
+	TemporaryMembers []healerMemberSelection `json:"temporaryMembers,omitempty"`
+	InDungeon        bool                    `json:"inDungeon"`
+	Cards            []healerCard            `json:"cards"`
+	Settings         healerSettings          `json:"settings"`
+	Members          []healerMemberState     `json:"members"`
+	Alerts           []healerAlert           `json:"alerts"`
+	Capturing        bool                    `json:"capturing"`
+	UpdatedAt        int64                   `json:"updatedAt"`
 }
 
 type healerObservation struct {
-	lastDeathMs    int64
-	removals       map[uint32]healerBuffRemoval
-	manaAtMs       int64
-	manaCurrent    float64
-	manaBase       float64
-	manaBonus      float64
-	manaBaseKnown  bool
-	manaBonusKnown bool
-	healthBonus    float64
-	healthAtMs     int64
-	maximumKnown   bool
-	visible        bool
-	buffs          map[uint32]bool
+	appearedAt          int64
+	regionID            uint32
+	curtain             healerCurtain
+	lastDeathMs         int64
+	removals            map[uint32]healerBuffRemoval
+	manaAtMs            int64
+	manaCurrent         float64
+	manaReportedMaximum float64
+	manaBase            float64
+	manaBonus           float64
+	manaBaseKnown       bool
+	manaBonusKnown      bool
+	healthBonus         float64
+	healthAtMs          int64
+	maximumKnown        bool
+	visible             bool
+	buffs               map[uint32]bool
 }
 
 type healerBuffRemoval struct {
@@ -229,6 +246,13 @@ type healerMonitor struct {
 	lastSoundMs           int64
 	lastEventMs           int64
 	lastTickMs            int64
+	regionID              uint32
+	inDungeon             bool
+	localReliable         bool
+	party                 event.EventPartyRoster
+	dungeonSession        uint64
+	instanceMembers       map[string]healerInstanceMember
+	arcana                map[string]healerArcanaObservation
 	settingsPath          string
 	previewUntilMs        int64
 	previewText           healerTextSettings
@@ -238,9 +262,9 @@ type healerMonitor struct {
 }
 
 func defaultHealerSettings() healerSettings {
-	return healerSettings{Version: 2, IconSize: 30, OpacityPercent: 100, Templates: []healerMemberTemplate{}, LowHealthPercent: 40, BuffWarningSeconds: 10, SoundEnabled: true, Volume: 70, Members: []healerMemberSelection{}, Buffs: []healerBuffRule{},
+	return healerSettings{Version: 3, IconSize: 20, OpacityPercent: 100, Templates: []healerMemberTemplate{}, LowHealthPercent: 40, BuffWarningSeconds: 10, SoundEnabled: true, Volume: 70, Members: []healerMemberSelection{}, Buffs: []healerBuffRule{},
 		HealthSound: healerSound{Kind: "healer-health"}, MusicSound: healerSound{Kind: "healer-music"}, BuffSound: healerSound{Kind: "healer-buff"},
-		Text: healerTextSettings{Enabled: true, FontSize: 16, X: 600, Y: 180, Width: 660}}
+		Text: healerTextSettings{Enabled: true, FontSize: 16, ScalePercent: 100, X: 600, Y: 180, Width: 660}}
 }
 
 func normalizeHealerSound(sound healerSound, fallback string) healerSound {
@@ -264,6 +288,7 @@ func normalizeHealerSound(sound healerSound, fallback string) healerSound {
 }
 
 func normalizeHealerText(s healerTextSettings) healerTextSettings {
+	s.ScalePercent = clampNativeReminderInt(s.ScalePercent, 50, 200, 100)
 	s.FontSize = clampNativeReminderInt(s.FontSize, 12, 72, 24)
 	s.Width = clampNativeReminderInt(s.Width, 280, 1600, 660)
 	s.X = clampNativeReminderInt(s.X, -32000, 32000, 600)
@@ -319,8 +344,11 @@ func healerMusicRule(configured *healerBuffRule, ccID uint32, name string, setti
 }
 
 func normalizeHealerSettings(s healerSettings) healerSettings {
-	s.Version = 2
-	s.IconSize = clampNativeReminderInt(s.IconSize, 16, 80, 30)
+	if s.Version <= 2 && s.IconSize == 30 {
+		s.IconSize = 20
+	}
+	s.Version = 3
+	s.IconSize = clampNativeReminderInt(s.IconSize, 16, 80, 20)
 	s.OpacityPercent = clampNativeReminderInt(s.OpacityPercent, 20, 100, 100)
 	s.LowHealthPercent = clampNativeReminderInt(s.LowHealthPercent, 5, 95, 40)
 	s.BuffWarningSeconds = clampNativeReminderInt(s.BuffWarningSeconds, 0, 60, 10)
@@ -379,6 +407,7 @@ func normalizeHealerSettings(s healerSettings) healerSettings {
 	}
 	s.Members = members
 	s.Templates = normalizeHealerTemplates(s.Templates, s)
+	s.AutoAddTemplateID = strings.TrimSpace(s.AutoAddTemplateID)
 	return s
 }
 
@@ -411,16 +440,68 @@ func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRun
 	}
 	switch v := current.(type) {
 	case *event.EventLocalEntity:
+		h.localReliable = v.Reliable && v.Id != ""
+		if v.Reset || v.Id != runtime.localID {
+			h.regionID, h.inDungeon = 0, false
+			h.party = event.EventPartyRoster{}
+			h.resetDungeonMembers()
+			clear(h.arcana)
+		}
 		if v.Reset {
 			clear(h.observed)
 			clear(h.alerts)
 			h.settings.Members = healerFavoriteMembers(h.settings.Members)
 		}
+	case *event.EventPartyRoster:
+		if v.Id == runtime.localID && h.localReliable {
+			old := h.party
+			h.party = *v
+			if len(old.Members) > 0 && (len(v.Members) == 0 || old.PartyID != "" && v.PartyID != "" && old.PartyID != v.PartyID) {
+				h.resetDungeonMembers()
+			} else {
+				for _, member := range old.Members {
+					if h.partyMember(member.ID).ID == "" {
+						delete(h.instanceMembers, member.ID)
+					}
+				}
+			}
+		}
+	case *event.EventLocalRegion:
+		if v.Id == runtime.localID {
+			if !v.Dungeon && len(h.party.Members) == 0 && (h.inDungeon || v.RegionID != h.regionID) {
+				h.resetDungeonMembers()
+			}
+			if v.RegionID != h.regionID {
+				for _, observed := range h.observed {
+					// A destination's entity snapshots can precede the player's
+					// warp confirmation within the same map-load sequence.
+					if observed.regionID == v.RegionID && (h.regionID == 0 || observed.appearedAt >= v.At-2) {
+						continue
+					}
+					observed.regionID = 0
+					observed.curtain = healerCurtain{}
+				}
+			}
+			h.regionID, h.inDungeon = v.RegionID, v.Dungeon
+		}
 	case *event.EventEntityAppear:
-		h.observation(v.Id).visible = true
+		observed := h.observation(v.Id)
+		observed.visible = true
+		observed.regionID = v.RegionID
+		observed.appearedAt = v.At
 	case *event.EventEntityDisappear:
 		id := v.Id
+		if id == runtime.localID {
+			h.regionID, h.inDungeon = 0, false
+		}
+		previous := h.observed[id]
 		delete(h.observed, id)
+		if id == runtime.localID && previous != nil && previous.manaBaseKnown {
+			// Keep the verified base when the same player moves between maps.
+			// The current MP and equipment modifier need a fresh sample.
+			observed := h.observation(id)
+			observed.manaBase, observed.manaBaseKnown = previous.manaBase, true
+		}
 		for key := range h.alerts {
 			if strings.HasPrefix(key, id+":") {
 				delete(h.alerts, key)
@@ -431,6 +512,7 @@ func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRun
 		// removal packets can precede/follow duplicate death notifications.
 		// Fresh HP must still confirm revival before health alerts resume.
 		if observed := h.observed[v.Id]; observed != nil {
+			observed.curtain = healerCurtain{}
 			observed.healthAtMs = 0
 			observed.manaAtMs = 0
 			observed.lastDeathMs = v.At * 1000
@@ -445,27 +527,48 @@ func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRun
 		delete(h.alerts, v.Id+":health")
 		delete(h.alerts, v.Id+":mana")
 	case *event.EventStatUpdate:
+		atMs := nativeEventAtMs(v.At, v.AtMs)
+		observed := h.observation(v.Id)
+		isLocal := v.Id != "" && v.Id == runtime.localID
 		for _, stat := range v.Stats {
 			if math.IsNaN(stat.Value) || math.IsInf(stat.Value, 0) {
 				continue
 			}
-			h.observation(v.Id).observeManaStat(stat, v.At*1000)
+			if isLocal {
+				observed.observeManaStat(stat, atMs)
+			}
 			if stat.StatId == 31 {
-				h.observation(v.Id).healthBonus = stat.Value
+				observed.healthBonus = stat.Value
 			}
 			if stat.StatId == 28 {
-				h.observation(v.Id).healthAtMs = v.At * 1000
+				observed.healthAtMs = atMs
 			}
 			if stat.StatId == 30 {
-				h.observation(v.Id).maximumKnown = stat.Value > 0
+				observed.maximumKnown = stat.Value > 0
 			}
 		}
+		if isLocal {
+			observed.observeManaMaximum(v.ManaMaximum)
+		}
 	case *event.EventCharacterConditionEnable:
-		h.observation(v.Id).buffs[v.CCId] = true
-		delete(h.observation(v.Id).removals, v.CCId)
+		observed := h.observation(v.Id)
+		observed.buffs[v.CCId] = true
+		delete(observed.removals, v.CCId)
+		if v.CCId == lifeCurtainConditionID {
+			if curtain, ok := readHealerCurtain(v); ok && curtain.observedAt >= observed.curtain.observedAt {
+				observed.curtain = curtain
+			}
+		}
 	case *event.EventCharacterConditionDisable:
 		observed := h.observation(v.Id)
 		observed.buffs[v.CCId] = true
+		if v.CCId == lifeCurtainConditionID {
+			atMs := nativeEventAtMs(v.At, v.AtMs)
+			if v.At < observed.curtain.observedAt/1000 || v.AtMs > 0 && atMs < observed.curtain.observedAt {
+				break
+			}
+			observed.curtain = healerCurtain{observedAt: max(atMs, observed.curtain.observedAt)}
+		}
 		if entity := runtime.entities[v.Id]; entity != nil {
 			if condition, exists := entity.Conditions[v.CCId]; exists {
 				// Match the runtime's stale-removal guard after a real refresh.
@@ -477,6 +580,7 @@ func (h *healerMonitor) onEvent(current event.IEvent, runtime *nativeReminderRun
 			}
 		}
 	}
+	h.observeArcana(current, runtime)
 }
 
 func healerBuff(entity *nativeReminderEntity, observed *healerObservation, rule healerBuffRule, nowMs int64) healerBuffState {
@@ -527,14 +631,13 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	nowMs := now.UnixMilli()
-	if nowMs-h.lastTickMs < 250 {
+	if nowMs-h.lastTickMs < 100 {
 		return
 	}
 	h.lastTickMs = nowMs
 	streamCapturing := capturing
 	capturing = capturing && h.lastEventMs > 0 && nowMs-h.lastEventMs <= 30_000
-	state := healerMonitorState{Capturing: capturing, UpdatedAt: nowMs, Members: []healerMemberState{}, Alerts: []healerAlert{}}
-	h.resolveMembers(runtime)
+	state := healerMonitorState{DungeonSession: h.dungeonSession, InDungeon: streamCapturing && h.inDungeon, Capturing: capturing, UpdatedAt: nowMs, Members: []healerMemberState{}, Alerts: []healerAlert{}}
 	type entry struct {
 		id      string
 		choice  healerMemberSelection
@@ -542,10 +645,29 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 	}
 	entries := []entry{}
 	selected := map[string]bool{}
-	for _, choice := range h.settings.Members {
+	for _, choice := range h.selectedMembers(runtime, streamCapturing) {
 		entries = append(entries, entry{id: choice.ID, choice: choice, watched: true})
 		if choice.ID != "" {
 			selected[choice.ID] = true
+		}
+	}
+	local := runtime.entities[runtime.localID]
+	selfPinned := streamCapturing && runtime.localID != "" && (h.partyMember(runtime.localID).ID != "" ||
+		h.localReliable && local != nil && local.Known && local.Name != "" && local.OwnerID == "" && battleRecordPCRace(local.RaceID))
+	if !selected[runtime.localID] && runtime.localID != "" {
+		observed := h.observed[runtime.localID]
+		hasCurtain := streamCapturing && local != nil && !local.Defeated && observed != nil && observed.visible && observed.curtain.remaining(nowMs) != nil
+		if selfPinned || hasCurtain {
+			entries = append(entries, entry{id: runtime.localID, choice: healerMemberSelection{ID: runtime.localID, Self: true}})
+			selected[runtime.localID] = true
+		}
+	}
+	if streamCapturing {
+		for _, player := range h.party.Members {
+			if !selected[player.ID] {
+				entries = append(entries, entry{id: player.ID, choice: healerMemberSelection{ID: player.ID, Name: player.Name}})
+				selected[player.ID] = true
+			}
 		}
 	}
 	candidates := []string{}
@@ -586,24 +708,45 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 	for index, entry := range entries {
 		id := entry.id
 		choice := normalizeHealerMember(entry.choice, h.settings, index)
+		if choice.automatic {
+			if h.instanceMembers == nil {
+				h.instanceMembers = make(map[string]healerInstanceMember)
+			}
+			if h.instanceMembers[id].name != choice.Name {
+				h.instanceMembers[id] = healerInstanceMember{name: choice.Name}
+			}
+			state.TemporaryMembers = append(state.TemporaryMembers, choice)
+		}
 		health, buffSettings := choice.HealthSettings, choice.BuffSettings
 		rules := buffSettings.Rules
 		entity := runtime.entities[id]
 		observation := h.observed[id]
-		member := healerMemberState{Key: choice.Key, ID: id, Name: choice.Name, HealthState: "unknown", ManaState: "unknown", Overture: healerBuffState{State: "unknown"}, Vivace: healerBuffState{State: "unknown"}, Buffs: map[uint32]healerBuffState{}, Skills: map[uint16]healerBuffState{}}
+		member := healerMemberState{Key: choice.Key, ID: id, Name: choice.Name, Automatic: choice.automatic, HealthState: "unknown", Overture: healerBuffState{State: "unknown"}, Vivace: healerBuffState{State: "unknown"}, Buffs: map[uint32]healerBuffState{}, Skills: map[uint16]healerBuffState{}}
 		available := entity != nil && observation != nil && observation.visible && capturing
 		skillAvailable := entity != nil && observation != nil && observation.visible && streamCapturing
-		skillAlive := skillAvailable && healerEntityActive(entity, observation)
+		skillAlive := skillAvailable && !entity.Defeated && healerEntityActive(entity, observation)
 		member.Active = available && healerEntityActive(entity, observation)
-		if (member.Name == "" || choice.Self) && entity != nil {
+		player := event.PartyMember{}
+		if streamCapturing {
+			player = h.partyMember(id)
+			member.PartySlot = player.Slot
+			if player.Name != "" {
+				member.Name = player.Name
+			}
+		}
+		if member.PartySlot == 0 && (member.Name == "" || choice.Self) && entity != nil && entity.Name != "" {
 			member.Name = entity.Name
+		}
+		pinned := member.PartySlot > 0 || choice.Self && selfPinned
+		member.showHealth = pinned && (choice.Self || health.Overlay.Enabled)
+		if job := h.memberArcana(id, member.Name); job != 0 {
+			member.Arcana = healerArcanaPresets[job-1].name
 		}
 		for _, rule := range rules {
 			member.Buffs[rule.CCID] = healerBuffState{State: "unknown"}
 		}
 		if !member.Active {
 			member.HealthState = "unavailable"
-			member.ManaState = "unavailable"
 			if !capturing {
 				member.WaitingReason = "等待实时数据；开启软件后请让队友切换一次地图"
 			} else if available {
@@ -625,11 +768,37 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 				}
 			}
 		}
-		if choice.Self && !member.Active {
-			member.WaitingReason = "等待自身角色数据；请登录或切换地图完成识别"
+		// The party packet provides an initial life percentage before full stats.
+		// Low-resource alerts still depend on the actual recent stat sample.
+		if member.HealthPercent == nil && player.HealthAtMs > 0 && nowMs-player.HealthAtMs <= 30_000 {
+			percent := float64(player.HealthPercent)
+			member.HealthPercent = &percent
 		}
-		if member.Active {
-			member.ManaState, member.ManaPercent = h.manaState(id, observation, choice.ManaSettings, nowMs)
+		if skillAlive && entry.watched {
+			member.showHealth = member.showHealth || health.Overlay.Enabled && (choice.Health || member.HealthPercent != nil)
+		}
+		if choice.Self {
+			mana := choice.ManaSettings
+			member.showMana = (pinned || skillAlive) && entry.watched && choice.Mana && mana.Overlay.Enabled
+			member.ManaState = "unknown"
+			if !member.Active {
+				member.WaitingReason = "等待自身角色数据；请登录或切换地图完成识别"
+				member.ManaState = "unavailable"
+			}
+			if skillAlive {
+				member.ManaState, member.ManaPercent = h.manaState(id, observation, mana, nowMs)
+				if observation.manaAtMs > 0 {
+					current := observation.manaCurrent
+					member.ManaCurrent = &current
+					member.ManaMaximum = observation.observedManaMaximum()
+				}
+			}
+		}
+		// A timed absorption pool may still be active while the game is idle
+		// or before the first health/mana sample for this player.
+		if streamCapturing && observation != nil && (observation.visible || pinned) &&
+			(entry.watched || pinned || choice.Self) && (entity == nil || !entity.Defeated) {
+			member.CurtainAmount = observation.curtain.remaining(nowMs)
 		}
 		// A visible fallen teammate can lose music before its countdown ends.
 		// Evaluate confirmed Buff changes independently of living/health state.
@@ -731,7 +900,7 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 			if !mana.SoundEnabled {
 				sound = healerSound{Kind: "none"}
 			}
-			alert := healerAlert{Key: id + ":mana", Name: member.Name, Message: fmt.Sprintf("魔法值≤%d%%（当前 %.0f%%）", mana.Threshold, *member.ManaPercent), Category: "mana", Overlay: mana.Overlay.Enabled, Flash: true, Title: fmt.Sprintf("魔法值≤%d%%", mana.Threshold), Value: fmt.Sprintf("%.0f%%", *member.ManaPercent), sound: sound, soundDue: true, repeatCount: mana.RepeatCount, repeatIntervalSeconds: mana.RepeatIntervalSeconds}
+			alert := healerAlert{Key: id + ":mana", Name: member.Name, Message: fmt.Sprintf("魔法值≤%d%%（当前 %.0f%%）", mana.Threshold, *member.ManaPercent), Category: "mana", Overlay: mana.Overlay.Enabled, Flash: true, Title: fmt.Sprintf("魔法值≤%d%%", mana.Threshold), Value: healerManaPercentText(*member.ManaPercent), sound: sound, soundDue: true, repeatCount: mana.RepeatCount, repeatIntervalSeconds: mana.RepeatIntervalSeconds}
 			if addAlert(alert, 500) && mana.Overlay.Enabled {
 				state.Cards = append(state.Cards, healerCard{Key: alert.Key, MemberKey: choice.Key, Name: member.Name, Title: alert.Title, Value: alert.Value, Category: "mana", State: "low", Flash: true, X: mana.Overlay.X, Y: mana.Overlay.Y})
 			}
@@ -869,12 +1038,21 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 		defer h.mu.Unlock()
 		state := h.state
 		state.Settings = h.settings
+		if state.DungeonSession != h.dungeonSession || !h.settings.AutoAddInDungeon || !h.inDungeon && len(h.party.Members) == 0 {
+			state.TemporaryMembers = nil
+		}
+		state.DungeonSession = h.dungeonSession
+		state.InDungeon = state.InDungeon && h.inDungeon
 		_ = json.NewEncoder(w).Encode(state)
 	case http.MethodPut:
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-		settings := defaultHealerSettings()
+		request := struct {
+			healerSettings
+			DungeonSession   uint64                  `json:"dungeonSession"`
+			TemporaryMembers []healerMemberSelection `json:"temporaryMembers"`
+		}{healerSettings: defaultHealerSettings()}
 		decoder := json.NewDecoder(r.Body)
-		if err := decoder.Decode(&settings); err != nil {
+		if err := decoder.Decode(&request); err != nil {
 			http.Error(w, "invalid healer settings", http.StatusBadRequest)
 			return
 		}
@@ -882,27 +1060,33 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid trailing data", http.StatusBadRequest)
 			return
 		}
-		settings = normalizeHealerSettings(settings)
+		settings := normalizeHealerSettings(request.healerSettings)
+		if settings.AutoAddInDungeon && settings.automaticTemplate() == nil {
+			http.Error(w, "请为自动添加的队友选择一个通用模板", http.StatusBadRequest)
+			return
+		}
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		overrides := make(map[string]healerInstanceMember)
 		sounds := []healerSound{}
-		for _, member := range settings.Members {
-			sounds = append(sounds, member.HealthSettings.Sound, member.ManaSettings.Sound)
-			for _, rule := range member.SkillSettings.Rules {
-				sounds = append(sounds, rule.Sound)
-			}
-			for _, rule := range member.BuffSettings.Rules {
-				sounds = append(sounds, *rule.Sound)
-				sounds = append(sounds, rule.DeathLoss.Sound)
+		if request.DungeonSession == h.dungeonSession && h.settings.AutoAddInDungeon && settings.AutoAddInDungeon {
+			for _, member := range request.TemporaryMembers[:min(32, len(request.TemporaryMembers))] {
+				known := h.instanceMembers[member.ID]
+				if known.name == "" || known.name != member.Name {
+					continue
+				}
+				member.automatic, member.Included, member.Self, member.Favorite = true, true, false, false
+				member = normalizeHealerMember(member, settings, len(settings.Members))
+				known.override = &member
+				overrides[member.ID] = known
+				sounds = appendHealerSounds(sounds, member.HealthSettings, nil, member.BuffSettings, member.SkillSettings)
 			}
 		}
+		for _, member := range settings.Members {
+			sounds = appendHealerSounds(sounds, member.HealthSettings, member.ManaSettings, member.BuffSettings, member.SkillSettings)
+		}
 		for _, template := range settings.Templates {
-			sounds = append(sounds, template.HealthSettings.Sound, template.ManaSettings.Sound)
-			for _, rule := range template.SkillSettings.Rules {
-				sounds = append(sounds, rule.Sound)
-			}
-			for _, rule := range template.BuffSettings.Rules {
-				sounds = append(sounds, *rule.Sound)
-				sounds = append(sounds, rule.DeathLoss.Sound)
-			}
+			sounds = appendHealerSounds(sounds, template.HealthSettings, nil, template.BuffSettings, template.SkillSettings)
 		}
 		for _, sound := range sounds {
 			if sound.Kind == "custom" {
@@ -912,8 +1096,6 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		h.mu.Lock()
-		defer h.mu.Unlock()
 		for index := range settings.Members {
 			member := &settings.Members[index]
 			if member.Name == "" {
@@ -941,12 +1123,32 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.settings = settings
+		for id, member := range overrides {
+			h.instanceMembers[id] = member
+		}
 		h.lastTickMs = 0
+		if len(request.TemporaryMembers) > 0 && request.DungeonSession != h.dungeonSession {
+			w.Header().Set("X-Dilmeter-Dungeon-Changed", "1")
+		}
 		_ = json.NewEncoder(w).Encode(settings)
 	default:
 		w.Header().Set("Allow", "GET, PUT")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func appendHealerSounds(sounds []healerSound, health, mana *healerHealthSettings, buffs *healerMemberBuffSettings, skills *healerMemberSkillSettings) []healerSound {
+	sounds = append(sounds, health.Sound)
+	if mana != nil {
+		sounds = append(sounds, mana.Sound)
+	}
+	for _, rule := range skills.Rules {
+		sounds = append(sounds, rule.Sound)
+	}
+	for _, rule := range buffs.Rules {
+		sounds = append(sounds, *rule.Sound, rule.DeathLoss.Sound)
+	}
+	return sounds
 }
 
 func healerSettingsPath() string { return filepath.Join(appDataDir(), "healer-monitor.json") }

@@ -7,9 +7,34 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
+
+	"gitlab.com/prilus/mabidilmeter/constants"
 )
+
+func TestLogCleanupProtectsActiveReconnectSegments(t *testing.T) {
+	dir := t.TempDir()
+	for name := range currentActiveLogNames() {
+		if err := os.WriteFile(filepath.Join(dir, name), nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	segment := "packet_capture_" + strconv.FormatInt(constants.SERVER_START_AT, 10) + "_001.pcapng"
+	if err := os.WriteFile(filepath.Join(dir, segment), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	files, err := scanManagedLogFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if !file.Active {
+			t.Errorf("active session log eligible for cleanup: %s", file.Name)
+		}
+	}
+}
 
 func TestScanManagedLogFilesOnlyIncludesKnownDirectRegularFiles(t *testing.T) {
 	dir := t.TempDir()

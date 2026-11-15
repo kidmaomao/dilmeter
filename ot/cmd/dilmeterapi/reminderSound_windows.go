@@ -19,6 +19,9 @@ func queueNativeReminderSound(request nativeReminderSoundRequest) bool {
 		return false
 	}
 	request.EnqueuedAtMs = time.Now().UnixMilli()
+	if request.Tornado {
+		return enqueueTornadoSound(request, false)
+	}
 	queue := nativeReminderSoundQueue
 	if request.Priority {
 		queue = nativeBossSoundQueue

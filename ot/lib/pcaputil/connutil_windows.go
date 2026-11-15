@@ -372,29 +372,12 @@ func HasGameConnection() bool {
 // HasGameConnectionWithMode also recognizes Client.exe proxy connections and
 // accelerator-owned connections to the configured game server.
 func HasGameConnectionWithMode(acceleratorMode bool) bool {
-	rows, err := getTCPRows()
+	status, err := CheckCaptureConnections(acceleratorMode)
 	if err != nil {
+		logger.Println("game connection check failed:", err)
 		return false
 	}
-
-	for _, row := range rows {
-		if row.State != 5 { // TCP_ESTABLISHED
-			continue
-		}
-		name, err := processName(row.OwningPID)
-		remoteIP := ipv4FromDWORD(row.RemoteAddr)
-		remotePort := fmt.Sprintf("%d", portFromDWORD(row.RemotePort))
-		isClient := err == nil && strings.EqualFold(name, "Client.exe")
-		isConfiguredServer := constants.MatchesConfiguredGameServer(remoteIP.String(), remotePort)
-		if isClient && isConfiguredServer {
-			return true
-		}
-		if acceleratorMode && (isClient || isConfiguredServer) {
-			return true
-		}
-	}
-
-	return false
+	return status.GameConnected
 }
 
 // HasActiveCaptureConnection reports whether the exact TCP flow selected by
@@ -403,34 +386,12 @@ func HasGameConnectionWithMode(acceleratorMode bool) bool {
 // current BPF filter remains pinned to the old port and would otherwise keep
 // the UI in a misleading "capturing" state forever.
 func HasActiveCaptureConnection() bool {
-	serverIP, serverPort, localPort, selected := constants.ActiveConnection()
-	if !selected {
-		// Relaxed/alternate backends may not have selected an exact flow.
-		return true
-	}
-
-	rows, err := getTCPRows()
+	status, err := CheckCaptureConnections(false)
 	if err != nil {
-		// A transient Windows table-query failure must not tear down a healthy
-		// capture; the next status poll will try again.
+		logger.Println("active capture connection check failed:", err)
 		return true
 	}
-	for _, row := range rows {
-		if row.State != 5 { // TCP_ESTABLISHED
-			continue
-		}
-		if ipv4FromDWORD(row.RemoteAddr).String() != serverIP {
-			continue
-		}
-		if fmt.Sprintf("%d", portFromDWORD(row.RemotePort)) != serverPort {
-			continue
-		}
-		if fmt.Sprintf("%d", portFromDWORD(row.LocalPort)) != localPort {
-			continue
-		}
-		return true
-	}
-	return false
+	return status.ActiveConnected
 }
 
 type captureDevice struct {
@@ -529,14 +490,14 @@ func testNicForPackets(ctx context.Context, nicName string, filter string) bool 
 func processName(pid uint32) (string, error) {
 	h, err := windows.OpenProcess(processQueryLimitedInf, false, pid)
 	if err != nil {
-		return "", err
+		return "", windowsCallError(fmt.Sprintf("OpenProcess(pid=%d)", pid), err)
 	}
 	defer windows.CloseHandle(h)
 
-	buf := make([]uint16, windows.MAX_PATH)
+	buf := make([]uint16, 32768)
 	size := uint32(len(buf))
 	if err := windows.QueryFullProcessImageName(h, 0, &buf[0], &size); err != nil {
-		return "", err
+		return "", windowsCallError(fmt.Sprintf("QueryFullProcessImageName(pid=%d)", pid), err)
 	}
 
 	full := windows.UTF16ToString(buf[:size])
@@ -591,21 +552,53 @@ func getInterfaceNicMap() map[string]string {
 }
 
 func getTCPRows() ([]mibTCPRowOwnerPID, error) {
+	return readTCPRows(getExtendedTcpTable)
+}
+
+func readTCPRows(query func(*byte, *uint32, bool, uint32, uint32, uint32) error) ([]mibTCPRowOwnerPID, error) {
 	var size uint32
-	_ = getExtendedTcpTable(nil, &size, false, afInet, tcpTableOwnerPIDAll, 0)
-	if size == 0 {
-		return nil, fmt.Errorf("empty table size")
+	var buf []byte
+	for attempt := 1; attempt <= 5; attempt++ {
+		var first *byte
+		if len(buf) > 0 {
+			first = &buf[0]
+		}
+		err := query(first, &size, false, afInet, tcpTableOwnerPIDAll, 0)
+		if errors.Is(err, windows.ERROR_INSUFFICIENT_BUFFER) {
+			if attempt > 1 {
+				logger.Printf("GetExtendedTcpTable buffer grew: attempt=%d allocated=%d required=%d win32=122; retrying", attempt, len(buf), size)
+			}
+			if size == 0 || size > 64*1024*1024 {
+				return nil, fmt.Errorf("GetExtendedTcpTable returned invalid size=%d attempt=%d", size, attempt)
+			}
+			if attempt == 5 {
+				return nil, windowsCallError(fmt.Sprintf("GetExtendedTcpTable still growing after %d attempts (size=%d)", attempt, size), err)
+			}
+			// Other applications can add connections between sizing and reading.
+			// Leave room for 64 additional rows and retry if it grows again.
+			size += 64 * uint32(unsafe.Sizeof(mibTCPRowOwnerPID{}))
+			buf = make([]byte, size)
+			continue
+		}
+		if err != nil {
+			return nil, windowsCallError(fmt.Sprintf("GetExtendedTcpTable attempt=%d buffer=%d required=%d", attempt, len(buf), size), err)
+		}
+		if attempt > 2 {
+			logger.Printf("GetExtendedTcpTable recovered after %d attempts", attempt)
+		}
+		break
 	}
 
-	buf := make([]byte, size)
-	if err := getExtendedTcpTable(&buf[0], &size, false, afInet, tcpTableOwnerPIDAll, 0); err != nil {
-		return nil, err
+	if len(buf) < 4 || size < 4 || uint64(size) > uint64(len(buf)) {
+		return nil, fmt.Errorf("GetExtendedTcpTable returned invalid table: buffer=%d size=%d", len(buf), size)
 	}
-
 	table := (*mibTCPTableOwnerPID)(unsafe.Pointer(&buf[0]))
+	rowSize := unsafe.Sizeof(table.Table[0])
+	if uint64(unsafe.Offsetof(table.Table))+uint64(table.NumEntries)*uint64(rowSize) > uint64(size) {
+		return nil, fmt.Errorf("GetExtendedTcpTable returned truncated table: entries=%d size=%d", table.NumEntries, size)
+	}
 	rows := make([]mibTCPRowOwnerPID, 0, table.NumEntries)
 	first := unsafe.Pointer(&table.Table[0])
-	rowSize := unsafe.Sizeof(table.Table[0])
 
 	for i := uint32(0); i < table.NumEntries; i++ {
 		row := *(*mibTCPRowOwnerPID)(unsafe.Pointer(uintptr(first) + uintptr(i)*rowSize))

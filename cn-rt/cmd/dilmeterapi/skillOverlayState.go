@@ -12,9 +12,11 @@ const emptySkillOverlayState = `{"type":"skill-state","at":0,"items":[]}`
 
 var skillOverlayState = struct {
 	sync.RWMutex
-	data          []byte
 	revision      uint64
+	data          []byte
 	listeners     map[chan []byte]bool
+	liveData      []byte
+	previews      map[string]reminderPreviewState
 	burstPreview  *nativeBossMechanicOverlayItem
 	bossPreviews  map[string]nativeBossMechanicOverlayItem
 	healthPreview *nativeTargetHealthOverlayItem
@@ -33,14 +35,8 @@ func setSkillOverlayStateAt(data []byte, nowMs int64) bool {
 		return false
 	}
 	skillOverlayState.Lock()
-	message = mergeBurstPreviewLocked(message, nowMs)
-	message = mergeBossMechanicPreviewsLocked(message, nowMs)
-	message = mergeTargetHealthPreviewLocked(message, nowMs)
-	skillOverlayState.revision++
-	message.Revision = skillOverlayState.revision
-	data, _ = json.Marshal(message)
-	skillOverlayState.data = append(skillOverlayState.data[:0], data...)
-	publishSkillOverlaySnapshotLocked(data)
+	skillOverlayState.liveData = append(skillOverlayState.liveData[:0], data...)
+	message = composeSkillOverlayStateLocked(nowMs)
 	skillOverlayState.Unlock()
 	setNativeSkillOverlayActive(nativeSkillOverlayMessageVisible(message, nowMs))
 	refreshWebViewReminderHitRegions()
@@ -48,6 +44,24 @@ func setSkillOverlayStateAt(data []byte, nowMs int64) bool {
 }
 
 func nativeSkillOverlayMessageVisible(message nativeSkillOverlayMessage, nowMs int64) bool {
+	for _, item := range message.Items {
+		if item.PreviewExpiresAtMs > nowMs {
+			return true
+		}
+	}
+	if message.AimReminder != nil && message.AimReminder.PreviewExpiresAtMs > nowMs {
+		return true
+	}
+	for _, item := range message.EffectTimers {
+		if item.PreviewExpiresAtMs > nowMs {
+			return true
+		}
+	}
+	for _, item := range message.StackAlerts {
+		if item.PreviewExpiresAtMs > nowMs {
+			return true
+		}
+	}
 	for _, item := range message.Mechanics {
 		if item.PreviewExpiresAtMs > nowMs {
 			return true
@@ -60,11 +74,11 @@ func nativeSkillOverlayMessageVisible(message nativeSkillOverlayMessage, nowMs i
 	if !message.Settings.OverlayEnabled && message.Settings.Opacity != 0 {
 		return false
 	}
-	if message.AimReminder != nil && (message.AimReminder.Active || message.AimReminder.AlwaysVisible) {
+	if message.AimReminder != nil && (message.AimReminder.PreviewExpiresAtMs == 0 || message.AimReminder.PreviewExpiresAtMs > nowMs) && (message.AimReminder.Active || message.AimReminder.AlwaysVisible) {
 		return true
 	}
 	for _, item := range message.EffectTimers {
-		if item.Enabled && (item.AlwaysVisible || item.EndsAtMs > nowMs) {
+		if (item.PreviewExpiresAtMs == 0 || item.PreviewExpiresAtMs > nowMs) && item.Enabled && (item.AlwaysVisible || item.EndsAtMs > nowMs) {
 			return true
 		}
 	}
@@ -74,28 +88,12 @@ func nativeSkillOverlayMessageVisible(message nativeSkillOverlayMessage, nowMs i
 		}
 	}
 	for _, item := range message.StackAlerts {
-		if item.Persistent || item.EndsAtMs > nowMs {
+		if (item.PreviewExpiresAtMs == 0 || item.PreviewExpiresAtMs > nowMs) && (item.Persistent || item.EndsAtMs > nowMs) {
 			return true
 		}
 	}
 	for _, item := range message.Items {
-		if item.BarOnly {
-			continue
-		}
-		if item.ProgressObserved != nil {
-			progress, threshold := 0.0, 95.0
-			if item.ProgressPercent != nil {
-				progress = *item.ProgressPercent
-			}
-			if item.ProgressThresholdPercent != nil {
-				threshold = *item.ProgressThresholdPercent
-			}
-			if item.AlwaysVisible || (*item.ProgressObserved && progress >= threshold && progress < 100) {
-				return true
-			}
-			continue
-		}
-		if item.AlwaysVisible || (item.ReadyAtMs > 0 && nowMs >= item.ReadyAtMs && nowMs-item.ReadyAtMs < 2600) {
+		if nativeSkillReminderItemVisible(item, nowMs) {
 			return true
 		}
 	}
@@ -125,4 +123,27 @@ func handleSkillOverlayState(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", "GET, PUT")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func nativeSkillReminderItemVisible(item nativeSkillOverlayItem, nowMs int64) bool {
+	if item.PreviewExpiresAtMs > 0 {
+		return item.PreviewExpiresAtMs > nowMs
+	}
+	if item.EnergyGate {
+		return !item.BarOnly && (item.AlwaysVisible || item.EnergyReady)
+	}
+	if item.BarOnly {
+		return false
+	}
+	if item.ProgressObserved != nil {
+		progress, threshold := 0.0, 95.0
+		if item.ProgressPercent != nil {
+			progress = *item.ProgressPercent
+		}
+		if item.ProgressThresholdPercent != nil {
+			threshold = *item.ProgressThresholdPercent
+		}
+		return item.AlwaysVisible || (*item.ProgressObserved && progress >= threshold && progress < 100)
+	}
+	return item.AlwaysVisible || (item.ReadyAtMs > 0 && nowMs >= item.ReadyAtMs && nowMs-item.ReadyAtMs < 2600)
 }

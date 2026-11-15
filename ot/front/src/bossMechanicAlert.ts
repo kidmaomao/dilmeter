@@ -1,4 +1,4 @@
-export type BossMechanicTrigger = "orb-spawn" | "skill-action" | "boss-spawn-cycle";
+export type BossMechanicTrigger = "orb-spawn" | "skill-action" | "boss-spawn-cycle" | "mechanic-signal";
 export type BossMechanicSoundMode = "none" | "dedicated" | "custom";
 
 export interface BossMechanicAlertRule {
@@ -11,6 +11,10 @@ export interface BossMechanicAlertRule {
     /** Conditions emitted by a mechanism entity when it is consumed early. */
     cancelConditionIds: number[];
     enabled: boolean;
+    /** Independently select Perlon's local-player and other-player targets. */
+    tornadoMonitoring?: { self: boolean; teammates: boolean };
+    scalePercent?: number;
+    opacityPercent?: number;
     countdownSeconds: number;
     /** Lead time for a repeating green-curtain warning (1–62 seconds). */
     warningSeconds?: number;
@@ -30,6 +34,7 @@ export interface BossMechanicAlertRule {
 }
 
 export interface BossMechanicAlertSettings {
+    perlonHealth: { enabled: boolean; x: number; y: number; scalePercent: number; opacityPercent: number };
     brontasRocks: { guidanceEnabled: boolean; enabled: boolean; x: number; y: number; scalePercent: number; rotation: number; facing: 'outward' | 'inward' | 'north' | 'south' };
     ancientGiantHealthEnabled: boolean;
     ancientGiantHealthX: number;
@@ -99,7 +104,12 @@ const MIEL_ORB_7615_CHECKPOINT_MS = 11_000;
 export const BOSS_MECHANIC_EVENT = "dilmeter-boss-mechanic-event";
 const STORAGE_KEY = "dilmeter-cn-boss-mechanic-alert-v1";
 
+function perlonRule(key: string, name: string, x: number): BossMechanicAlertRule {
+    return { scalePercent: 100, opacityPercent: 100, ...(key === "perlon-tornado" ? { tornadoMonitoring: { self: false, teammates: false } } : {}), key, name, bossRaceIds: [193810], trigger: 'mechanic-signal', skillId: 0, triggerRaceIds: [], cancelConditionIds: [], enabled: false, countdownSeconds: 8, showCountdown: true, soundMode: 'dedicated', customSoundId: '', customSoundName: '', x, y: defaultOverlayY()+150 };
+}
 const DEFAULT_RULES: Record<string, BossMechanicAlertRule> = {
+    'perlon-tornado': perlonRule('perlon-tornado', '佩隆 · 尔格龙卷风', defaultOverlayX()),
+    'perlon-resonance': perlonRule('perlon-resonance', '佩隆 · 共鸣切换计时', defaultOverlayX()+140),
     "miel-green-curtain": {
         key: "miel-green-curtain",
         name: "四王绿幕",
@@ -171,6 +181,7 @@ export function loadBossMechanicAlertSettings(): BossMechanicAlertSettings {
 
 export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanicAlertSettings {
     const fallback: BossMechanicAlertSettings = {
+        perlonHealth: normalizePerlonHealth(undefined),
         brontasRocks: { guidanceEnabled: false, enabled: false, x: 850, y: 450, scalePercent: 100, rotation: 0, facing: 'outward' },
         ancientGiantHealthEnabled: false, ancientGiantHealthX: 750, ancientGiantHealthY: 330, ancientGiantHealthScalePercent: 100, ancientGiantHealthOpacityPercent: 100,
         volume: 80,
@@ -188,7 +199,13 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
     const parsed = value as Partial<BossMechanicAlertSettings>;
     const legacyX = clampInteger(parsed.x, -32000, 32000, fallback.x);
     const legacyY = clampInteger(parsed.y, -32000, 32000, fallback.y);
+    const scalePercent = clampInteger(parsed.scalePercent, 50, 200, 100);
     const rules = cloneRules(DEFAULT_RULES);
+    for (const key of ['perlon-tornado', 'perlon-resonance']) {
+        const stored = parsed.rules?.[key];
+        rules[key].scalePercent = clampInteger(stored?.scalePercent, 50, 200, scalePercent);
+        rules[key].opacityPercent = clampInteger(stored?.opacityPercent, 20, 100, 100);
+    }
     for (const [key, raw] of Object.entries(parsed.rules ?? {})) {
         if (!raw || typeof raw !== "object") continue;
         const base = rules[key];
@@ -203,7 +220,8 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
         // an old profile cannot roll back newly supported Boss variants.
         rules[key] = {
             ...base,
-            enabled: storedRule.enabled === true,
+            enabled: key === "perlon-tornado" && storedRule.tornadoMonitoring ? storedRule.tornadoMonitoring.self === true || storedRule.tornadoMonitoring.teammates === true : storedRule.enabled === true,
+            ...(key === "perlon-tornado" ? { tornadoMonitoring: { self: storedRule.tornadoMonitoring ? storedRule.tornadoMonitoring.self === true : storedRule.enabled === true, teammates: storedRule.tornadoMonitoring ? storedRule.tornadoMonitoring.teammates === true : storedRule.enabled === true } } : {}),
             alwaysVisible: key === 'miel-green-curtain' && storedRule.alwaysVisible === true,
             persistentStyle: storedRule.persistentStyle === 'bar' ? 'bar' : 'timer',
             persistentX: clampInteger(storedRule.persistentX, -32000, 32000, legacyX+280),
@@ -225,6 +243,7 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
     const storedPhases = parsed.mielShardHealthPhases;
     const legacy60Enabled = parsed.miel60HealthBarEnabled !== false;
     return {
+        perlonHealth: normalizePerlonHealth(parsed.perlonHealth),
         brontasRocks: normalizeBrontasRocks(parsed.brontasRocks),
         ancientGiantHealthEnabled: parsed.ancientGiantHealthEnabled === true,
         ancientGiantHealthX: clampInteger(parsed.ancientGiantHealthX, -32000, 32000, 750),
@@ -234,7 +253,7 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
         volume: clamp(parsed.volume, 0, 100, 80),
         x: legacyX,
         y: legacyY,
-        scalePercent: clampInteger(parsed.scalePercent, 50, 200, 100),
+        scalePercent,
         mielShardHealthPhases: storedPhases && typeof storedPhases === "object"
             ? {
                 normal80: storedPhases.normal80 === true,
@@ -252,6 +271,7 @@ export function normalizeBossMechanicAlertSettings(value: unknown): BossMechanic
 }
 
 export function saveBossMechanicAlertSettings(settings: BossMechanicAlertSettings): void {
+    settings.perlonHealth = normalizePerlonHealth(settings.perlonHealth);
     settings.brontasRocks = normalizeBrontasRocks(settings.brontasRocks);
     settings.ancientGiantHealthEnabled = settings.ancientGiantHealthEnabled === true;
     settings.ancientGiantHealthX = clampInteger(settings.ancientGiantHealthX, -32000, 32000, 750);
@@ -277,6 +297,10 @@ export function saveBossMechanicAlertSettings(settings: BossMechanicAlertSetting
     delete settings.miel60HealthBarY;
     delete settings.miel60HealthBarScalePercent;
     for (const rule of Object.values(settings.rules)) {
+        if (rule.key === 'perlon-tornado' || rule.key === 'perlon-resonance') {
+            rule.scalePercent = clampInteger(rule.scalePercent, 50, 200, settings.scalePercent);
+            rule.opacityPercent = clampInteger(rule.opacityPercent, 20, 100, 100);
+        }
         rule.countdownSeconds = rule.key === "miel-green-curtain" ? 63 : clamp(rule.countdownSeconds, 1, 120, 5);
         if (rule.key === "miel-green-curtain") rule.warningSeconds = clamp(rule.warningSeconds ?? 10, 1, 62, 10);
         rule.alwaysVisible = rule.alwaysVisible === true;
@@ -402,6 +426,10 @@ export function isMielOrbVisible(runtime: MielOrbRuntime, atMs: number): boolean
         && observedAt >= runtime.startedAtMs
         && observedAt < runtime.endsAtMs
         && !runtime.provisionallyHidden;
+}
+
+function normalizePerlonHealth(raw: Partial<BossMechanicAlertSettings['perlonHealth']> | undefined): BossMechanicAlertSettings['perlonHealth'] {
+    return { enabled: raw?.enabled === true, x: clampInteger(raw?.x, -32000, 32000, 750), y: clampInteger(raw?.y, -32000, 32000, 380), scalePercent: clampInteger(raw?.scalePercent, 50, 200, 100), opacityPercent: clampInteger(raw?.opacityPercent, 20, 100, 100) };
 }
 
 function defaultOverlayX(): number {

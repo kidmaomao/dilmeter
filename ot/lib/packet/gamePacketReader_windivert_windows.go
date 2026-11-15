@@ -37,12 +37,12 @@ func (t *GameServerPacketReader) OpenWinDivert(dllPath string, filter string) er
 
 	payloadCh := make(chan gamePacketPayload, pcapQueueSize)
 	epoch := t.connectionEpoch.Add(1)
-	go t.readWinDivertPacketLoop(handle, payloadCh, epoch)
+	go t.readWinDivertPacketLoop(handle, payloadCh, epoch, t.captureLog)
 	go t.forwardPayloads(payloadCh)
 	return nil
 }
 
-func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handle, ch chan<- gamePacketPayload, connectionEpoch uint64) {
+func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handle, ch chan<- gamePacketPayload, connectionEpoch uint64, captureLog *captureLog) {
 	defer close(ch)
 
 	ip4 := layers.IPv4{}
@@ -88,9 +88,7 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handl
 			CaptureLength: n,
 			Length:        n,
 		}
-		if t.logHandle != nil {
-			_ = t.logHandle.WritePacket(captureInfo, packetData)
-		}
+		captureLog.write(captureInfo, packetData)
 
 		decodedLayers = decodedLayers[:0]
 		if err := parser.DecodeLayers(packetData, &decodedLayers); err != nil {
@@ -108,6 +106,7 @@ func (t *GameServerPacketReader) readWinDivertPacketLoop(handle *windivert.Handl
 		if !hasTCP || len(tcp.Payload) < 1 {
 			continue
 		}
+		t.livePayloadCount.Add(1)
 
 		if i == 0 {
 			baseSeq = tcp.Seq

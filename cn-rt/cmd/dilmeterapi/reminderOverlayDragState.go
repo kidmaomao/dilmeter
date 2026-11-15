@@ -165,7 +165,9 @@ func applyNativeReminderPosition(settings *nativeReminderSettings, update native
 		}
 		settings.BossMechanics.Rules[key] = rule
 	case "target-health":
-		if update.ID == "ancient-giant" {
+		if update.ID == "perlon-phantom" {
+			settings.BossMechanics.PerlonHealth.X, settings.BossMechanics.PerlonHealth.Y = x, y
+		} else if update.ID == "ancient-giant" {
 			settings.BossMechanics.AncientGiantHealthX, settings.BossMechanics.AncientGiantHealthY = x, y
 		} else {
 			settings.BossMechanics.MielShardHealthBarX, settings.BossMechanics.MielShardHealthBarY = x, y

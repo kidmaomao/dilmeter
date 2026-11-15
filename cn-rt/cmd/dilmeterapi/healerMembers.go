@@ -2,12 +2,130 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+
+	"gitlab.com/prilus/mabidilmeter/lib/event"
 )
+
+func (s healerSettings) automaticTemplate() *healerMemberTemplate {
+	for i := range s.Templates {
+		if s.Templates[i].ID == s.AutoAddTemplateID {
+			return &s.Templates[i]
+		}
+	}
+	return nil
+}
+
+func (h *healerMonitor) partyMember(id string) event.PartyMember {
+	for _, member := range h.party.Members {
+		if member.ID == id {
+			return member
+		}
+	}
+	return event.PartyMember{}
+}
+
+func (h *healerMonitor) automaticMemberName(id string, runtime *nativeReminderRuntime) string {
+	if !h.settings.AutoAddInDungeon || id == runtime.localID || len(h.settings.Members) >= 32 {
+		return ""
+	}
+	var name string
+	if len(h.party.Members) > 0 {
+		name = h.partyMember(id).Name
+	} else if h.inDungeon && h.regionID != 0 {
+		entity, observed := runtime.entities[id], h.observed[id]
+		if entity != nil && entity.Known && entity.OwnerID == "" && battleRecordPCRace(entity.RaceID) &&
+			observed != nil && observed.visible && observed.regionID == h.regionID {
+			name = entity.Name
+		}
+	}
+	if name == "" {
+		return ""
+	}
+	for _, member := range h.settings.Members {
+		if member.ID == id || !member.Self && member.Name == name {
+			return ""
+		}
+	}
+	return name
+}
+
+type healerInstanceMember struct {
+	name     string
+	override *healerMemberSelection
+}
+
+func (h *healerMonitor) resetDungeonMembers() {
+	clear(h.instanceMembers)
+	h.dungeonSession++
+}
+
+func (h *healerMonitor) automaticMember(id, name string, template *healerMemberTemplate) healerMemberSelection {
+	if saved := h.instanceMembers[id]; saved.name == name && saved.override != nil {
+		return h.withArcanaPreset(*saved.override)
+	}
+	member := healerMemberSelection{
+		automatic: true, ID: id, Name: name, Included: true,
+		Health: template.Health, HealthSettings: template.HealthSettings,
+		BuffSettings: template.BuffSettings, SkillSettings: template.SkillSettings,
+	}
+	return h.withArcanaPreset(member)
+}
+
+func (h *healerMonitor) memberSkillSettings(id string, runtime *nativeReminderRuntime) *healerMemberSkillSettings {
+	for _, member := range h.settings.Members {
+		if member.ID == id {
+			return h.withArcanaPreset(member).SkillSettings
+		}
+	}
+	if name := h.automaticMemberName(id, runtime); name != "" {
+		if template := h.settings.automaticTemplate(); template != nil {
+			return h.automaticMember(id, name, template).SkillSettings
+		}
+	}
+	return nil
+}
+
+// Caller holds h.mu. Keep the instance-only selections separate from the
+// saved configuration so disconnects, map changes and template edits take effect.
+func (h *healerMonitor) selectedMembers(runtime *nativeReminderRuntime, includeAutomatic bool) []healerMemberSelection {
+	h.resolveMembers(runtime)
+	members := h.settings.Members
+	template := h.settings.automaticTemplate()
+	if !includeAutomatic || !h.settings.AutoAddInDungeon || template == nil || len(members) >= 32 {
+		return members
+	}
+	var automatic []healerMemberSelection
+	add := func(id string) {
+		if name := h.automaticMemberName(id, runtime); name != "" {
+			automatic = append(automatic, h.automaticMember(id, name, template))
+		}
+	}
+	if len(h.party.Members) > 0 {
+		for _, member := range h.party.Members {
+			add(member.ID)
+		}
+	} else if h.inDungeon {
+		for id := range runtime.entities {
+			add(id)
+		}
+		sort.Slice(automatic, func(i, j int) bool {
+			if automatic[i].Name == automatic[j].Name {
+				return automatic[i].ID < automatic[j].ID
+			}
+			return automatic[i].Name < automatic[j].Name
+		})
+	}
+	return append(append([]healerMemberSelection(nil), members...), automatic[:min(len(automatic), 32-len(members))]...)
+}
 
 func healerMemberKey(member healerMemberSelection) string {
 	if member.Self {
 		return "self"
+	}
+	if member.automatic {
+		return "instance:" + member.ID
 	}
 	if member.Name != "" {
 		return "player:" + member.Name
@@ -21,9 +139,13 @@ func normalizeHealerMember(member healerMemberSelection, settings healerSettings
 		member.Name = "自身角色"
 		member.Favorite = true
 		member.Included = true
+		member.ManaSettings = normalizeHealerMana(member.ManaSettings, index)
+	} else {
+		member.Mana, member.ManaSettings = false, nil
 	}
 	member.Name = string([]rune(member.Name)[:min(len([]rune(member.Name)), 100)])
 	member.Key = healerMemberKey(member)
+	member.AppliedArcana &= healerArcanaMask
 	if member.HealthSettings == nil {
 		member.HealthSettings = &healerHealthSettings{Threshold: settings.LowHealthPercent, SoundEnabled: settings.SoundEnabled, Sound: settings.HealthSound,
 			Overlay: healerPosition{Enabled: settings.Text.Enabled, X: settings.Text.X, Y: settings.Text.Y + index*100}}
@@ -35,7 +157,6 @@ func normalizeHealerMember(member healerMemberSelection, settings healerSettings
 	health.Sound = normalizeHealerSound(health.Sound, "healer-health")
 	health.Overlay = normalizeHealerPosition(health.Overlay)
 	member.HealthSettings = &health
-	member.ManaSettings = normalizeHealerMana(member.ManaSettings, index)
 	if member.BuffSettings == nil {
 		rules := []healerBuffRule{}
 		if member.Overture {
@@ -100,8 +221,7 @@ func normalizeHealerTemplates(templates []healerMemberTemplate, settings healerS
 			template.Name = fmt.Sprintf("队友%d", index+1)
 		}
 		template.Name = string([]rune(template.Name)[:min(len([]rune(template.Name)), 48)])
-		member := normalizeHealerMember(healerMemberSelection{Name: template.Name, Health: template.Health, HealthSettings: template.HealthSettings, Mana: template.Mana, ManaSettings: template.ManaSettings, BuffSettings: template.BuffSettings, SkillSettings: template.SkillSettings}, settings, index)
-		template.ManaSettings = member.ManaSettings
+		member := normalizeHealerMember(healerMemberSelection{Name: template.Name, Health: template.Health, HealthSettings: template.HealthSettings, BuffSettings: template.BuffSettings, SkillSettings: template.SkillSettings}, settings, index)
 		template.HealthSettings, template.BuffSettings, template.SkillSettings = member.HealthSettings, member.BuffSettings, member.SkillSettings
 		seen[template.ID] = true
 		result = append(result, template)
@@ -154,10 +274,17 @@ func (h *healerMonitor) resolveMembers(runtime *nativeReminderRuntime) {
 		}
 		if member.Name != "" {
 			matches := []string{}
-			for id, entity := range runtime.entities {
-				observed := h.observed[id]
-				if id != runtime.localID && entity.Known && entity.OwnerID == "" && battleRecordPCRace(entity.RaceID) && entity.Name == member.Name && observed != nil && observed.visible {
-					matches = append(matches, id)
+			for _, player := range h.party.Members {
+				if player.ID != runtime.localID && player.Name == member.Name {
+					matches = append(matches, player.ID)
+				}
+			}
+			if len(matches) == 0 {
+				for id, entity := range runtime.entities {
+					observed := h.observed[id]
+					if id != runtime.localID && entity.Known && entity.OwnerID == "" && battleRecordPCRace(entity.RaceID) && entity.Name == member.Name && observed != nil && observed.visible {
+						matches = append(matches, id)
+					}
 				}
 			}
 			if len(matches) == 1 {
@@ -167,5 +294,6 @@ func (h *healerMonitor) resolveMembers(runtime *nativeReminderRuntime) {
 			}
 		}
 		member.Key = healerMemberKey(*member)
+		*member = h.withArcanaPreset(*member)
 	}
 }

@@ -23,6 +23,8 @@ const (
 	EventIdMusicPerformance EventId = 23
 	EventIdWorldProp        EventId = 24
 	EventIdBrontasRay       EventId = 25
+	EventIdLocalRegion      EventId = 27
+	EventIdPartyRoster      EventId = 26
 )
 
 const (
@@ -50,6 +52,7 @@ type EventEntityAppear struct {
 	EventBase
 	Name      string
 	RaceId    uint32
+	RegionID  uint32 `json:",omitempty"`
 	Height    float32
 	Weight    float32
 	Upper     float32
@@ -80,6 +83,29 @@ type EventBrontasRay struct {
 	X         uint32 `json:",omitempty"`
 	Y         uint32 `json:",omitempty"`
 	Moving    bool   `json:",omitempty"`
+}
+
+// EventLocalRegion reports the local player's confirmed map transfer and
+// whether the destination has a recognized dungeon signal.
+type EventLocalRegion struct {
+	EventBase
+	RegionID uint32
+	Dungeon  bool
+}
+
+type PartyMember struct {
+	HealthPercent int   `json:",omitempty"`
+	HealthAtMs    int64 `json:",omitempty"`
+	ID            string
+	Name          string
+	Slot          int
+}
+
+// EventPartyRoster carries the game client's actual ordered party slots.
+type EventPartyRoster struct {
+	EventBase
+	PartyID string
+	Members []PartyMember
 }
 
 type EventDamage struct {
@@ -162,7 +188,10 @@ type EventSkillAction struct {
 	AtMs           int64
 	// MechanicSignal identifies a derived monster-mechanic event without
 	// borrowing a real in-game SkillId. It is omitted for normal skill actions.
-	MechanicSignal string `json:"MechanicSignal,omitempty"`
+	MechanicSignal     string `json:"MechanicSignal,omitempty"`
+	MechanicDurationMs int64  `json:"MechanicDurationMs,omitempty"`
+	// Player selected by the Boss at mechanic deployment, if identified.
+	MechanicTargetId string `json:"MechanicTargetId,omitempty"`
 	// SourceId is the entity that produced the action. It differs from Id when
 	// an owned marionette or deployable produced the tracked skill for the local
 	// player.
@@ -198,8 +227,10 @@ type EventStatUpdateEntry struct {
 // progress monitoring. Private marks attributes addressed to this client.
 type EventStatUpdate struct {
 	EventBase
-	Private bool
-	Stats   []EventStatUpdateEntry
+	ManaMaximum float64 `json:",omitempty"`
+	AtMs        int64   `json:",omitempty"`
+	Private     bool
+	Stats       []EventStatUpdateEntry
 }
 
 // EventSkillState reports local skill lifecycles that are not successful

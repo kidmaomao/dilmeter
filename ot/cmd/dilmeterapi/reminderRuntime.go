@@ -144,6 +144,7 @@ type nativeSkillCooldownRule struct {
 }
 
 type nativeBossMechanicSettings struct {
+	PerlonHealth              nativePerlonHealthSettings        `json:"perlonHealth"`
 	BrontasRocks              nativeBrontasRockSettings         `json:"brontasRocks"`
 	AncientGiantHealthEnabled bool                              `json:"ancientGiantHealthEnabled"`
 	AncientGiantHealthX       int                               `json:"ancientGiantHealthX"`
@@ -195,26 +196,29 @@ type nativeEffectTimerRule struct {
 }
 
 type nativeBossMechanicRule struct {
-	AlwaysVisible     bool     `json:"alwaysVisible"`
-	PersistentStyle   string   `json:"persistentStyle"`
-	PersistentX       int      `json:"persistentX"`
-	PersistentY       int      `json:"persistentY"`
-	PersistentScale   int      `json:"persistentScalePercent"`
-	PersistentOpacity int      `json:"persistentOpacityPercent"`
-	Key               string   `json:"key"`
-	Name              string   `json:"name"`
-	BossRaceIDs       []uint32 `json:"bossRaceIds"`
-	Trigger           string   `json:"trigger"`
-	SkillID           uint16   `json:"skillId"`
-	TriggerRaceIDs    []uint32 `json:"triggerRaceIds"`
-	Enabled           bool     `json:"enabled"`
-	CountdownSeconds  float64  `json:"countdownSeconds"`
-	WarningSeconds    *float64 `json:"warningSeconds,omitempty"`
-	ShowCountdown     bool     `json:"showCountdown"`
-	SoundMode         string   `json:"soundMode"`
-	CustomSoundID     string   `json:"customSoundId"`
-	X                 int      `json:"x"`
-	Y                 int      `json:"y"`
+	ScalePercent      int                            `json:"scalePercent,omitempty"`
+	OpacityPercent    int                            `json:"opacityPercent,omitempty"`
+	TornadoMonitoring *nativePerlonTornadoMonitoring `json:"tornadoMonitoring,omitempty"`
+	AlwaysVisible     bool                           `json:"alwaysVisible"`
+	PersistentStyle   string                         `json:"persistentStyle"`
+	PersistentX       int                            `json:"persistentX"`
+	PersistentY       int                            `json:"persistentY"`
+	PersistentScale   int                            `json:"persistentScalePercent"`
+	PersistentOpacity int                            `json:"persistentOpacityPercent"`
+	Key               string                         `json:"key"`
+	Name              string                         `json:"name"`
+	BossRaceIDs       []uint32                       `json:"bossRaceIds"`
+	Trigger           string                         `json:"trigger"`
+	SkillID           uint16                         `json:"skillId"`
+	TriggerRaceIDs    []uint32                       `json:"triggerRaceIds"`
+	Enabled           bool                           `json:"enabled"`
+	CountdownSeconds  float64                        `json:"countdownSeconds"`
+	WarningSeconds    *float64                       `json:"warningSeconds,omitempty"`
+	ShowCountdown     bool                           `json:"showCountdown"`
+	SoundMode         string                         `json:"soundMode"`
+	CustomSoundID     string                         `json:"customSoundId"`
+	X                 int                            `json:"x"`
+	Y                 int                            `json:"y"`
 }
 
 type nativeReminderCondition struct {
@@ -252,6 +256,7 @@ type nativeReminderSoundRequest struct {
 	SoundID      string
 	EnqueuedAtMs int64
 	Priority     bool
+	Tornado      bool
 }
 
 type nativeSkillCooldownRuntime struct {
@@ -311,24 +316,26 @@ type nativeEffectTimerRuntime struct {
 }
 
 type nativeReminderRuntime struct {
-	brontasRocks     map[string]nativeBrontasRock
-	brontasGuide     brontasGuideFrame
-	brontasGuideCh   chan brontasGuideFrame
-	brontasLiveRays  nativeBrontasLiveRays
-	brontasPosition  nativeBrontasPosition
-	partyLocalID     string
-	partySkills      map[string]map[uint16]*partySkillObservation
-	ctx              context.Context
-	settingsCh       chan nativeReminderSettings
-	positionCh       chan nativeReminderPositionUpdate
-	eventsCh         chan []event.IEvent
-	settingsMu       sync.RWMutex
-	settings         nativeReminderSettings
-	entities         map[string]*nativeReminderEntity
-	localID          string
-	selectedTargetID string
-	activeBossID     string
-	preferredBossID  string
+	perlon            nativePerlonRuntime
+	brontasRocks      map[string]nativeBrontasRock
+	brontasGuide      brontasGuideFrame
+	brontasGuideCh    chan brontasGuideFrame
+	brontasLiveRays   nativeBrontasLiveRays
+	brontasPosition   nativeBrontasPosition
+	brontasRockPhases map[string]nativeBrontasRockPhase
+	partyLocalID      string
+	partySkills       map[string]map[uint16]*partySkillObservation
+	ctx               context.Context
+	settingsCh        chan nativeReminderSettings
+	positionCh        chan nativeReminderPositionUpdate
+	eventsCh          chan []event.IEvent
+	settingsMu        sync.RWMutex
+	settings          nativeReminderSettings
+	entities          map[string]*nativeReminderEntity
+	localID           string
+	selectedTargetID  string
+	activeBossID      string
+	preferredBossID   string
 
 	announcedBuffSounds     map[string]struct{}
 	lastBuffSoundExpiryMs   map[uint32]int64
@@ -400,6 +407,7 @@ func startNativeReminderRuntime(ctx context.Context, publisher *eventPublisher) 
 		healer:                 newHealerMonitor(healerSettingsPath()),
 	}
 	runtime.preferredBossID = runtime.settings.PreferredBossID
+	prepareNativeTornadoSound(runtime.settings)
 	setNativeReminderOverlaysLocked(nativeReminderSettingsLocked(runtime.settings))
 	nativeReminderRuntimeHolder.Lock()
 	nativeReminderRuntimeHolder.runtime = runtime
@@ -424,6 +432,7 @@ func (runtime *nativeReminderRuntime) loop() {
 			runtime.dorcha.Below = runtime.dorcha.Observed && runtime.dorcha.Quantity < nativeDorchaThreshold(runtime.settings.SkillCooldowns.Rules[dorchaMasterySkillID].QuantityThreshold)
 			runtime.settingsMu.Unlock()
 			runtime.preferredBossID = runtime.settings.PreferredBossID
+			prepareNativeTornadoSound(runtime.settings)
 			setNativeReminderOverlaysLocked(nativeReminderSettingsLocked(runtime.settings))
 			runtime.resetSettingsDependentState()
 			runtime.evaluate(time.Now())
@@ -480,6 +489,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 	if runtime.healer != nil {
 		runtime.healer.onEvent(current, runtime)
 	}
+	defer runtime.observePerlonEvent(current)
 	defer runtime.observePartyEvent(current)
 	switch value := current.(type) {
 	case *event.EventLocalEntity:
@@ -488,6 +498,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 			runtime.brontasRocks = nil
 			runtime.clearBrontasLiveRays()
 			runtime.endTransformationEffectTimers(0, 0)
+			runtime.perlon = nativePerlonRuntime{}
 			runtime.clearGreenCurtain()
 			runtime.dorcha = dorchaQuantityState{}
 			runtime.darkEnergy = event.EventSkillEnergy{}
@@ -499,6 +510,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		if value.Reset {
 			runtime.brontasRocks = nil
 			runtime.brontasGuide = brontasGuideFrame{}
+			runtime.brontasRockPhases = nil
 			for _, entity := range runtime.entities {
 				entity.Active = false
 				entity.HealthKnown, entity.Defeated = false, false
@@ -522,6 +534,9 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		}
 	case *event.EventEntityAppear:
 		entity := runtime.ensureEntity(value.Id)
+		if !entity.Active || entity.Defeated {
+			runtime.clearBrontasBoss(value.Id)
+		}
 		entity.ID = value.Id
 		entity.Name = value.Name
 		entity.OwnerID = value.OwnerId
@@ -532,6 +547,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		entity.AppearedAt = value.At
 		runtime.observeGreenCurtainBoss(entity, nativeEventAtMs(value.At, 0))
 	case *event.EventEntityDisappear:
+		runtime.clearBrontasBoss(value.Id)
 		if value.Id == runtime.localID {
 			runtime.brontasPosition = nativeBrontasPosition{}
 		}
@@ -541,6 +557,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		if value.Id == runtime.localID {
 			runtime.brontasRocks = nil
 			runtime.brontasGuide = brontasGuideFrame{}
+			runtime.brontasRockPhases = nil
 		}
 		if value.Id == runtime.greenCurtain.BossID || value.Id == runtime.localID {
 			runtime.clearGreenCurtain()
@@ -560,6 +577,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 			runtime.brontasLiveRays.Rays = nil
 			runtime.brontasGuide = brontasGuideFrame{}
 		}
+		runtime.clearBrontasBoss(value.Id)
 		if value.Id == runtime.localID {
 			// Finish carries seconds only; include the full second so a death
 			// immediately after activation can end the current transformation.
@@ -584,6 +602,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 		runtime.observeBossMechanicContact(value, atMs)
 	case *event.EventStatUpdate:
 		entity := runtime.ensureEntity(value.Id)
+		previous, previousMaximum, previouslyKnown := entity.CurrentHealth, entity.MaximumHealth, entity.HealthKnown
 		for _, stat := range value.Stats {
 			switch stat.StatId {
 			case 28:
@@ -602,6 +621,7 @@ func (runtime *nativeReminderRuntime) onEvent(current event.IEvent) {
 				}
 			}
 		}
+		runtime.observeBrontasHealth(entity, previous, previousMaximum, previouslyKnown, nativeEventAtMs(value.At, 0))
 	case *event.EventSkillAction:
 		runtime.observeEffectTimerSkill(value)
 		if value.IsLocal {
@@ -1101,7 +1121,7 @@ func (runtime *nativeReminderRuntime) playNativeSkillSound(rule nativeSkillCoold
 }
 
 func (runtime *nativeReminderRuntime) observeBossMechanic(action *event.EventSkillAction) {
-	if action == nil || action.MechanicSignal == "miel-orb-late-confirm" {
+	if action == nil || strings.HasPrefix(action.MechanicSignal, "perlon-") || action.MechanicSignal == "miel-orb-late-confirm" {
 		return
 	}
 	if runtime.bossMechanics == nil {
@@ -1645,6 +1665,9 @@ func (runtime *nativeReminderRuntime) publishNativeDebuffState(now time.Time, bo
 
 func (runtime *nativeReminderRuntime) selectedTargetHealth() *nativeTargetHealthOverlayItem {
 	target := runtime.entities[runtime.selectedTargetID]
+	if phantom := runtime.selectedPerlonHealth(target); phantom != nil {
+		return phantom
+	}
 	if giant := runtime.selectedAncientGiantHealth(target); giant != nil {
 		return giant
 	}
@@ -1898,6 +1921,7 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 		}
 		mechanics = append(mechanics, item)
 	}
+	mechanics = append(mechanics, runtime.perlonOverlay(now)...)
 	if rocks := runtime.brontasRockOverlay(now); rocks != nil {
 		mechanics = append(mechanics, *rocks)
 	}
@@ -1958,7 +1982,7 @@ func (runtime *nativeReminderRuntime) publishNativeSkillState(now time.Time) {
 		Visible      bool                            `json:"visible"`
 	}{items, aimReminder, targetHealth, effectTimers, mechanics, stackAlerts, settings, visible})
 	key := string(keyData)
-	if key == runtime.lastSkillStateKey && !brontasGuidePreviewNeedsRefresh() {
+	if key == runtime.lastSkillStateKey && !skillOverlayPreviewNeedsRefresh() {
 		return
 	}
 	runtime.lastSkillStateKey = key
@@ -2024,24 +2048,25 @@ type nativeTargetHealthOverlayItem struct {
 }
 
 type nativeEffectTimerOverlayItem struct {
-	Key             string  `json:"key"`
-	Enabled         bool    `json:"enabled"`
-	SourceType      string  `json:"sourceType"`
-	SourceID        uint32  `json:"sourceId"`
-	Name            string  `json:"name"`
-	IconURL         string  `json:"iconUrl"`
-	DurationSeconds float64 `json:"durationSeconds"`
-	AlwaysVisible   bool    `json:"alwaysVisible"`
-	TargetMode      string  `json:"targetMode"`
-	Orientation     string  `json:"orientation"`
-	ScalePercent    int     `json:"scalePercent"`
-	OpacityPercent  int     `json:"opacityPercent"`
-	X               int     `json:"x"`
-	Y               int     `json:"y"`
-	StartedAtMs     int64   `json:"startedAtMs"`
-	EndsAtMs        int64   `json:"endsAtMs"`
-	Generation      uint64  `json:"generation"`
-	TargetID        string  `json:"targetId"`
+	PreviewExpiresAtMs int64   `json:"previewExpiresAtMs,omitempty"`
+	Key                string  `json:"key"`
+	Enabled            bool    `json:"enabled"`
+	SourceType         string  `json:"sourceType"`
+	SourceID           uint32  `json:"sourceId"`
+	Name               string  `json:"name"`
+	IconURL            string  `json:"iconUrl"`
+	DurationSeconds    float64 `json:"durationSeconds"`
+	AlwaysVisible      bool    `json:"alwaysVisible"`
+	TargetMode         string  `json:"targetMode"`
+	Orientation        string  `json:"orientation"`
+	ScalePercent       int     `json:"scalePercent"`
+	OpacityPercent     int     `json:"opacityPercent"`
+	X                  int     `json:"x"`
+	Y                  int     `json:"y"`
+	StartedAtMs        int64   `json:"startedAtMs"`
+	EndsAtMs           int64   `json:"endsAtMs"`
+	Generation         uint64  `json:"generation"`
+	TargetID           string  `json:"targetId"`
 }
 type nativeDebuffOverlayMessageSettings struct {
 	IconSize       int  `json:"iconSize"`
@@ -2059,6 +2084,7 @@ type nativeDebuffOverlayMessage struct {
 }
 
 type nativeSkillOverlayItem struct {
+	PreviewExpiresAtMs         int64    `json:"previewExpiresAtMs,omitempty"`
 	SkillID                    uint16   `json:"skillId"`
 	Name                       string   `json:"name"`
 	IconURL                    string   `json:"iconUrl"`
@@ -2086,6 +2112,7 @@ type nativeSkillOverlayItem struct {
 }
 
 type nativeAimReminderOverlayItem struct {
+	PreviewExpiresAtMs int64    `json:"previewExpiresAtMs,omitempty"`
 	Active             bool     `json:"active"`
 	AlwaysVisible      bool     `json:"alwaysVisible"`
 	StartedAtMs        int64    `json:"startedAtMs"`
@@ -2115,6 +2142,10 @@ type nativeBurstEffectActor struct {
 
 type nativeBossMechanicOverlayItem struct {
 	BrontasGuide       *nativeBrontasGuideView   `json:"brontasGuide,omitempty"`
+	TornadoStartsAtMs  int64                     `json:"tornadoStartsAtMs,omitempty"`
+	TornadoTarget      string                    `json:"tornadoTarget,omitempty"`
+	ResonanceMode      string                    `json:"resonanceMode,omitempty"`
+	AreaWarningUntilMs int64                     `json:"areaWarningUntilMs,omitempty"`
 	Rocks              []nativeBrontasRockMarker `json:"rocks,omitempty"`
 	PassiveStyle       string                    `json:"passiveStyle,omitempty"`
 	OpacityPercent     int                       `json:"opacityPercent,omitempty"`
@@ -2145,19 +2176,20 @@ type nativeBossMechanicOverlayItem struct {
 }
 
 type nativeBuffStackOverlayItem struct {
-	SkillID      uint16 `json:"skillId,omitempty"`
-	QuantityText string `json:"quantityText,omitempty"`
-	QuantityUnit string `json:"quantityUnit,omitempty"`
-	Persistent   bool   `json:"persistent,omitempty"`
-	CCID         uint32 `json:"ccId"`
-	Name         string `json:"name"`
-	Stack        int    `json:"stack"`
-	StartedAtMs  int64  `json:"startedAtMs"`
-	EndsAtMs     int64  `json:"endsAtMs"`
-	Generation   uint64 `json:"generation"`
-	X            int    `json:"x"`
-	Y            int    `json:"y"`
-	ScalePercent int    `json:"scalePercent"`
+	PreviewExpiresAtMs int64  `json:"previewExpiresAtMs,omitempty"`
+	SkillID            uint16 `json:"skillId,omitempty"`
+	QuantityText       string `json:"quantityText,omitempty"`
+	QuantityUnit       string `json:"quantityUnit,omitempty"`
+	Persistent         bool   `json:"persistent,omitempty"`
+	CCID               uint32 `json:"ccId"`
+	Name               string `json:"name"`
+	Stack              int    `json:"stack"`
+	StartedAtMs        int64  `json:"startedAtMs"`
+	EndsAtMs           int64  `json:"endsAtMs"`
+	Generation         uint64 `json:"generation"`
+	X                  int    `json:"x"`
+	Y                  int    `json:"y"`
+	ScalePercent       int    `json:"scalePercent"`
 }
 
 type nativeSkillOverlaySettings struct {
@@ -2415,12 +2447,22 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 	if settings.BossMechanics.Rules == nil {
 		settings.BossMechanics.Rules = make(map[string]nativeBossMechanicRule)
 	}
+	settings.BossMechanics.PerlonHealth.X = clampNativeReminderInt(settings.BossMechanics.PerlonHealth.X, -32000, 32000, 750)
+	settings.BossMechanics.PerlonHealth.Y = clampNativeReminderInt(settings.BossMechanics.PerlonHealth.Y, -32000, 32000, 380)
+	settings.BossMechanics.PerlonHealth.ScalePercent = clampNativeReminderInt(settings.BossMechanics.PerlonHealth.ScalePercent, 50, 200, 100)
+	settings.BossMechanics.PerlonHealth.OpacityPercent = clampNativeReminderInt(settings.BossMechanics.PerlonHealth.OpacityPercent, 20, 100, 100)
 	for key, rule := range settings.BossMechanics.Rules {
 		key = strings.TrimSpace(key)
 		if key == "" {
 			continue
 		}
 		rule.Key = key
+		if key == perlonTornadoKey {
+			if rule.TornadoMonitoring == nil {
+				rule.TornadoMonitoring = &nativePerlonTornadoMonitoring{Self: rule.Enabled, Teammates: rule.Enabled}
+			}
+			rule.Enabled = rule.TornadoMonitoring.Self || rule.TornadoMonitoring.Teammates
+		}
 		rule.Name = strings.TrimSpace(rule.Name)
 		countdownFallback := 5.0
 		if key == "miel-orb" {
@@ -2445,6 +2487,10 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 			rule.TriggerRaceIDs = nil
 			warning := greenCurtainWarningSeconds(rule)
 			rule.WarningSeconds = &warning
+		} else if key == perlonTornadoKey || key == perlonResonanceKey {
+			rule.ScalePercent = clampNativeReminderInt(rule.ScalePercent, 50, 200, settings.BossMechanics.ScalePercent)
+			rule.OpacityPercent = clampNativeReminderInt(rule.OpacityPercent, 20, 100, 100)
+			rule.Trigger = "mechanic-signal"
 		} else if rule.Trigger != "orb-spawn" {
 			rule.Trigger = "skill-action"
 		}

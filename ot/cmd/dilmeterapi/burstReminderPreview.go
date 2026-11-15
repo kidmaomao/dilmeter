@@ -38,12 +38,8 @@ func setBurstReminderPreview(item nativeBossMechanicOverlayItem, nowMs int64) {
 	item.X, item.Y = max(-32000, min(32000, item.X)), max(-32000, min(32000, item.Y))
 	item.ScalePercent = max(50, min(200, item.ScalePercent))
 	skillOverlayState.Lock()
-	var message nativeSkillOverlayMessage
-	_ = json.Unmarshal(skillOverlayState.data, &message)
 	skillOverlayState.burstPreview = &item
-	message = mergeBurstPreviewLocked(message, nowMs)
-	message.Type, message.AtMs = "skill-cooldown-state", nowMs
-	skillOverlayState.data, _ = json.Marshal(message)
+	composeSkillOverlayStateLocked(nowMs)
 	skillOverlayState.Unlock()
 	setNativeSkillOverlayActive(true)
 	refreshWebViewReminderHitRegions()

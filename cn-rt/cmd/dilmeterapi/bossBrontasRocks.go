@@ -11,6 +11,48 @@ import (
 
 const brontasRockKey = "brontas-rocks"
 
+// HP reaches the 50% gate before the server sends the actual rock positions.
+// Keep this phase after removal/timeout so HP refreshes cannot reopen the map.
+type nativeBrontasRockPhase struct {
+	AtMs      int64
+	Confirmed bool
+}
+
+func (r *nativeReminderRuntime) clearBrontasBoss(id string) {
+	delete(r.brontasRockPhases, id)
+	for propID, rock := range r.brontasRocks {
+		if rock.BossID == id {
+			delete(r.brontasRocks, propID)
+		}
+	}
+}
+
+func (r *nativeReminderRuntime) observeBrontasHealth(entity *nativeReminderEntity, previous, previousMaximum float64, previouslyKnown bool, atMs int64) {
+	if !entity.Known || !entity.Active || entity.Defeated || entity.RaceID != 7602 || !entity.HealthKnown || entity.MaximumHealth <= 0 {
+		return
+	}
+	if _, exists := r.brontasRockPhases[entity.ID]; exists {
+		return
+	}
+	ratio := entity.CurrentHealth / entity.MaximumHealth
+	// Float32 HP can put the gate just above 0.5 (observed 0.5000000437).
+	const epsilon = 0.000001
+	if math.IsNaN(ratio) || ratio < .45 || ratio > .5+epsilon {
+		return
+	}
+	if previouslyKnown && previousMaximum > 0 {
+		if previous/previousMaximum <= .5+epsilon {
+			return
+		}
+	} else if math.Abs(ratio-.5) > epsilon {
+		return // Joining after the gate does not predict an already finished phase.
+	}
+	if r.brontasRockPhases == nil {
+		r.brontasRockPhases = make(map[string]nativeBrontasRockPhase)
+	}
+	r.brontasRockPhases[entity.ID] = nativeBrontasRockPhase{AtMs: atMs}
+}
+
 type nativeBrontasRockSettings struct {
 	Enabled         bool   `json:"enabled"`
 	GuidanceEnabled bool   `json:"guidanceEnabled"`
@@ -106,6 +148,15 @@ func (r *nativeReminderRuntime) observeBrontasProp(e *event.EventWorldProp) {
 		r.brontasRocks = make(map[string]nativeBrontasRock)
 	}
 	r.brontasRocks[e.Id] = nativeBrontasRock{BossID: boss.ID, AtMs: nativeEventAtMs(e.At, e.AtMs), Clock: clock, RegionID: e.RegionID}
+	if r.brontasRockPhases == nil {
+		r.brontasRockPhases = make(map[string]nativeBrontasRockPhase)
+	}
+	phase, exists := r.brontasRockPhases[boss.ID]
+	if !exists {
+		phase.AtMs = nativeEventAtMs(e.At, e.AtMs)
+	}
+	phase.Confirmed = true
+	r.brontasRockPhases[boss.ID] = phase
 }
 
 func (r *nativeReminderRuntime) brontasRockOverlay(now time.Time) *nativeBossMechanicOverlayItem {
@@ -113,6 +164,21 @@ func (r *nativeReminderRuntime) brontasRockOverlay(now time.Time) *nativeBossMec
 	markers := []nativeBrontasRockMarker{}
 	start, end := int64(0), int64(0)
 	seen := map[int]bool{}
+	for id, phase := range r.brontasRockPhases {
+		boss := r.entities[id]
+		if boss == nil || !boss.Active || boss.Defeated {
+			r.clearBrontasBoss(id)
+			continue
+		}
+		// Pending directions are deliberately empty and never flash. Stop a
+		// missed/cancelled phase after 30s without guessing any positions.
+		if !phase.Confirmed && nowMs >= phase.AtMs && nowMs < phase.AtMs+30_000 {
+			if start == 0 || phase.AtMs < start {
+				start = phase.AtMs
+			}
+			end = max(end, phase.AtMs+30_000)
+		}
+	}
 	for id, rock := range r.brontasRocks {
 		boss := r.entities[rock.BossID]
 		// Removal is normally received after about 29s. Bound stale state if a
@@ -132,10 +198,13 @@ func (r *nativeReminderRuntime) brontasRockOverlay(now time.Time) *nativeBossMec
 		if start == 0 || rock.AtMs < start {
 			start = rock.AtMs
 		}
+		if phase, ok := r.brontasRockPhases[rock.BossID]; ok && phase.AtMs < start {
+			start = phase.AtMs // Keep the same card when the first location arrives.
+		}
 		end = max(end, rock.AtMs+45_000)
 	}
 	s := r.settings.BossMechanics.BrontasRocks
-	if !s.Enabled || len(markers) == 0 {
+	if !s.Enabled || end == 0 {
 		return nil
 	}
 	sort.Slice(markers, func(i, j int) bool { return markers[i].Clock < markers[j].Clock })

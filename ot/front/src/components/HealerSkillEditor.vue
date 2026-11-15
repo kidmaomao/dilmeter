@@ -3,10 +3,10 @@
   <header><strong v-if="hideEnable">{{ t('技能提醒') }}</strong><label v-else><input v-model="member.skillSettings.enabled" type="checkbox" @change="emit('change')" /><strong>{{ t('技能提醒') }}</strong></label><span>{{ member.skillSettings.rules.length }} {{ t('个技能') }}</span></header>
   <div class="detail">
    <p>{{ t('从观测到的技能释放开始计算队友冷却，用于对齐爆发。未观测到释放时显示“未观测”；请填写包含减冷却后的实际秒数。') }}</p>
-   <small>{{ t("Buff 与技能共用一个窗口，分组显示；每行最多 4 个图标，超出自动换行。") }}</small>
+   <small>{{ t("技能图标和冷却时间显示在队友名字右侧。") }}</small>
    <div class="line"><label><input v-model="member.skillSettings.soundEnabled" type="checkbox" @change="emit('change')" />{{ t('声音提示') }}</label></div>
    <div class="line"><EffectTimerSourcePicker source-type="skill" :source-id="selectedId" :options="options" :normalize-search="normalizeNameSearch" :translate="translate" @select="add" /><small>{{ t('搜索名称或技能 ID 添加，最多 16 个') }}</small></div>
-   <div v-for="rule in member.skillSettings.rules" :key="rule.skillId" class="skill-rule"><div class="line"><strong>{{ skillResourceName(rule.skillId, rule.name) }}</strong><small>{{ rule.skillId }}</small><span>{{ t(status(rule.skillId)) }}</span><label>{{ t('冷却秒数') }}<input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @input="emit('change')" /></label><button :disabled="disabled" @click="remove(rule.skillId)">{{ t('删除') }}</button></div><HealerSoundPicker v-model="rule.sound" :label="member.name + rule.name" :volume="volume" :disabled="disabled || !member.skillSettings.soundEnabled" @update:model-value="emit('change')" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" /></div>
+   <div v-for="rule in member.skillSettings.rules" :key="rule.skillId" class="skill-rule"><div class="line"><strong>{{ skillResourceName(rule.skillId, rule.name) }}</strong><small>{{ rule.skillId }}</small><span>{{ t(status(rule.skillId)) }}</span><label>{{ t('冷却秒数') }}<input v-model.number="rule.cooldownSeconds" type="number" min="0.1" max="86400" step="0.1" @input="rule.fromArcana = false; emit('change')" /></label><button :disabled="disabled" @click="remove(rule.skillId)">{{ t('删除') }}</button></div><HealerSoundPicker v-model="rule.sound" :label="member.name + rule.name" :volume="volume" :disabled="disabled || !member.skillSettings.soundEnabled" @update:model-value="emit('change')" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" /></div>
   </div>
  </section>
 </template>
@@ -18,8 +18,8 @@ import { skills } from '@/data/skill';
 import { makeHealerSound, type HealerMemberChoice, type HealerMemberState } from '@/healerMonitorTypes';
 import EffectTimerSourcePicker from './EffectTimerSourcePicker.vue';
 import HealerSoundPicker from './HealerSoundPicker.vue';
-const props = withDefaults(defineProps<{ member: HealerMemberChoice; live?: HealerMemberState; volume: number; fontSize: number; iconSize: number; opacityPercent: number; disabled?: boolean; templateMode?: boolean; hideEnable?: boolean; translate?: (value: string) => string }>(), { translate: (value: string) => value });
-const emit = defineEmits<{ change: []; preview: [kind: 'skill']; busy: [value: boolean]; notice: [message: string]; error: [message: string] }>();
+const props = withDefaults(defineProps<{ member: HealerMemberChoice; live?: HealerMemberState; volume: number; disabled?: boolean; hideEnable?: boolean; translate?: (value: string) => string }>(), { translate: (value: string) => value });
+const emit = defineEmits<{ change: []; busy: [value: boolean]; notice: [message: string]; error: [message: string] }>();
 const t = (value: string) => props.translate(value);
 const selectedId = ref(59005);
 const resources = inject<Ref<Record<number, string>>>('skillNameMap', ref({}));

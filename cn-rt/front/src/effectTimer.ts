@@ -30,6 +30,7 @@ export interface EffectTimerRuntime {
 }
 
 export interface EffectTimerOverlayItem extends EffectTimerRuntime, EffectTimerRule {
+    previewExpiresAtMs?: number;
     iconUrl: string;
 }
 

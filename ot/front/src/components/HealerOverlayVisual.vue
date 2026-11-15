@@ -1,64 +1,148 @@
 <template>
- <article v-if="group.kind === 'health' || group.kind === 'mana'" class="healer-health-card" :class="{ 'healer-mana-card': group.kind === 'mana' }" :style="style" :aria-label="$ui(group.kind === 'mana' ? '队友魔法值提醒' : '队友血量提醒')">
-  <div class="healer-health-heading"><span class="healer-cross">✚</span><strong :title="group.name">{{ group.name }}</strong><span>{{ $ui(group.kind === 'mana' ? '需要补蓝' : '需要治疗') }}</span></div>
-  <div class="healer-health-value"><b>{{ $ui(group.cards[0]?.value) }}</b><span>{{ $ui(group.cards[0]?.title) }}</span></div>
-  <div class="healer-health-track"><i :style="{ width: healthPercent + '%' }" /></div>
- </article>
- <article v-else class="healer-buff-strip" :style="style" :aria-label="$ui('队友 Buff 与技能提醒')">
-  <strong class="healer-owner" :style="{ width: group.nameWidth + 'px' }" :title="group.name"><span>{{ $ui('队友') }}</span><span class="healer-owner-name">{{ group.name }}</span></strong>
-  <div class="healer-status-sections">
-   <section v-for="section in group.sections" :key="section.kind" class="healer-status-section" :class="`is-${section.kind}`" :aria-label="section.kind === 'skill' ? '技能冷却' : 'Buff 状态'">
-    <span class="healer-section-label">{{ $ui(section.kind === 'skill' ? '技能' : 'Buff') }}</span>
-    <div class="healer-buff-icons">
-   <div v-for="card in section.cards" :key="card.key" class="healer-buff-tile" :class="{ 'is-warning': card.flash, 'is-missing': card.state === 'missing', 'is-unknown': card.state === 'unknown' }" :title="`${group.name} · ${card.title}`">
-    <div class="healer-small-icon"><img :src="card.skillId ? `/skill-icons/${card.skillId}.png` : `/condition-icons/${card.ccId}.png`" :alt="card.title" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" /><span v-if="card.state === 'missing'">!</span></div>
-    <span class="healer-countdown">{{ card.value.replace(/s$/, '') }}</span>
-   </div>
+ <article class="healer-team" :style="style" :aria-label="display('队友监控')">
+  <div v-for="row in group.rows" :key="row.key" class="healer-team-row">
+   <div class="healer-team-heading" :class="{ 'has-status': row.skills?.length || row.buffs?.length }">
+    <strong class="healer-team-name" :title="row.name"><span v-if="row.partySlot" class="healer-team-slot">{{ row.partySlot }}</span>{{ row.name }}</strong>
+    <div v-if="row.skills?.length || row.buffs?.length" class="healer-team-status">
+     <div
+      v-for="card in [...(row.skills ?? []), ...(row.buffs ?? [])]"
+      :key="card.key" class="healer-team-status-item"
+      :class="{ 'is-warning': card.flash, 'is-muted': card.state === 'missing' || card.state === 'unknown' }"
+      :title="`${display(card.title)} · ${display(card.value)}`"
+     >
+      <span class="healer-team-icon">
+       <img :src="card.skillId ? `/skill-icons/${card.skillId}.png` : `/condition-icons/${card.ccId}.png`" :alt="display(card.title)" @error="($event.target as HTMLImageElement).style.visibility = 'hidden'" />
+       <span v-if="card.state === 'missing'" aria-hidden="true">!</span>
+      </span>
+      <span>{{ display(card.value) }}</span>
+     </div>
     </div>
-   </section>
+   </div>
+   <div v-if="row.health || row.mana || row.curtain" class="healer-team-vitals">
+    <span v-if="row.curtain" class="healer-vital has-curtain" :title="display('生命帷幕剩余吸收量')">
+     <b>{{ row.curtain.replace(/\B(?=(\d{3})+(?!\d))/g, ',') }}</b>
+    </span>
+    <span v-else-if="row.health" class="healer-vital" :class="{ 'is-low': row.health.flash }" :title="display(row.health.title)" :aria-label="`${display('血量')} ${row.health.value}`">
+     <i :style="{ width: percentWidth(row.health.value) }" /><b>{{ row.health.value }}</b>
+    </span>
+    <span v-if="row.mana" class="healer-vital is-mana" :class="{ 'is-low': row.mana.flash, 'is-stale': row.mana.state === 'stale' }" :title="display(row.mana.state === 'stale' ? '上次同步的魔法值' : row.mana.title)" :aria-label="`${display('魔法值')} ${row.mana.value}`">
+     <i :style="{ width: percentWidth(row.mana.value) }" /><b>{{ row.mana.value }}</b>
+    </span>
+   </div>
   </div>
  </article>
 </template>
+
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { HealerOverlayGroup } from '@/healerMonitorTypes';
-const props = defineProps<{ group: HealerOverlayGroup; fontSize: number; iconSize: number; opacityPercent?: number }>();
-const healthPercent = computed(() => Math.max(0, Math.min(100, parseFloat(props.group.cards[0]?.value || '0') || 0)));
-const style = computed(() => ({ opacity: Math.max(20, Math.min(100, props.opacityPercent ?? 100)) / 100, '--healer-font': `${props.fontSize}px`, '--healer-icon': `${props.iconSize}px`, '--healer-cell': `${props.group.cellWidth || props.iconSize}px`, '--healer-cell-height': `${props.group.cellHeight}px`, '--healer-columns': props.group.columns, '--healer-label-width': `${props.group.labelWidth}px`, '--healer-label-font': `${props.group.labelFontSize}px`, '--healer-value-height': `${Math.ceil(props.fontSize * 6 / 5)}px`, width: `${props.group.width}px`, height: `${props.group.height}px` }));
+import { uiText as display } from '@/uiLocale';
+const props = defineProps<{ group: HealerOverlayGroup; fontSize: number; iconSize: number; scalePercent?: number; opacityPercent?: number }>();
+function percentWidth(value: string) {
+ if (!value.endsWith('%')) return '0%';
+ return `${Math.max(0, Math.min(100, Number.parseFloat(value) || 0))}%`;
+}
+const style = computed(() => {
+ const textSize = Math.max(10, Math.floor(props.fontSize * 3 / 4));
+ return {
+  transform: `scale(${Math.max(50, Math.min(200, props.scalePercent ?? 100)) / 100})`,
+  transformOrigin: 'top left',
+  opacity: Math.max(20, Math.min(100, props.opacityPercent ?? 100)) / 100,
+  '--healer-font': `${props.fontSize}px`,
+  '--healer-text': `${textSize}px`,
+  '--healer-line': `${props.fontSize + 4}px`,
+  '--healer-icon': `${props.iconSize}px`,
+  '--healer-vitals-height': `${Math.max(14, textSize + 4)}px`,
+  '--healer-name-width': `${props.group.nameWidth}px`,
+  '--healer-cell-width': `${props.group.cellWidth}px`,
+  '--healer-columns': props.group.columns,
+  width: `${props.group.width}px`,
+  height: `${props.group.height}px`,
+ };
+});
 </script>
+
 <style scoped>
-.healer-health-card, .healer-buff-strip { box-sizing: border-box; color: #fff9ed; font-family: "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; font-size: var(--healer-font); user-select: none; }
-.healer-health-card { display: flex; flex-direction: column; justify-content: space-between; padding: 9px 12px; background: #24201b; border: 1px solid #edc67b; border-left: 3px solid #ffab69; border-radius: 4px; box-shadow: 0 0 9px #b66e3044, inset 0 0 18px #bb472214; }
-.healer-health-heading { display: flex; align-items: center; gap: 7px; min-width: 0; line-height: 1.35; }
-.healer-health-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.healer-health-heading > span:last-child { margin-left: auto; flex-shrink: 0; font-size: .7em; color: #e5c9a5; }
-.healer-cross { color: #ffc586; }
-.healer-health-value { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.healer-health-value b { font-size: 2em; line-height: 1.3; font-weight: 750; color: #fff8ed; font-variant-numeric: tabular-nums; text-shadow: 0 2px 2px #120d08; }
-.healer-health-value > span { font-size: .75em; color: #e5bfa0; }
-.healer-health-track { height: 3px; background: #42372b; border-radius: 2px; overflow: hidden; }
-.healer-health-track i { display: block; height: 100%; background: #ff9d71; }
-.healer-buff-strip { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; border-radius: 3px; background: #181b19; border: 1px solid #827759; box-shadow: 0 2px 6px #0008; }
-.healer-owner { flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; height: var(--healer-cell-height); white-space: nowrap; color: #fff7df; line-height: 1.2; font-weight: 600; }
-.healer-owner > span:first-child { display: block; font-size: min(12px, var(--healer-font)); font-weight: 400; color: #bfb18d; }
-.healer-owner-name { display: block; overflow: hidden; text-overflow: ellipsis; }
-.healer-status-sections { flex-shrink: 0; }
-.healer-status-section { display: flex; align-items: flex-start; gap: 4px; }
-.healer-status-section + .healer-status-section { margin-top: 3px; padding-top: 3px; border-top: 1px solid #82775944; }
-.healer-section-label { flex-shrink: 0; width: var(--healer-label-width); font-size: var(--healer-label-font); line-height: var(--healer-icon); color: #cfb780; }
-.is-skill .healer-section-label { color: #9dcbd8; }
-.healer-buff-icons { display: grid; grid-template-columns: repeat(var(--healer-columns), var(--healer-cell)); gap: 6px 4px; align-items: start; }
-.healer-buff-tile { width: var(--healer-cell); height: var(--healer-cell-height); display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.is-skill .healer-small-icon { border-color: #83b9c8; }
-.healer-small-icon { position: relative; box-sizing: border-box; width: var(--healer-icon); height: var(--healer-icon); border: 1px solid #c8b37b; background: #292a23; box-shadow: inset 0 0 2px #000; }
-.healer-small-icon img { display: block; width: 100%; height: 100%; padding: 2px; object-fit: contain; image-rendering: auto; box-sizing: border-box; }
-.healer-small-icon > span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 900; font-size: 1.2em; color: #ffd49a; text-shadow: 1px 1px #000; }
-.healer-countdown { color: #fff; font-size: var(--healer-font); font-variant-numeric: tabular-nums; line-height: var(--healer-value-height); white-space: nowrap; text-shadow: 1px 1px #000, -1px -1px #000; }
-.is-missing img, .is-unknown img { opacity: .35; filter: grayscale(1); }
-.is-warning .healer-small-icon { animation: healer-buff-flash .8s ease-in-out infinite alternate; }
-@keyframes healer-buff-flash { to { border-color: #ffe8b9; box-shadow: 0 0 5px #ffae66; } }
-@media (prefers-reduced-motion: reduce) { .is-warning .healer-small-icon { animation: none; border-color: #ffaf70; } }
-.healer-mana-card { background: #152639; border-color: #74bdf0; border-left-color: #72ccff; box-shadow: 0 0 9px #387dc044; }
-.healer-mana-card .healer-health-track i { background: #72ccff; }
-.healer-mana-card .healer-health-value > span, .healer-mana-card .healer-health-heading > span:last-child { color: #b4dbf7; }
+.healer-team {
+ box-sizing: border-box;
+ color: #fff9f4;
+ font-family: "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+ font-size: var(--healer-font);
+ user-select: none;
+}
+.healer-team {
+ padding: 4px 8px;
+ border-radius: 5px;
+ background: #17171e;
+ box-shadow: inset 0 0 0 1px #555360, 0 2px 6px #0008;
+}
+.healer-team-row { padding: 4px 0; }
+.healer-team-row + .healer-team-row { box-shadow: inset 0 1px #ffffff26; }
+.healer-team-heading { display: grid; grid-template-columns: var(--healer-name-width); align-items: start; }
+.healer-team-heading.has-status { grid-template-columns: var(--healer-name-width) 1fr; gap: 8px; }
+.healer-team-name {
+ display: block;
+ line-height: var(--healer-line);
+ white-space: nowrap;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ font-weight: 650;
+}
+.healer-team-slot { margin-right: .45em; color: #bab5c7; font-variant-numeric: tabular-nums; }
+.has-status .healer-team-name { align-content: center; height: max(var(--healer-line), var(--healer-icon)); }
+.healer-team-status { display: grid; grid-template-columns: repeat(var(--healer-columns), var(--healer-cell-width)); gap: 4px; }
+.healer-team-status-item {
+ display: flex;
+ align-items: center;
+ gap: 4px;
+ min-height: max(var(--healer-line), var(--healer-icon));
+ font-size: var(--healer-text);
+ line-height: var(--healer-line);
+ white-space: nowrap;
+ font-variant-numeric: tabular-nums;
+}
+.healer-team-icon {
+ position: relative;
+ flex: 0 0 auto;
+ width: var(--healer-icon);
+ height: var(--healer-icon);
+}
+.healer-team-icon img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.healer-team-icon span { position: absolute; inset: 0; display: grid; place-items: center; color: #ffe0a6; font-weight: 800; text-shadow: 0 1px 2px #000; }
+.is-muted { color: #bbb7c3; }
+.is-muted img { opacity: .43; filter: grayscale(1); }
+.is-warning .healer-team-icon { animation: healer-buff-flash .8s ease-in-out infinite alternate; }
+@keyframes healer-buff-flash { to { filter: brightness(1.6) drop-shadow(0 0 3px #ffae66); } }
+@media (prefers-reduced-motion: reduce) { .is-warning .healer-team-icon { animation: none; filter: brightness(1.6); } }
+
+.healer-team-vitals {
+ display: grid;
+ gap: 3px;
+ margin-top: 4px;
+ font-size: var(--healer-text);
+ line-height: var(--healer-vitals-height);
+ font-variant-numeric: tabular-nums;
+}
+.healer-vital {
+ position: relative;
+ display: grid;
+ place-items: center;
+ overflow: hidden;
+ height: var(--healer-vitals-height);
+ border-radius: 3px;
+ background: #3c242b;
+}
+.healer-vital.is-mana { background: #26354b; }
+.healer-vital.is-mana.is-stale { opacity: .68; }
+.healer-vital i { position: absolute; inset: 0 auto 0 0; background: #b33f4b; }
+.healer-vital.is-mana i { background: #3f78b2; }
+.healer-vital b { position: relative; font-weight: 650; text-shadow: 0 1px 2px #000; }
+.healer-vital.is-low { box-shadow: inset 0 0 0 1px #ffa287; }
+.healer-vital.has-curtain {
+ color: #a0f9b9;
+ background: #20362d;
+ box-shadow: inset 0 0 0 1px #72e6a8;
+}
+.has-curtain b { font-weight: 750; }
+
 </style>

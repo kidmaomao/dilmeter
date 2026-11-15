@@ -16,10 +16,10 @@ func TestHealerConfiguredBuffWindowAppearsBeforeBuff(t *testing.T) {
 		t.Helper()
 		healerTick(runtime, at)
 		frame := h.overlaySnapshot(at)
-		if len(frame.Groups) != 1 || frame.Groups[0].Name != "队友" || len(frame.Groups[0].Cards) != 2 {
+		if len(frame.Groups) != 1 || len(frame.Groups[0].Rows) != 1 || frame.Groups[0].Rows[0].Name != "队友" || len(frame.Groups[0].Rows[0].Buffs) != 2 {
 			t.Fatalf("configured teammate window missing: %+v", frame)
 		}
-		cards := frame.Groups[0].Cards
+		cards := frame.Groups[0].Rows[0].Buffs
 		if cards[0].CCID != 680 || cards[0].State != "missing" || cards[0].Value != "补充" || !cards[0].Flash {
 			t.Fatalf("unobserved overture must use expired appearance: %+v", cards[0])
 		}
@@ -38,7 +38,7 @@ func TestHealerConfiguredBuffWindowAppearsBeforeBuff(t *testing.T) {
 
 	// Match the report: overture stays unobserved while vivace has a real timer.
 	runtime.onEvent(&event.EventCharacterConditionEnable{EventBase: event.EventBase{EventId: 4, Id: "ally", At: 105}, CCId: 192, DisableAt: 700})
-	checkFrame(105_000, "active", "595")
+	checkFrame(105_000, "active", "595s")
 	runtime.onEvent(&event.EventCharacterConditionDisable{EventBase: event.EventBase{EventId: 5, Id: "ally", At: 106}, CCId: 192})
 	checkFrame(106_000, "missing", "补充")
 	if len(*sounds) != 0 {
@@ -69,7 +69,8 @@ func TestHealerUnobservedBuffWindowRespectsControls(t *testing.T) {
 			h := runtime.healer
 			h.settings.Text.Enabled = true
 			member := normalizeHealerMember(healerMemberSelection{ID: "ally", Name: "队友", Included: true, Overture: true}, h.settings, 0)
-			member.BuffSettings.Overlay = healerPosition{Enabled: true, X: -530, Y: 690}
+			member.BuffSettings.Overlay.Enabled = true
+			h.settings.Text.X, h.settings.Text.Y = -530, 690
 			h.settings.Members = []healerMemberSelection{member}
 			no := false
 			switch scenario {
@@ -89,7 +90,7 @@ func TestHealerUnobservedBuffWindowRespectsControls(t *testing.T) {
 			h.evaluate(runtime, time.Unix(100, 0), scenario != "capture-off")
 			frame := h.overlaySnapshot(100_000)
 			if scenario == "flash-off" {
-				if len(frame.Groups) != 1 || len(frame.Groups[0].Cards) != 1 || frame.Groups[0].Cards[0].Flash || frame.Groups[0].X != -530 || frame.Groups[0].Y != 690 {
+				if len(frame.Groups) != 1 || len(frame.Groups[0].Rows[0].Buffs) != 1 || frame.Groups[0].Rows[0].Buffs[0].Flash || frame.Groups[0].X != -530 || frame.Groups[0].Y != 690 {
 					t.Fatalf("placeholder ignored flash/position settings: %+v", frame)
 				}
 			} else if len(frame.Groups) != 0 {

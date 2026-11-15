@@ -1125,16 +1125,24 @@
                                 <div class="boss-mechanic-identity">
                                     <v-icon :icon="rule.trigger === 'boss-spawn-cycle' ? 'mdi-shield-outline' : rule.trigger === 'orb-spawn' ? 'mdi-orbit' : 'mdi-laser-pointer'" size="24" />
                                     <strong>{{ rule.name }}</strong>
-                                    <ReminderHelpTooltip :label="`${rule.name}说明`" :text="rule.trigger === 'boss-spawn-cycle' ? '识别四王立即提醒首轮；首轮在开战后 7 秒（14:53），后续每 63 秒并按实际出现校准' : rule.trigger === 'orb-spawn' ? '米耶尔环绕球生成后开始倒计时' : '捕捉神剑执行信号后开始倒计时'" />
+                                    <ReminderHelpTooltip :label="`${rule.name}说明`" :text="rule.key === 'perlon-tornado' ? '佩隆点名自己时显示红色三角，点名队友时显示白色三角。三角弹动两次，起风后再保留 2 秒。两项都勾选时，目标未识别的起手也以红色提示。' : rule.key === 'perlon-resonance' ? '显示吸收（靠近区域）或释放（远离区域）；预计切换时间按实际信号校准，60% 护盾阶段暂停，暴走后结束。计时为估算，不会自行切换模式。释放时收到本人的踩圈警告会闪烁；停止收到警告约 1.5 秒后恢复。' : rule.trigger === 'boss-spawn-cycle' ? '识别四王立即提醒首轮；首轮在开战后 7 秒（14:53），后续每 63 秒并按实际出现校准' : rule.trigger === 'orb-spawn' ? '米耶尔环绕球生成后开始倒计时' : '捕捉神剑执行信号后开始倒计时'" />
                                 </div>
                                 <div class="reminder-rule-controls">
-                                <label><input v-model="rule.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用提醒</label>
+                                <template v-if="rule.key === 'perlon-tornado' && rule.tornadoMonitoring">
+                                    <label><input v-model="rule.tornadoMonitoring.self" type="checkbox" @change="changePerlonTornadoMonitoring(rule)" />监测自己</label>
+                                    <label><input v-model="rule.tornadoMonitoring.teammates" type="checkbox" @change="changePerlonTornadoMonitoring(rule)" />监测队友</label>
+                                </template>
+                                <label v-else><input v-model="rule.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用提醒</label>
                                 <label v-if="rule.trigger === 'boss-spawn-cycle'">提前提醒（秒）<input v-model.number="rule.warningSeconds" type="number" min="1" max="62" step="0.1" @input="markBossMechanicSettingsDirty" /></label>
-                                <label v-else>
+                                <label v-else-if="rule.trigger !== 'mechanic-signal'">
                                     倒计时（秒）
                                     <input v-model.number="rule.countdownSeconds" type="number" min="1" max="120" step="0.1" @input="markBossMechanicSettingsDirty" />
                                 </label>
                                 <label><input v-model="rule.showCountdown" type="checkbox" @change="markBossMechanicSettingsDirty" />屏幕中央倒计时</label>
+                                <template v-if="rule.key === 'perlon-tornado' || rule.key === 'perlon-resonance'">
+                                    <label>大小 <input v-model.number="rule.scalePercent" type="number" min="50" max="200" @input="markBossMechanicSettingsDirty" />%</label>
+                                    <label>透明度 <input v-model.number="rule.opacityPercent" type="number" min="20" max="100" @input="markBossMechanicSettingsDirty" />%</label>
+                                </template>
                                 <label class="boss-mechanic-rule-coordinate">
                                     提示坐标
                                     <b>X</b>
@@ -1146,7 +1154,7 @@
                                     音效
                                     <select class="reminder-sound-select" v-model="rule.soundMode" @change="markBossMechanicSettingsDirty">
                                         <option value="none">不提示</option>
-                                        <option value="dedicated">{{ rule.trigger === "boss-spawn-cycle" ? "晓晓：绿幕即将出现" : "专属机制音效" }}</option>
+                                        <option value="dedicated">{{ rule.trigger === "mechanic-signal" ? "提示音" : rule.trigger === "boss-spawn-cycle" ? "晓晓：绿幕即将出现" : "专属机制音效" }}</option>
                                         <option value="custom">自定义 / 语音制作</option>
                                     </select>
                                 </label>
@@ -1158,6 +1166,11 @@
                                     <v-icon icon="mdi-account-voice" size="13" />语音制作
                                 </button>
                                 <button type="button" class="buff-alert-preview" :disabled="rule.soundMode === 'custom' && !rule.customSoundId" @click="previewBossMechanicRule(rule.key)">测试提醒</button>
+                                <button v-if="rule.key === 'perlon-tornado' && rule.tornadoMonitoring?.self && rule.tornadoMonitoring.teammates" type="button" class="buff-alert-preview" @click="previewBossMechanicRule(rule.key, false, { tornadoTarget: 'teammate' })">测试队友</button>
+                                <template v-if="rule.key === 'perlon-resonance'">
+                                    <button type="button" class="buff-alert-preview" @click="previewBossMechanicRule(rule.key, false, { resonanceMode: 'release' })">预览太阳</button>
+                                    <button type="button" class="buff-alert-preview" @click="previewBossMechanicRule(rule.key, false, { resonanceMode: 'release', areaWarning: true })">预览踩圈闪烁</button>
+                                </template>
                                 </div>
                                 <div v-if="rule.key === 'miel-green-curtain'" class="reminder-rule-controls green-curtain-controls">
                                     <label><input v-model="rule.alwaysVisible" type="checkbox" @change="markBossMechanicSettingsDirty" />一直显示</label>
@@ -1174,7 +1187,18 @@
                                 <span class="buff-alert-runtime-status">{{ bossMechanicRuntimeStatus(rule.key) }}</span>
                             </div>
                             <div class="boss-mechanic-rule boss-reminder-editor">
-                                <div class="boss-mechanic-identity"><v-icon icon="mdi-compass-outline" size="24" /><strong>布隆塔纳斯 50% 落石方位</strong><ReminderHelpTooltip label="落石方位说明" text="按实际生成的矿石显示并闪烁高亮；以固定地图上方为 12 点，不随镜头转动。可用方向校准调整朝向。" /></div>
+                                <div class="boss-mechanic-identity"><v-icon icon="mdi-heart-pulse" size="24" /><strong>佩隆的幻影血条</strong><ReminderHelpTooltip label="佩隆幻影血条说明" text="科隆巴斯深渊 90% / 50% 幻影机制。锁定幻影后显示服务器同步的真实血量；切换目标、幻影死亡或离场后隐藏，不推测未同步的血量。预览持续 8 秒。" /></div>
+                                <div class="reminder-rule-controls">
+                                    <label><input v-model="bossMechanicSettings.perlonHealth.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用血条</label>
+                                    <label>X <input v-model.number="bossMechanicSettings.perlonHealth.x" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                    <label>Y <input v-model.number="bossMechanicSettings.perlonHealth.y" type="number" min="-32000" max="32000" @input="markBossMechanicSettingsDirty" /></label>
+                                    <label>大小 <input v-model.number="bossMechanicSettings.perlonHealth.scalePercent" type="number" min="50" max="200" @input="markBossMechanicSettingsDirty" />%</label>
+                                    <label>透明度 <input v-model.number="bossMechanicSettings.perlonHealth.opacityPercent" type="number" min="20" max="100" @input="markBossMechanicSettingsDirty" />%</label>
+                                    <button type="button" class="buff-alert-preview" @click="previewMielShardHealthBar('perlon-phantom')">预览血条</button>
+                                </div>
+                            </div>
+                            <div class="boss-mechanic-rule boss-reminder-editor">
+                                <div class="boss-mechanic-identity"><v-icon icon="mdi-compass-outline" size="24" /><strong>布隆塔纳斯 50% 落石方位</strong><ReminderHelpTooltip label="落石方位说明" text="首领到达 50% 血量时先显示固定方位图，实际落点出现后再闪烁高亮；以固定地图上方为 12 点，不随镜头转动。可用方向校准调整朝向。" /></div>
                                 <div class="reminder-rule-controls">
                                     <label><input v-model="bossMechanicSettings.brontasRocks.enabled" type="checkbox" @change="markBossMechanicSettingsDirty" />启用方位提示</label>
                                     <label><input v-model="bossMechanicSettings.brontasRocks.guidanceEnabled" type="checkbox" @change="markBossMechanicSettingsDirty" />显示实战射线提示</label>
@@ -1503,7 +1527,8 @@ import {
     type BossMechanicAlertRule,
     type MielOrbRuntime,
 } from "@/bossMechanicAlert";
-import { requestBossMechanicPreview } from "@/bossMechanicPreview";
+import { requestBossMechanicPreview, type BossMechanicPreviewOptions } from "@/bossMechanicPreview";
+import { createSkillReminderPreview, requestReminderPreview, type ReminderPreview } from "@/reminderPreview";
 
 const props = withDefaults(defineProps<{
     isFileLoading?: boolean;
@@ -1536,6 +1561,9 @@ type LocalTtsTargetKind = "buff" | "buff-stack" | "debuff" | "skill" | "boss";
 type LocalTtsTarget = { kind: LocalTtsTargetKind; id: number | string; label: string };
 type CombatTab = "summary" | "attack" | "alerts" | "team";
 type BossMechanicRuntimeState = {
+    resonanceMode?: "absorb" | "release";
+    tornadoTarget?: "self" | "teammate";
+    areaWarningUntilMs?: number;
     startedAtMs: number;
     endsAtMs: number;
     generation: number;
@@ -3061,6 +3089,11 @@ async function persistAimReminderSettings() {
     showNotice("瞄准提醒设定已保存并生效。", "success");
 }
 
+function changePerlonTornadoMonitoring(rule: BossMechanicAlertRule) {
+    rule.enabled = Boolean(rule.tornadoMonitoring?.self || rule.tornadoMonitoring?.teammates);
+    markBossMechanicSettingsDirty();
+}
+
 function markBossMechanicSettingsDirty() {
     bossMechanicSettingsDirty.value = true;
     bossMechanicSettingsSaved.value = false;
@@ -3098,15 +3131,29 @@ async function previewBrontasRocks() {
     } catch (error) { showNotice(`落石预览失败：${String(error)}`, 'error'); }
 }
 
-async function previewBossMechanicRule(key: string, persistent = false) {
+async function previewBossMechanicRule(key: string, persistent = false, perlon?: BossMechanicPreviewOptions) {
     const rule = bossMechanicSettings.value.rules[key];
     if (!rule) return;
+    if (key === 'perlon-tornado' && !perlon?.tornadoTarget) {
+        const monitoring = rule.tornadoMonitoring;
+        perlon = { tornadoTarget: monitoring?.teammates && !monitoring.self ? 'teammate' : 'self' };
+    }
     if (isStandalone.value) {
         triggerBossMechanic(key, Date.now(), true);
+        if (key === 'perlon-resonance' && bossMechanicRuntime.value[key]) {
+            const state = bossMechanicRuntime.value[key];
+            state.resonanceMode = perlon?.resonanceMode ?? 'absorb';
+            state.areaWarningUntilMs = perlon?.areaWarning && state.resonanceMode === 'release' ? state.endsAtMs : 0;
+            publishSkillCooldownOverlayState(true);
+        }
+        if (key === 'perlon-tornado' && bossMechanicRuntime.value[key]) {
+            bossMechanicRuntime.value[key].tornadoTarget = perlon?.tornadoTarget;
+            publishSkillCooldownOverlayState(true);
+        }
         return;
     }
     try {
-        await requestBossMechanicPreview(rule, bossMechanicSettings.value.scalePercent, persistent);
+        await requestBossMechanicPreview(rule, bossMechanicSettings.value.scalePercent, persistent, perlon);
         if (!persistent && rule.soundMode !== "none" && (rule.soundMode !== "custom" || rule.customSoundId)) {
             void playBossMechanicSound(rule.key, rule.soundMode, rule.customSoundId);
         }
@@ -3118,8 +3165,26 @@ async function previewBossMechanicRule(key: string, persistent = false) {
 function previewMielShardHealthBar(kind: unknown = "miel-shard") {
     const nowMs = Date.now();
     const generation = nowMs;
-    mielShardHealthBarPreview.value = { endsAtMs: nowMs + 8_000, generation, kind: kind === "ancient-giant" ? kind : "miel-shard" };
+    mielShardHealthBarPreview.value = { endsAtMs: nowMs + 8_000, generation, kind: kind === "ancient-giant" || kind === "perlon-phantom" ? kind : "miel-shard" };
     if (mielShardHealthBarPreviewTimer !== undefined) window.clearTimeout(mielShardHealthBarPreviewTimer);
+    if (!isStandalone.value) {
+        const giant = kind === "ancient-giant", phantom = kind === "perlon-phantom", settings = bossMechanicSettings.value;
+        void showDesktopReminderPreview({ targetHealth: {
+            entityId: "health-preview", kind: phantom ? "perlon-phantom" : giant ? "ancient-giant" : "miel-shard",
+            name: phantom ? "佩隆的幻影（预览）" : giant ? "古代巨人（预览）" : "安乐碎片（预览）", phaseLabel: phantom ? "90% 幻影" : giant ? "一王 70%" : "普通 60%",
+            currentHealth: 38_281_896, maximumHealth: 63_803_160,
+            x: phantom ? settings.perlonHealth.x : giant ? settings.ancientGiantHealthX : settings.mielShardHealthBarX,
+            y: phantom ? settings.perlonHealth.y : giant ? settings.ancientGiantHealthY : settings.mielShardHealthBarY,
+            scalePercent: phantom ? settings.perlonHealth.scalePercent : giant ? settings.ancientGiantHealthScalePercent : settings.mielShardHealthBarScalePercent,
+            opacityPercent: phantom ? settings.perlonHealth.opacityPercent : giant ? settings.ancientGiantHealthOpacityPercent : settings.mielShardHealthBarOpacityPercent,
+            generation, previewExpiresAtMs: nowMs + 8000,
+        } }, 8000, nowMs);
+        mielShardHealthBarPreviewTimer = window.setTimeout(() => {
+            mielShardHealthBarPreview.value = null;
+            mielShardHealthBarPreviewTimer = undefined;
+        }, 8000);
+        return;
+    }
     publishSkillCooldownOverlayState(true);
     mielShardHealthBarPreviewTimer = window.setTimeout(() => {
         mielShardHealthBarPreview.value = null;
@@ -3205,6 +3270,14 @@ function persistEffectTimerSettings() {
 }
 
 function previewEffectTimer(rule: EffectTimerRule) {
+    if (!isStandalone.value) {
+        const now = Date.now();
+        const durationMs = Math.min(120000, Math.max(1000, Number(rule.durationSeconds) * 1000));
+        void showDesktopReminderPreview({ effectTimers: [{ ...rule, enabled: true, startedAtMs: now,
+            endsAtMs: now + durationMs, generation: now, targetId: "preview",
+            iconUrl: rule.sourceType === "skill" ? skillIconUrl(rule.sourceId) : conditionIconUrl(rule.sourceId) }] }, durationMs, now);
+        return;
+    }
     triggerEffectTimer(rule, Date.now(), "preview", true);
 }
 
@@ -3732,7 +3805,7 @@ async function pollNativeReminderDragState() {
                 if (!state.dragging) saveBossMechanicAlertSettings(bossMechanicSettings.value);
             }
         } else if (state.kind === "target-health") {
-            if (state.id === "ancient-giant") { bossMechanicSettings.value.ancientGiantHealthX = x; bossMechanicSettings.value.ancientGiantHealthY = y; } else { bossMechanicSettings.value.mielShardHealthBarX = x; bossMechanicSettings.value.mielShardHealthBarY = y; }
+            if (state.id === "perlon-phantom") { bossMechanicSettings.value.perlonHealth.x=x; bossMechanicSettings.value.perlonHealth.y=y; } else if (state.id === "ancient-giant") { bossMechanicSettings.value.ancientGiantHealthX = x; bossMechanicSettings.value.ancientGiantHealthY = y; } else { bossMechanicSettings.value.mielShardHealthBarX = x; bossMechanicSettings.value.mielShardHealthBarY = y; }
             changed = true;
             if (!state.dragging) saveBossMechanicAlertSettings(bossMechanicSettings.value);
         } else if (state.kind === "effect") {
@@ -3941,7 +4014,7 @@ function handleBossMechanicEvent(event: Event) {
     const sourceId = action.SourceId || action.Id;
     const source = actorManager.value.entityMap[sourceId] as EntityActor | undefined;
     for (const rule of configuredBossMechanicRules.value) {
-        if (!rule.enabled || rule.trigger === "boss-spawn-cycle" || rule.skillId !== action.SkillId) continue;
+        if (!rule.enabled || rule.trigger === "mechanic-signal" || rule.trigger === "boss-spawn-cycle" || rule.skillId !== action.SkillId) continue;
         if (rule.trigger === "orb-spawn" && action.IsFallback !== true) continue;
         if (rule.trigger === "skill-action" && action.IsFallback === true) continue;
         if (!bossMechanicSourceMatchesRule(source, rule)) continue;
@@ -4036,7 +4109,7 @@ async function playBossMechanicSound(
     const volume = Math.min(100, Math.max(0, Math.round(Number(bossMechanicSettings.value.volume) || 0)));
     if (volume <= 0) return;
     try {
-        const kind = mode === "custom" ? "custom" : `boss-${mechanicKey}`;
+        const kind = mode === "custom" ? "custom" : mechanicKey.startsWith("perlon-") ? "skill-ready" : `boss-${mechanicKey}`;
         const response = await fetch("/api/buff_sound", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -4337,6 +4410,14 @@ function previewAimReminder() {
     if (!settings.enabled) return;
     const now = Date.now();
     const timing = calculateMagnumAimTiming(settings, {});
+    if (!isStandalone.value) {
+        void showDesktopReminderPreview({ aimReminder: { active: true, alwaysVisible: settings.alwaysVisible,
+            startedAtMs: now, readyAtMs: now + timing.durationMs, speedMultiplier: timing.speedMultiplier,
+            buffNames: timing.buffNames, calibrationPercent: settings.calibrationPercent, generation: now,
+            targetId: "preview", x: settings.x, y: settings.y, scalePercent: settings.scalePercent,
+            iconUrl: skillIconUrl(MAGNUM_SHOT_SKILL_ID) } }, Math.min(120000, timing.fullDurationMs + 1600), now);
+        return;
+    }
     magnumAimPreview.value = {
         active: true,
         startedAtMs: now,
@@ -4365,11 +4446,31 @@ function magnumAimEffectiveRangeText() {
 
 const energyAnnounced: Record<number, boolean> = {};
 const energyPreviews: Record<number, { until: number; state: SkillEnergyState }> = {};
+const skillPreviewSoundTimers = new Map<number, number>();
 watch(() => actorManager.value.localEntityId, () => {
     delete skillCooldownRuntime.value[59047];
     for (const id of [59047, 59085, ...SPIRIT_AWAKENING_SKILL_IDS]) { delete energyAnnounced[id]; delete energyPreviews[id]; }
 });
 function previewSkillCooldown(skillId: number) {
+    if (!isStandalone.value) {
+        const rule = skillCooldownSettings.value.rules[skillId];
+        if (!rule) return;
+        const oldTimer = skillPreviewSoundTimers.get(skillId);
+        if (oldTimer !== undefined) window.clearTimeout(oldTimer);
+        skillPreviewSoundTimers.delete(skillId);
+        const now = Date.now();
+        void showDesktopReminderPreview(createSkillReminderPreview(rule, skillDisplayName(skillId), skillIconUrl(skillId), now), 3600, now)
+            .then((shown) => {
+                if (!shown || isEnergySkill(skillId)) return;
+                const previousTimer = skillPreviewSoundTimers.get(skillId);
+                if (previousTimer !== undefined) window.clearTimeout(previousTimer);
+                skillPreviewSoundTimers.set(skillId, window.setTimeout(() => {
+                    skillPreviewSoundTimers.delete(skillId);
+                    void previewSkillCooldownSound(rule, false);
+                }, skillId === DORCHA_MASTERY_SKILL_ID ? 0 : 900));
+            });
+        return;
+    }
     if (isEnergySkill(skillId)) {
         const now = Date.now();
         energyPreviews[skillId] = { until: now + 3600, state: { Percent: 100, Active: true } };
@@ -4514,13 +4615,23 @@ async function migrateLegacySkillOverlayPosition() {
     publishSkillCooldownOverlayState();
 }
 
+async function showDesktopReminderPreview(content: ReminderPreview, durationMs: number, atMs = Date.now()): Promise<boolean> {
+    try {
+        await requestReminderPreview(content, durationMs, atMs);
+        return true;
+    } catch (error) {
+        showNotice(`预览失败：${String(error)}`, "error");
+        return false;
+    }
+}
+
 function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
     const atMs = Date.now();
     skillCooldownClock.value = atMs;
     settleCumulativeSkillCooldowns(atMs);
-    // The desktop overlay is authoritative native state. Only an explicit
-    // user preview may publish one synthetic frame from the renderer.
-    if (!isStandalone.value && !forceDesktopPreview) return;
+    // Desktop samples use the retained preview endpoint. Renderer snapshots
+    // must never replace either live desktop state or another preview.
+    if (!isStandalone.value) return;
     refreshToahSpiritProgress(atMs);
     refreshDorchaQuantity(atMs);
     announceCompletedSkillCooldowns(atMs);
@@ -4604,14 +4715,14 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
     const targetHealth: TargetHealthBarOverlayItem | undefined = activeHealthPreview
         ? {
             entityId: "miel-shard-health-preview", kind: activeHealthPreview.kind,
-            name: activeHealthPreview.kind === "ancient-giant" ? "古代巨人（预览）" : "安乐碎片（预览）",
-            phaseLabel: activeHealthPreview.kind === "ancient-giant" ? "一王 70%" : "普通 60%",
+            name: activeHealthPreview.kind === "perlon-phantom" ? "佩隆的幻影（预览）" : activeHealthPreview.kind === "ancient-giant" ? "古代巨人（预览）" : "安乐碎片（预览）",
+            phaseLabel: activeHealthPreview.kind === "perlon-phantom" ? "90% 幻影" : activeHealthPreview.kind === "ancient-giant" ? "一王 70%" : "普通 60%",
             currentHealth: 38_281_896,
             maximumHealth: 63_803_160,
-            x: Math.min(32000, Math.max(-32000, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthX : bossMechanicSettings.value.mielShardHealthBarX)) || 0))),
-            y: Math.min(32000, Math.max(-32000, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthY : bossMechanicSettings.value.mielShardHealthBarY)) || 0))),
-            scalePercent: Math.min(200, Math.max(50, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthScalePercent : bossMechanicSettings.value.mielShardHealthBarScalePercent)) || 100))),
-            opacityPercent: Math.min(100, Math.max(20, Math.round(Number((activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthOpacityPercent : bossMechanicSettings.value.mielShardHealthBarOpacityPercent)) || 100))),
+            x: Math.min(32000, Math.max(-32000, Math.round(Number((activeHealthPreview.kind === "perlon-phantom" ? bossMechanicSettings.value.perlonHealth.x : activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthX : bossMechanicSettings.value.mielShardHealthBarX)) || 0))),
+            y: Math.min(32000, Math.max(-32000, Math.round(Number((activeHealthPreview.kind === "perlon-phantom" ? bossMechanicSettings.value.perlonHealth.y : activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthY : bossMechanicSettings.value.mielShardHealthBarY)) || 0))),
+            scalePercent: Math.min(200, Math.max(50, Math.round(Number((activeHealthPreview.kind === "perlon-phantom" ? bossMechanicSettings.value.perlonHealth.scalePercent : activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthScalePercent : bossMechanicSettings.value.mielShardHealthBarScalePercent)) || 100))),
+            opacityPercent: Math.min(100, Math.max(20, Math.round(Number((activeHealthPreview.kind === "perlon-phantom" ? bossMechanicSettings.value.perlonHealth.opacityPercent : activeHealthPreview.kind === "ancient-giant" ? bossMechanicSettings.value.ancientGiantHealthOpacityPercent : bossMechanicSettings.value.mielShardHealthBarOpacityPercent)) || 100))),
             previewExpiresAtMs: activeHealthPreview.endsAtMs,
             generation: activeHealthPreview.generation,
         }
@@ -4634,7 +4745,11 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
             if (runtime.mielOrb && !isMielOrbVisible(runtime.mielOrb, atMs)) return [];
             return [{
                 key: rule.key,
-                name: rule.name,
+                name: rule.key === 'perlon-resonance' ? runtime.resonanceMode === 'release' ? '释放 · 远离区域' : '吸收 · 靠近区域' : rule.name,
+                resonanceMode: runtime.resonanceMode,
+                tornadoTarget: runtime.tornadoTarget,
+                tornadoStartsAtMs: rule.key === 'perlon-tornado' ? runtime.startedAtMs + 1000 : undefined,
+                areaWarningUntilMs: runtime.areaWarningUntilMs,
                 icon: rule.trigger === "boss-spawn-cycle" ? "mdi-shield-outline" : rule.trigger === "orb-spawn" ? "mdi-orbit" : "mdi-laser-pointer",
                 // BroadcastChannel cannot structured-clone Vue's nested
                 // reactive proxy (mielOrb).  The overlay only needs these
@@ -4644,7 +4759,8 @@ function publishSkillCooldownOverlayState(forceDesktopPreview = false) {
                 generation: runtime.generation,
                 x: Math.min(32000, Math.max(-32000, Math.round(Number(rule.x) || 0))),
                 y: Math.min(32000, Math.max(-32000, Math.round(Number(rule.y) || 0))),
-                scalePercent: Math.min(200, Math.max(50, Math.round(Number(bossMechanicSettings.value.scalePercent) || 100))),
+                scalePercent: Math.min(200, Math.max(50, Math.round(Number(rule.scalePercent ?? bossMechanicSettings.value.scalePercent) || 100))),
+                opacityPercent: rule.opacityPercent,
             }];
         });
     const stackAlerts = Object.entries(buffStackAlertRuntime.value)
@@ -4907,6 +5023,14 @@ function isStackAlertCondition(ccId: number) {
 function previewBuffStackAlert(rule: BuffAlertRule) {
     const nowMs = Date.now();
     const threshold = Math.min(99, Math.max(1, Math.round(Number(rule.stackThreshold) || 1)));
+    if (!isStandalone.value) {
+        void showDesktopReminderPreview({ stackAlerts: [{ ccId: rule.ccId, name: conditionDisplayName(rule.ccId),
+            stack: threshold, startedAtMs: nowMs, endsAtMs: nowMs + 3000, generation: nowMs,
+            x: rule.stackX, y: rule.stackY, scalePercent: bossMechanicSettings.value.scalePercent }] }, 3000, nowMs)
+            .then((shown) => { if (shown && rule.stackSoundMode !== "none" && (rule.stackSoundMode !== "custom" || rule.stackCustomSoundId))
+                void previewBuffAlertSound(rule.stackSoundMode, false, rule.stackCustomSoundId); });
+        return;
+    }
     const previous = buffStackAlertRuntime.value[rule.ccId];
     buffStackAlertRuntime.value[rule.ccId] = {
         stack: threshold,
@@ -5480,6 +5604,8 @@ onMounted(async () => {
     }
 });
 onUnmounted(() => {
+    for (const timer of skillPreviewSoundTimers.values()) window.clearTimeout(timer);
+    skillPreviewSoundTimers.clear();
     conditionTimelineResizeObserver?.disconnect();
     appEvent.value.removeEventListener(BATTLE_RECORD_LOADED_EVENT, handleBattleRecordLoaded);
     window.removeEventListener("dilmeter-buff-alert-settings", reloadBuffAlertSettings as EventListener);

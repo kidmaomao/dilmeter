@@ -6,29 +6,31 @@ import (
 	"gitlab.com/prilus/mabidilmeter/lib/event"
 	"gitlab.com/prilus/mabidilmeter/lib/packet"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestHealerManaIndependentMissingStaleRecovery(t *testing.T) {
 	r, sounds := healerFixture(t)
-	r.healer.settings.Members = []healerMemberSelection{{ID: "ally", Mana: true, ManaSettings: &healerHealthSettings{Threshold: 25, SoundEnabled: true, Sound: healerSound{Kind: "electronic"}, RepeatCount: 2, RepeatIntervalSeconds: 2, Overlay: healerPosition{Enabled: true, X: -150, Y: 90}}}}
-	r.onEvent(healerHP("ally", 100, 1000, 1000))
+	r.healer.settings.Members = []healerMemberSelection{{Self: true, Mana: true, ManaSettings: &healerHealthSettings{Threshold: 25, SoundEnabled: true, Sound: healerSound{Kind: "electronic"}, RepeatCount: 2, RepeatIntervalSeconds: 2, Overlay: healerPosition{Enabled: true, X: -150, Y: 90}}}}
+	r.onEvent(healerHP("self", 100, 1000, 1000))
 	healerTick(r, 100000)
 	healerTick(r, 100600)
 	if len(*sounds) != 0 || r.healer.state.Members[0].ManaPercent != nil {
 		t.Fatal("life data fabricated mana")
 	}
 	mp := func(at int64, entries ...event.EventStatUpdateEntry) {
-		r.onEvent(&event.EventStatUpdate{EventBase: event.EventBase{EventId: 17, Id: "ally", At: at}, Stats: entries})
+		r.onEvent(&event.EventStatUpdate{EventBase: event.EventBase{EventId: 17, Id: "self", At: at}, Private: true, Stats: entries})
 	}
-	mp(101, event.EventStatUpdateEntry{StatId: 32, Value: 200}, event.EventStatUpdateEntry{StatId: 34, Value: 500})
+	mp(101, event.EventStatUpdateEntry{StatId: 32, Value: 200}, event.EventStatUpdateEntry{StatId: 33, Value: 500})
 	healerTick(r, 101000)
 	if r.healer.state.Members[0].ManaPercent != nil {
 		t.Fatal("missing bonus fabricated a maximum")
 	}
-	mp(101, event.EventStatUpdateEntry{StatId: 35, Value: 500})
+	mp(101, event.EventStatUpdateEntry{StatId: 34, Value: 500})
 	healerTick(r, 101000)
 	healerTick(r, 101250)
 	healerTick(r, 101750)
@@ -37,7 +39,7 @@ func TestHealerManaIndependentMissingStaleRecovery(t *testing.T) {
 		t.Fatalf("mana alerts: %+v sounds %d", r.healer.state, len(*sounds))
 	}
 	frame := r.healer.overlaySnapshot(103750)
-	if len(frame.Groups) != 1 || frame.Groups[0].Kind != "mana" || frame.Groups[0].X != -150 {
+	if len(frame.Groups) != 1 || frame.Groups[0].Kind != "team" || len(frame.Groups[0].Rows) != 1 || frame.Groups[0].Rows[0].Mana == nil || frame.Groups[0].Rows[0].Mana.Value != "20%" {
 		t.Fatalf("mana was grouped as Buff: %+v", frame)
 	}
 	mp(132, event.EventStatUpdateEntry{StatId: 28, Value: 1000})
@@ -59,10 +61,47 @@ func TestHealerManaIndependentMissingStaleRecovery(t *testing.T) {
 	if len(*sounds) != 3 || *r.healer.state.Members[0].ManaPercent != 0 {
 		t.Fatal("real zero mana or recovery did not start a new episode")
 	}
-	r.onEvent(&event.EventEntityDisappear{EventBase: event.EventBase{EventId: 2, Id: "ally", At: 136}})
+	r.onEvent(&event.EventEntityDisappear{EventBase: event.EventBase{EventId: 2, Id: "self", At: 136}})
 	healerTick(r, 136000)
 	if len(r.healer.state.Cards) != 0 {
-		t.Fatal("departed teammate still visible")
+		t.Fatal("local character still has a mana alert after disappearing")
+	}
+}
+
+func TestManaUsesTheCurrentWeaponMaximum(t *testing.T) {
+	r, _ := healerFixture(t)
+	r.healer.settings.Members = []healerMemberSelection{{Self: true, Favorite: true, Mana: true}}
+	read := func(atMs int64, maximum float64, stats ...event.EventStatUpdateEntry) healerMemberState {
+		t.Helper()
+		r.onEvent(&event.EventStatUpdate{
+			EventBase: event.EventBase{Id: "self", At: atMs / 1000},
+			AtMs:      atMs, Private: true, ManaMaximum: maximum, Stats: stats,
+		})
+		healerTick(r, atMs)
+		return r.healer.state.Members[0]
+	}
+	mp := func(id uint32, value float64) event.EventStatUpdateEntry {
+		return event.EventStatUpdateEntry{StatId: id, Value: value}
+	}
+	initial := read(101000, 0, mp(32, 6551), mp(34, 2913), mp(35, 4918))
+	if initial.ManaPercent != nil || initial.ManaCurrent == nil || *initial.ManaCurrent != 6551 {
+		t.Fatalf("stamina supplied a false mana limit: %+v", initial)
+	}
+	if group := r.healer.overlaySnapshot(101000).Groups[0]; group.Rows[0].Mana.Value != "6551" {
+		t.Fatalf("the known current mana was hidden before the limit arrived: %+v", group.Rows)
+	}
+	full := read(101100, 6557)
+	if full.ManaMaximum != 6557 || full.ManaPercent == nil || healerManaPercentText(*full.ManaPercent) != "99.9%" {
+		t.Fatalf("wrong mana reading at the photographed weapon setting: %+v", full)
+	}
+	changed := read(101200, 0, mp(32, 5500), mp(34, 1953), mp(35, 4750))
+	if changed.ManaMaximum != 5597 || changed.ManaPercent == nil || healerManaPercentText(*changed.ManaPercent) != "98.3%" {
+		t.Fatalf("modifier-only equipment change did not use the confirmed base maximum: %+v", changed)
+	}
+	// Stamina can change independently while mana remains full.
+	whole := read(101300, 0, mp(32, 5597), mp(35, 200))
+	if whole.ManaPercent == nil || *whole.ManaPercent != 100 {
+		t.Fatalf("a stamina update affected the mana bar: %+v", whole)
 	}
 }
 
@@ -76,19 +115,31 @@ func TestHealerHealthIncludesObservedMaximumBonus(t *testing.T) {
 	}
 }
 
-func TestManaSettingsTemplatesAndOldProfiles(t *testing.T) {
-	s := normalizeHealerSettings(healerSettings{Members: []healerMemberSelection{{Name: "A", Favorite: true, Mana: true, ManaSettings: &healerHealthSettings{Threshold: 35, RepeatCount: 3, RepeatIntervalSeconds: 8, Overlay: healerPosition{X: -90, Y: 200}}}}, Templates: []healerMemberTemplate{{ID: "m", Name: "Mana", Mana: true, ManaSettings: &healerHealthSettings{Threshold: 15}}}})
-	s.Members = healerFavoriteMembers(s.Members)
-	data, _ := json.Marshal(s)
-	var restored healerSettings
-	_ = json.Unmarshal(data, &restored)
-	restored = normalizeHealerSettings(restored)
-	if !restored.Members[0].Mana || restored.Members[0].ManaSettings.Threshold != 35 || restored.Members[0].ManaSettings.Overlay.X != -90 || !restored.Templates[0].Mana || restored.Templates[0].ManaSettings.Threshold != 15 {
-		t.Fatal("mana preferences lost on persistence")
+func TestManaSettingsIgnoreLegacyTeammatePreferences(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "healer-monitor.json")
+	if err := os.WriteFile(path, []byte(`{
+		"members": [
+			{"self":true,"mana":true,"manaSettings":{"threshold":35,"overlay":{"x":-90,"y":200}}},
+			{"name":"Ally","favorite":true,"health":true,"mana":true,"manaSettings":{"threshold":15}}
+		],
+		"templates":[{"id":"party","name":"Party","health":true,"mana":true,"manaSettings":{"threshold":15}}]
+	}`), 0600); err != nil {
+		t.Fatal(err)
 	}
-	old := normalizeHealerMember(healerMemberSelection{Name: "old"}, defaultHealerSettings(), 0)
-	if old.Mana || old.ManaSettings == nil || old.ManaSettings.Sound.Kind != "electronic" {
-		t.Fatal("old settings enabled new alerts")
+	settings := newHealerMonitor(path).settings
+	self, ally := settings.Members[0], settings.Members[1]
+	if !self.Mana || self.ManaSettings.Threshold != 35 || self.ManaSettings.Overlay.X != -90 {
+		t.Fatalf("self mana preferences lost on load: %+v", self)
+	}
+	if ally.Mana || ally.ManaSettings != nil || !ally.Health || !settings.Templates[0].Health {
+		t.Fatalf("old teammate preferences migrated incorrectly: %+v", settings)
+	}
+	saved, err := json.Marshal(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(saved), `"mana"`) != 1 || strings.Count(string(saved), `"manaSettings"`) != 1 {
+		t.Fatalf("teammate mana preferences would be saved again: %s", saved)
 	}
 }
 
@@ -188,7 +239,7 @@ func TestBrontasRocksActualSocketsRemovalAndWorldLabels(t *testing.T) {
 		r.onEvent(&event.EventWorldProp{EventBase: event.EventBase{EventId: 24, Id: id, At: 101}, AtMs: 101000, PropID: 49205, RegionID: 35027, X: x, Y: y, State: "landing", Active: true})
 	}
 	spawn("random", 25231, 35028)
-	if r.brontasRockOverlay(time.Unix(101, 0)) != nil {
+	if got := r.brontasRockOverlay(time.Unix(101, 0)); got == nil || len(got.Rocks) != 0 {
 		t.Fatal("random mineral marked as mechanic")
 	}
 	spawn("west", 20756, 36745)

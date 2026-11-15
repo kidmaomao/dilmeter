@@ -548,7 +548,7 @@ func refreshWebViewReminderHitRegions() {
 			regions = append(regions, nativeReminderRegionForSkill(item, iconSize))
 		}
 	}
-	if aim := message.AimReminder; aim != nil && (aim.Active || aim.AlwaysVisible) {
+	if aim := message.AimReminder; aim != nil && (aim.PreviewExpiresAtMs == 0 || aim.PreviewExpiresAtMs > nowMs) && (aim.Active || aim.AlwaysVisible) {
 		factor := dpiScale * float64(max(50, min(200, aim.ScalePercent))) / 100
 		width, height := max(146, int(math.Ceil(292*factor))), max(32, int(math.Ceil(64*factor)))
 		regions = append(regions, nativeReminderHitRegion{Kind: "aim", ID: "aim", X: aim.X, Y: aim.Y,
@@ -569,7 +569,7 @@ func refreshWebViewReminderHitRegions() {
 		if strings.HasPrefix(item.Key, "burst:") || strings.HasPrefix(item.Key, "burst-preview-") {
 			continue
 		}
-		if !item.Enabled || (!item.AlwaysVisible && item.EndsAtMs <= nowMs) {
+		if (item.PreviewExpiresAtMs > 0 && item.PreviewExpiresAtMs <= nowMs) || !item.Enabled || (!item.AlwaysVisible && item.EndsAtMs <= nowMs) {
 			continue
 		}
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100
@@ -599,7 +599,7 @@ func refreshWebViewReminderHitRegions() {
 			Rect: nativeRect{Left: int32(item.X), Top: int32(item.Y), Right: int32(item.X + width), Bottom: int32(item.Y + height)}})
 	}
 	for _, item := range message.StackAlerts {
-		if !item.Persistent && item.EndsAtMs <= nowMs {
+		if (item.PreviewExpiresAtMs > 0 && item.PreviewExpiresAtMs <= nowMs) || (!item.Persistent && item.EndsAtMs <= nowMs) {
 			continue
 		}
 		factor := dpiScale * float64(max(50, min(200, item.ScalePercent))) / 100

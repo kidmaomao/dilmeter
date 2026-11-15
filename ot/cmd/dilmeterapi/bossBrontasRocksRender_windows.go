@@ -20,7 +20,11 @@ func drawNativeBrontasRocks(canvas *image.RGBA, item nativeBossMechanicOverlayIt
 		}
 		return nativeReminderText{text: label, rect: imageRectToNative(image.Rect(x+int(float64(left)*factor), y+int(float64(top)*factor), x+int(float64(left+w)*factor), y+int(float64(top+h)*factor))), color: shade, flags: dtCenter | dtVCenter | dtSingleLine | dtNoPrefix, fontHeight: max(9, int(float64(fontSize)*factor)), fontWeight: nativeFontBold}
 	}
-	texts := []nativeReminderText{text(fmt.Sprintf("二王落石 · %d 处", len(item.Rocks)), 5, 6, 250, 28, 17, true), text("地图方位", 90, 90, 80, 24, 12, false)}
+	title := "二王落石 · 等待落点"
+	if len(item.Rocks) > 0 {
+		title = fmt.Sprintf("二王落石 · %d 处", len(item.Rocks))
+	}
+	texts := []nativeReminderText{text(title, 5, 6, 250, 28, 17, true), text("地图方位", 90, 90, 80, 24, 12, false)}
 	for _, p := range []struct{ clock, x, y int }{{12, 90, 37}, {3, 170, 83}, {6, 90, 131}, {9, 10, 83}} {
 		active := false
 		for _, rock := range item.Rocks {

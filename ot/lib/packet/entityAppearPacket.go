@@ -11,6 +11,7 @@ type EntityInfo struct {
 	Id                    uint64
 	Name                  string
 	RaceId                uint32
+	RegionID              uint32
 	SkinColor             uint8
 	EyeType               uint16
 	LeftEyeColor          uint8
@@ -168,6 +169,10 @@ func ParseEntityAppearPacket(msg Message) (*EntityInfo, error) {
 	}
 
 	v.Lower = msg[16].Data().(float32)
+
+	if msg[17].Type() == MessageElemTypeInt {
+		v.RegionID = msg[17].Data().(uint32)
+	}
 
 	if msg[28].Type() != MessageElemTypeByte {
 		err := fmt.Errorf("leftEyeColor has unexpected type %v", msg[28].Type())

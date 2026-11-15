@@ -178,13 +178,14 @@ func (runtime *nativeReminderRuntime) burstCooldownOverlay(actors []string, rule
 	overrides := map[string]float64{}
 	if runtime.healer != nil {
 		runtime.healer.mu.Lock()
-		for _, member := range runtime.healer.settings.Members {
-			if member.SkillSettings == nil {
+		for _, id := range actors {
+			settings := runtime.healer.memberSkillSettings(id, runtime)
+			if settings == nil {
 				continue
 			}
-			for _, skill := range member.SkillSettings.Rules {
-				if skill.SkillID == 59005 {
-					overrides[member.ID] = skill.CooldownSeconds
+			for _, skill := range settings.Rules {
+				if skill.SkillID == 59005 && !skill.FromArcana {
+					overrides[id] = skill.CooldownSeconds
 				}
 			}
 		}
@@ -297,7 +298,7 @@ func burstPopupDimensions(item nativeBossMechanicOverlayItem) (int, int) {
 		}
 		return 320, 224
 	}
-	if len(item.Rocks) > 0 {
+	if item.Key == brontasRockKey || len(item.Rocks) > 0 {
 		return 260, 180
 	}
 	if item.PassiveStyle != "" {

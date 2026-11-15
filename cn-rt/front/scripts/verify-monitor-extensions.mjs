@@ -35,18 +35,25 @@ try {
     assert.deepEqual(burstPopupDimensions({ brontasGuide: {} }), { width: 320, height: 224 });
     assert.deepEqual(burstPopupDimensions({ brontasGuide: {stage:'station'} }), { width: 320, height: 278 }, 'action strip is included in native WebView/drag bounds');
     assert.deepEqual(burstPopupDimensions({ rocks: [{ clock: 12 }, { clock: 9 }] }), { width: 260, height: 180 });
+    assert.deepEqual(burstPopupDimensions({ key: "brontas-rocks", rocks: [{ clock: 12 }, { clock: 9 }] }), { width: 260, height: 180 });
+    assert.deepEqual(burstPopupDimensions({ key: "brontas-rocks" }), { width: 260, height: 180 });
     const own = makeHealerSelf();
-    const savedSelf = makeHealerSettings(); savedSelf.members = [own];
-    assert.equal(cloneHealerSettings(savedSelf).members[0].self, true);
+    const settingsWithOldMana = makeHealerSettings();
+    const ally = { ...makeHealerMember({ id: 'old', name: 'Old' }, 1), mana: true, manaSettings: own.manaSettings };
+    settingsWithOldMana.members = [own, ally];
     assert.equal(own.key, 'self'); assert.equal(own.favorite, true);
     const template = healerTemplateFromMember(own, 'mp', 'MP');
     assert.equal(template.self, undefined);
-    assert.match(healerTemplateSummary(template), /魔法值 ≤25%/);
-    template.mana = false; assert.match(healerTemplateSummary(template), /魔法值关闭/);
-    const old = makeHealerMember({ id: 'old', name: 'Old' }, 0); delete old.mana; delete old.manaSettings;
-    const legacy = makeHealerSettings(); legacy.members = [old];
-    assert.equal(cloneHealerSettings(legacy).members[0].mana, false);
-    assert.equal(cloneHealerSettings(legacy).members[0].manaSettings.threshold, 25);
+    assert.equal(template.manaSettings, undefined);
+    assert.doesNotMatch(healerTemplateSummary(template), /魔法值/);
+    settingsWithOldMana.templates = [{ ...template, mana: true, manaSettings: own.manaSettings }];
+    const migrated = cloneHealerSettings(settingsWithOldMana);
+    assert.equal(migrated.members[0].mana, true);
+    assert.equal(migrated.members[0].manaSettings.threshold, 25);
+    for (const teammate of [migrated.members[1], migrated.templates[0]]) {
+        assert.equal(teammate.mana, undefined);
+        assert.equal(teammate.manaSettings, undefined);
+    }
     storage.set('dilmeter-cn-skill-cooldown-v1', JSON.stringify({ rules: { 59047: { skillId: 59047, enabled: true, barOnly: true }, 59041: { skillId: 59041, enabled: true, cooldownSeconds: 17 } } }));
     const oldCooldowns = loadSkillCooldownSettings();
     assert.equal(oldCooldowns.rules[59047], undefined, 'removed bar cannot resurrect its hidden CD rules');

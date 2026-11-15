@@ -263,6 +263,8 @@ func main2(ctx context.Context) {
 			skillOverlay.Destroy()
 		}()
 		initializeSkillOverlay(skillOverlay, cfg)
+		stopSkillPush := startNativeSkillOverlayPush(view.Dispatch, skillOverlay.Eval)
+		defer stopSkillPush()
 		skillOverlay.Navigate(fmt.Sprintf("http://127.0.0.1:%d/?skillOverlay=1", _port))
 	}
 	healerOverlay := webview2.NewWithOptions(webview2.WebViewOptions{

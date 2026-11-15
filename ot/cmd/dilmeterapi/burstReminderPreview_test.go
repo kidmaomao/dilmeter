@@ -11,11 +11,17 @@ func preserveBurstPreviewState(t *testing.T) {
 	t.Helper()
 	skillOverlayState.Lock()
 	oldData, oldPreview := append([]byte(nil), skillOverlayState.data...), skillOverlayState.burstPreview
+	oldLive, oldPreviews := skillOverlayState.liveData, skillOverlayState.previews
+	oldBoss, oldHealth := skillOverlayState.bossPreviews, skillOverlayState.healthPreview
+	skillOverlayState.liveData, skillOverlayState.previews = nil, nil
+	skillOverlayState.bossPreviews, skillOverlayState.healthPreview = nil, nil
 	skillOverlayState.burstPreview = nil
 	skillOverlayState.Unlock()
 	t.Cleanup(func() {
 		skillOverlayState.Lock()
 		skillOverlayState.data, skillOverlayState.burstPreview = oldData, oldPreview
+		skillOverlayState.liveData, skillOverlayState.previews = oldLive, oldPreviews
+		skillOverlayState.bossPreviews, skillOverlayState.healthPreview = oldBoss, oldHealth
 		skillOverlayState.Unlock()
 	})
 }
