@@ -5,6 +5,7 @@ export type BuffSoundMode = "none" | "electronic" | "voice" | "custom";
 
 export interface BuffAlertRule {
     ccId: number;
+    order: number;
     overlayEnabled: boolean;
     durationMode: BuffDurationMode;
     manualDurationSeconds: number;
@@ -71,6 +72,7 @@ const CHINA_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
 let conditionServerClockLeadMs = 10000;
 
 export const DEFAULT_BUFF_ALERT_RULE: Omit<BuffAlertRule, "ccId"> = {
+    order: 0,
     overlayEnabled: false,
     durationMode: "auto",
     manualDurationSeconds: 60,
@@ -104,6 +106,18 @@ export function makeBuffAlertRule(ccId: number): BuffAlertRule {
 
 export function isStackOnlyBuffAlertCondition(ccId: number): boolean {
     return STACK_ONLY_BUFF_ALERT_CC_IDS.has(Number(ccId));
+}
+
+/** Old rules have equal ranks and retain their original desktop order by CC ID. */
+export function orderedBuffAlertRules(rules: Record<number, BuffAlertRule>): BuffAlertRule[] {
+    return Object.values(rules).sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.ccId - b.ccId);
+}
+
+export function moveBuffRule<T>(rules: T[], index: number, direction: -1 | 1): boolean {
+    const target = index + direction;
+    if (index < 0 || index >= rules.length || target < 0 || target >= rules.length) return false;
+    [rules[index], rules[target]] = [rules[target], rules[index]];
+    return true;
 }
 
 export function loadBuffOverlaySettings(): BuffOverlaySettings {
@@ -181,6 +195,7 @@ export function sanitizeBuffAlertRule(ccId: number, value: Partial<BuffAlertRule
     const stackOnly = isStackOnlyBuffAlertCondition(ccId);
     return {
         ccId,
+        order: clampNumber(value.order, 0, 0x7fffffff, 0),
         overlayEnabled: stackOnly ? false : Boolean(value.overlayEnabled),
         durationMode: value.durationMode === "manual" ? "manual" : "auto",
         manualDurationSeconds: clampNumber(value.manualDurationSeconds, 1, 86400, 60),

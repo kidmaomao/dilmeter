@@ -5,6 +5,7 @@
             <strong v-if="builtin">{{ rule.name }}</strong><input v-else v-model="rule.name" class="healer-rule-name" maxlength="48" :aria-label="`Buff ${rule.ccId}名称`" @input="emit('change')" />
             <small>CC {{ rule.ccId }}</small>
         </div>
+        <slot name="order" />
         <label><input v-model="rule.overlayEnabled" type="checkbox" :aria-label="`${rule.name}显示图标`" @change="emit('change')" />显示图标</label>
         <label>时长来源<select v-model="rule.durationMode" :aria-label="`${rule.name}时长来源`" @change="emit('change')"><option value="auto">自动读取</option><option value="manual">手动固定时长</option></select></label>
         <label v-if="rule.durationMode === 'manual'">固定时长（秒）<input v-model.number="rule.manualDurationSeconds" :aria-label="`${rule.name}固定时长`" type="number" min="1" max="86400" @input="emit('change')" /></label>

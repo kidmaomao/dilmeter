@@ -55,7 +55,11 @@
    <div class="healer-detail">
     <div class="healer-config-line"><label><input v-model="member.buffSettings.soundEnabled" type="checkbox" :aria-label="`${member.name}Buff声音提示`" @change="changed" />{{ $ui("声音提示") }}</label><small>{{ $ui("每个 Buff 可分别设置音效、提前时间、提醒次数与间隔。次数含首次，补上或刷新后重新计数。") }}</small></div>
     <HealerBuffPicker :rules="member.buffSettings.rules" :input-id="`healer-buff-search-${index}`" @add="addRule" />
-    <HealerRuleEditor v-for="rule in member.buffSettings.rules" :key="rule.ccId" :rule="rule" :volume="volume" :status="buffLabel(rule.ccId)" :disabled="disabled" :sound-disabled="!member.buffSettings.soundEnabled" @change="changed" @remove="removeRule(rule.ccId)" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" />
+    <HealerRuleEditor v-for="(rule, ruleIndex) in member.buffSettings.rules" :key="rule.ccId" :rule="rule" :volume="volume" :status="buffLabel(rule.ccId)" :disabled="disabled" :sound-disabled="!member.buffSettings.soundEnabled" @change="changed" @remove="removeRule(rule.ccId)" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)">
+     <template #order>
+      <ReminderOrderControls :name="rule.name" :index="ruleIndex" :count="member.buffSettings.rules.length" :disabled="disabled" @move="moveRule(ruleIndex, $event)" />
+     </template>
+    </HealerRuleEditor>
    </div>
   </section>
  <HealerSkillEditor v-if="section === 'skill'" :translate="$ui" :hide-enable="!templateMode" :member="member" :live="live" :volume="volume" :disabled="disabled" @change="changed" @busy="emit('busy', $event)" @notice="emit('notice', $event)" @error="emit('error', $event)" />
@@ -68,6 +72,8 @@ import type { HealerMemberChoice, HealerMemberTemplate, HealerMemberState, Heale
 import HealerSkillEditor from './HealerSkillEditor.vue';
 import HealerSoundPicker from './HealerSoundPicker.vue';
 import HealerRuleEditor from './HealerRuleEditor.vue';
+import ReminderOrderControls from './ReminderOrderControls.vue';
+import { moveBuffRule } from '@/buffAlert';
 import HealerBuffPicker from './HealerBuffPicker.vue';
 const props = defineProps<{ member: HealerMemberChoice; live?: HealerMemberState; volume: number; index: number; disabled?: boolean; expanded?: boolean; templateMode?: boolean; automatic?: boolean; templates?: HealerMemberTemplate[] }>();
 const emit = defineEmits<{ expand: []; change: []; favoriteChange: []; remove: []; saveTemplate: []; applyTemplate: [id: string]; preview: [kind: 'health' | 'mana' | 'buff' | 'skill']; busy: [value: boolean]; notice: [message: string]; error: [message: string] }>();
@@ -96,6 +102,9 @@ const resourceLabel = computed(() => {
 function buffLabel(id: number) { const value = props.live?.buffs[id]; if (!value || value.state === 'unknown') return '未观测 · 不触发声音提醒'; if (value.state === 'missing') return value.lossReason === 'death' ? '因死亡消失 · 需要补充' : '已结束 · 需要补充'; return value.remainingSeconds == null ? '生效中' : `${value.remainingSeconds} 秒${value.state === 'expiring' ? ' · 即将结束' : ''}`; }
 function addRule(rule: HealerBuffRule) { if (!props.member.buffSettings.rules.some(value => value.ccId === rule.ccId) && props.member.buffSettings.rules.length < 16) { props.member.buffSettings.rules.push(rule); changed(); } }
 function removeRule(id: number) { props.member.buffSettings.rules = props.member.buffSettings.rules.filter(rule => rule.ccId !== id); changed(); }
+function moveRule(index: number, direction: -1 | 1) {
+ if (moveBuffRule(props.member.buffSettings.rules, index, direction)) changed();
+}
 const hasStatusPreview = computed(() => props.member.skillSettings.rules.length > 0 || props.member.buffSettings.rules.some(rule => rule.overlayEnabled));
 </script>
 <style scoped>

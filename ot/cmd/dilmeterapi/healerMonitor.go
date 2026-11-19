@@ -261,8 +261,13 @@ type healerMonitor struct {
 	previewOpacityPercent int
 }
 
+const (
+	healerSettingsVersion = 4
+	healerDefaultIconSize = 28
+)
+
 func defaultHealerSettings() healerSettings {
-	return healerSettings{Version: 3, IconSize: 20, OpacityPercent: 100, Templates: []healerMemberTemplate{}, LowHealthPercent: 40, BuffWarningSeconds: 10, SoundEnabled: true, Volume: 70, Members: []healerMemberSelection{}, Buffs: []healerBuffRule{},
+	return healerSettings{Version: healerSettingsVersion, IconSize: healerDefaultIconSize, OpacityPercent: 100, Templates: []healerMemberTemplate{}, LowHealthPercent: 40, BuffWarningSeconds: 10, SoundEnabled: true, Volume: 70, Members: []healerMemberSelection{}, Buffs: []healerBuffRule{},
 		HealthSound: healerSound{Kind: "healer-health"}, MusicSound: healerSound{Kind: "healer-music"}, BuffSound: healerSound{Kind: "healer-buff"},
 		Text: healerTextSettings{Enabled: true, FontSize: 16, ScalePercent: 100, X: 600, Y: 180, Width: 660}}
 }
@@ -344,11 +349,12 @@ func healerMusicRule(configured *healerBuffRule, ccID uint32, name string, setti
 }
 
 func normalizeHealerSettings(s healerSettings) healerSettings {
-	if s.Version <= 2 && s.IconSize == 30 {
-		s.IconSize = 20
+	// Previous defaults were 30 px through v2 and 20 px in v3.
+	if (s.Version <= 2 && s.IconSize == 30) || (s.Version == 3 && s.IconSize == 20) {
+		s.IconSize = healerDefaultIconSize
 	}
-	s.Version = 3
-	s.IconSize = clampNativeReminderInt(s.IconSize, 16, 80, 20)
+	s.Version = healerSettingsVersion
+	s.IconSize = clampNativeReminderInt(s.IconSize, 16, 80, healerDefaultIconSize)
 	s.OpacityPercent = clampNativeReminderInt(s.OpacityPercent, 20, 100, 100)
 	s.LowHealthPercent = clampNativeReminderInt(s.LowHealthPercent, 5, 95, 40)
 	s.BuffWarningSeconds = clampNativeReminderInt(s.BuffWarningSeconds, 0, 60, 10)
@@ -414,6 +420,7 @@ func normalizeHealerSettings(s healerSettings) healerSettings {
 func newHealerMonitor(path string) *healerMonitor {
 	s := defaultHealerSettings()
 	if data, err := os.ReadFile(path); err == nil {
+		s.Version = 0 // Files predating the version field use the legacy defaults.
 		if json.Unmarshal(data, &s) != nil {
 			s = defaultHealerSettings()
 		}
@@ -918,10 +925,9 @@ func (h *healerMonitor) evaluate(runtime *nativeReminderRuntime, now time.Time, 
 				activeAlerts[key] = true
 				activeAlerts[key+":death"] = true
 				// Keep configured slots visible as soon as the teammate appears.
-				// Only the card uses the expired style: unknown observations must
-				// not create sound alerts or consume a reminder episode.
+				// An unknown observation has its own badge and does not consume a reminder episode.
 				if buffSettings.Overlay.Enabled && *rule.OverlayEnabled {
-					state.Cards = append(state.Cards, healerCard{Key: key, MemberKey: choice.Key, Name: member.Name, Title: rule.Name, Value: "补充", CCID: rule.CCID, Category: category, State: "missing", Flash: *rule.FlashEnabled, X: buffSettings.Overlay.X, Y: buffSettings.Overlay.Y})
+					state.Cards = append(state.Cards, healerCard{Key: key, MemberKey: choice.Key, Name: member.Name, Title: rule.Name, Value: "未观测", CCID: rule.CCID, Category: category, State: "unknown", Flash: *rule.FlashEnabled, X: buffSettings.Overlay.X, Y: buffSettings.Overlay.Y})
 				}
 				continue
 			}
@@ -1051,6 +1057,7 @@ func handleHealerMonitor(w http.ResponseWriter, r *http.Request) {
 			DungeonSession   uint64                  `json:"dungeonSession"`
 			TemporaryMembers []healerMemberSelection `json:"temporaryMembers"`
 		}{healerSettings: defaultHealerSettings()}
+		request.Version = 0
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&request); err != nil {
 			http.Error(w, "invalid healer settings", http.StatusBadRequest)

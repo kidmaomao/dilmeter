@@ -17,9 +17,10 @@ const {
     makeReminderProfile,
     saveReminderProfileStore,
 } = await server.ssrLoadModule("/src/reminderProfiles.ts");
+const { loadBuffOverlaySettings, orderedBuffAlertRules, saveBuffOverlaySettings } = await server.ssrLoadModule("/src/buffAlert.ts");
 
 const fallback = {
-    buffRules: { 680: { ccId: 680, overlayEnabled: true } },
+    buffRules: { 680: { ccId: 680, overlayEnabled: true }, 192: { ccId: 192, overlayEnabled: true } },
     debuffSettings: {
         overlayEnabled: true,
         firstRoundGraceSeconds: 10,
@@ -72,6 +73,7 @@ initial.profiles[0].burstSettings.enabled = true;
 initial.profiles[0].burstSettings.rules[59005].cast.x = -120;
 const second = makeReminderProfile("人偶方案", {
     ...fallback,
+    buffRules: { 680: { ...fallback.buffRules[680], order: 0 }, 192: { ...fallback.buffRules[192], order: 1 } },
     skillRules: { 59167: { skillId: 59167, enabled: true, cooldownSeconds: 20 } },
 } as never);
 initial.profiles.push(second);
@@ -79,6 +81,14 @@ initial.activeProfileId = second.id;
 saveReminderProfileStore(initial);
 
 const reloaded = loadReminderProfileStore(fallback as never);
+Object.defineProperty(globalThis, "window", { value: new EventTarget() });
+for (const [index, expected] of [[0, [192, 680]], [1, [680, 192]]] as const) {
+    const overlay = loadBuffOverlaySettings();
+    overlay.rules = reloaded.profiles[index].buffRules;
+    saveBuffOverlaySettings(overlay);
+    const ids = orderedBuffAlertRules(loadBuffOverlaySettings().rules).map((rule: { ccId: number }) => rule.ccId);
+    assert.deepEqual(ids, expected, "each profile retains its Buff order through overlay settings storage");
+}
 assert.equal(reloaded.activeProfileId, second.id);
 assert.equal(reloaded.profiles[1].name, "人偶方案");
 assert.equal(reloaded.profiles[1].skillRules[59167].cooldownSeconds, 20);

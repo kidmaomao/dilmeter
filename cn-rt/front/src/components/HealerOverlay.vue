@@ -1,13 +1,16 @@
 <template>
- <main class="healer-overlay-root" aria-label="圣歌监测悬浮提醒">
+ <main class="healer-overlay-root" aria-label="圣歌监测悬浮提醒" :style="{ zoom: displayZoom }">
   <HealerOverlayVisual v-for="group in frame?.groups || []" :key="group.key" :group="group" :font-size="frame!.fontSize" :icon-size="frame!.iconSize" :scale-percent="frame!.scalePercent" :opacity-percent="frame!.opacityPercent" :style="{ position: 'absolute', left: `${group.x - frame!.x}px`, top: `${group.y - frame!.y}px` }" />
  </main>
 </template>
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { HealerOverlayFrame } from '@/healerMonitorTypes';
 import HealerOverlayVisual from './HealerOverlayVisual.vue';
 const frame = ref<HealerOverlayFrame | null>(null);
+const deviceScale = ref(window.devicePixelRatio || 1);
+// WebView2 already scales CSS pixels. Apply only the difference from the host's target DPI.
+const displayZoom = computed(() => frame.value?.dpiPercent ? frame.value.dpiPercent / (100 * deviceScale.value) : 1);
 let busy = false, disposed = false, lastRefresh = 0;
 let timer: ReturnType<typeof setInterval> | undefined;
 async function refresh() {
@@ -17,7 +20,10 @@ async function refresh() {
   const response = await fetch('/api/healer_overlay', { cache: 'no-store', signal: AbortSignal.timeout(2000) });
   if (!response.ok) throw new Error('unavailable');
   const value = await response.json() as HealerOverlayFrame;
-  if (!disposed) frame.value = value;
+  if (!disposed) {
+   deviceScale.value = window.devicePixelRatio || 1;
+   frame.value = value;
+  }
  } catch { if (!disposed) frame.value = null; }
  finally { busy = false; }
 }

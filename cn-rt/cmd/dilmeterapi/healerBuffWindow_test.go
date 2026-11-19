@@ -20,8 +20,8 @@ func TestHealerConfiguredBuffWindowAppearsBeforeBuff(t *testing.T) {
 			t.Fatalf("configured teammate window missing: %+v", frame)
 		}
 		cards := frame.Groups[0].Rows[0].Buffs
-		if cards[0].CCID != 680 || cards[0].State != "missing" || cards[0].Value != "补充" || !cards[0].Flash {
-			t.Fatalf("unobserved overture must use expired appearance: %+v", cards[0])
+		if cards[0].CCID != 680 || cards[0].State != "unknown" || cards[0].Value != "未观测" || !cards[0].Flash {
+			t.Fatalf("unobserved overture must retain its unknown badge: %+v", cards[0])
 		}
 		if cards[1].CCID != 192 || cards[1].State != vivaceState || cards[1].Value != vivaceValue {
 			t.Fatalf("vivace card incorrect: %+v", cards[1])
@@ -30,8 +30,8 @@ func TestHealerConfiguredBuffWindowAppearsBeforeBuff(t *testing.T) {
 			t.Fatal("display placeholder fabricated an observed Buff")
 		}
 	}
-	checkFrame(100_000, "missing", "补充")
-	checkFrame(104_000, "missing", "补充")
+	checkFrame(100_000, "unknown", "未观测")
+	checkFrame(104_000, "unknown", "未观测")
 	if len(*sounds) != 0 || len(h.state.Alerts) != 0 || len(h.alerts) != 0 {
 		t.Fatal("unobserved placeholders created an alert or consumed a sound quota")
 	}
@@ -55,8 +55,8 @@ func TestHealerConfiguredBuffWindowAppearsBeforeBuff(t *testing.T) {
 		t.Fatal("out-of-view teammate retained a Buff window")
 	}
 	runtime.onEvent(liveTestAppear("ally", "队友", 10001, 112))
-	checkFrame(112_000, "missing", "补充")
-	checkFrame(114_000, "missing", "补充")
+	checkFrame(112_000, "unknown", "未观测")
+	checkFrame(114_000, "unknown", "未观测")
 	if len(*sounds) != 1 {
 		t.Fatal("reappearance with unknown Buffs repeated a sound")
 	}

@@ -543,15 +543,24 @@
                             </button>
                         </div>
                         <div v-if="configuredBuffAlertRules.length" class="buff-alert-rule-list">
-                            <div v-for="rule in configuredBuffAlertRules" :key="rule.ccId" class="buff-alert-editor">
-                                <div class="buff-alert-identity">
-                                    <span class="condition-icon-wrap compact">
-                                        <span>CC</span>
-                                        <img :src="conditionIconUrl(rule.ccId)" :alt="`${conditionDisplayName(rule.ccId)}图标`" @error="hideMissingConditionIcon" />
-                                    </span>
-                                    <strong>{{ conditionDisplayName(rule.ccId) }}</strong>
-                                    <small>CC {{ rule.ccId }}</small>
-                                    <ReminderHelpTooltip v-if="isStackOnlyBuffAlertCondition(rule.ccId)" :label="`${conditionDisplayName(rule.ccId)}提醒说明`" :text="`${rule.ccId === 1080 ? '层数型 Buff' : 'Boss 机制负面状态'} · 达到设定层数时提醒`" />
+                            <div v-for="(rule, index) in configuredBuffAlertRules" :key="rule.ccId" class="buff-alert-editor">
+                                <div class="buff-alert-rule-heading">
+                                    <div class="buff-alert-identity">
+                                        <span class="condition-icon-wrap compact">
+                                            <span>CC</span>
+                                            <img :src="conditionIconUrl(rule.ccId)" :alt="`${conditionDisplayName(rule.ccId)}图标`" @error="hideMissingConditionIcon" />
+                                        </span>
+                                        <strong>{{ conditionDisplayName(rule.ccId) }}</strong>
+                                        <small>CC {{ rule.ccId }}</small>
+                                        <ReminderHelpTooltip v-if="isStackOnlyBuffAlertCondition(rule.ccId)" :label="`${conditionDisplayName(rule.ccId)}提醒说明`" :text="`${rule.ccId === 1080 ? '层数型 Buff' : 'Boss 机制负面状态'} · 达到设定层数时提醒`" />
+                                    </div>
+                                    <span class="buff-alert-runtime-status">{{ buffAlertRuntimeStatus(rule) }}</span>
+                                    <div class="buff-alert-actions">
+                                        <ReminderOrderControls :name="conditionDisplayName(rule.ccId)" :index="index" :count="configuredBuffAlertRules.length" @move="moveBuffAlertRule(index, $event)" />
+                                        <button type="button" class="buff-alert-remove" @click="removeBuffAlertRule(rule.ccId)">
+                                            <v-icon icon="mdi-delete-outline" size="13" />删除
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="reminder-rule-controls">
                                 <template v-if="isStackAlertCondition(rule.ccId)">
@@ -624,7 +633,7 @@
                                     </label>
                                     <label>
                                         闪烁提前（秒）
-                                        <input v-model.number="rule.flashThresholdSeconds" type="number" min="1" max="3600" @change="markBuffAlertSettingsDirty" />
+                                        <input v-model.number="rule.flashThresholdSeconds" type="number" min="1" max="3600" :disabled="!rule.flashEnabled" @change="markBuffAlertSettingsDirty" />
                                     </label>
                                     <label>
                                         音效
@@ -659,10 +668,6 @@
                                     >试听</button>
                                 </template>
                                 </div>
-                                <button type="button" class="buff-alert-remove" @click="removeBuffAlertRule(rule.ccId)">
-                                    <v-icon icon="mdi-delete-outline" size="13" />删除
-                                </button>
-                                <span class="buff-alert-runtime-status">{{ buffAlertRuntimeStatus(rule) }}</span>
                             </div>
                         </div>
                         <p v-else>尚未添加提醒。添加后会在这里逐项显示，多个项目可同时启用。</p>
@@ -1063,10 +1068,7 @@
                                     <strong>{{ conditionDisplayName(rule.ccId) }}</strong>
                                     <small>CC {{ rule.ccId }}</small>
                                 </div>
-                                <div class="debuff-order-controls" aria-label="调整图标顺序">
-                                    <button type="button" :disabled="index === 0" :aria-label="`上移 ${conditionDisplayName(rule.ccId)}`" title="向前移动" @click="moveDebuffAlertRule(rule.ccId, -1)"><v-icon icon="mdi-chevron-up" size="15" /></button>
-                                    <button type="button" :disabled="index === configuredDebuffAlertRules.length - 1" :aria-label="`下移 ${conditionDisplayName(rule.ccId)}`" title="向后移动" @click="moveDebuffAlertRule(rule.ccId, 1)"><v-icon icon="mdi-chevron-down" size="15" /></button>
-                                </div>
+                                <ReminderOrderControls class="debuff-order-controls" :name="conditionDisplayName(rule.ccId)" :index="index" :count="configuredDebuffAlertRules.length" @move="moveDebuffAlertRule(rule.ccId, $event)" />
                                 <label class="debuff-warning-toggle">
                                     <input v-model="rule.flashEnabled" type="checkbox" @change="markDebuffAlertSettingsDirty" />
                                     到期前闪烁
@@ -1374,6 +1376,7 @@ import SpeechMakerDialog from "@/components/SpeechMakerDialog.vue";
 import { createBurstPreview, type BurstPreviewPhase } from "@/burstReminderView";
 import ArcanaKpiPanel from "./ArcanaKpiPanel.vue";
 import ReminderHelpTooltip from "./ReminderHelpTooltip.vue";
+import ReminderOrderControls from "./ReminderOrderControls.vue";
 import type { BossMechanicOverlayItem } from "@/skillCooldown";
 import BurstReminderSettings from "./BurstReminderSettings.vue";
 import { loadBurstSettings, saveBurstSettings, normalizeBurstSettings, type BurstRule } from "@/burstReminder";
@@ -1422,6 +1425,8 @@ import {
     isStackOnlyBuffAlertCondition,
     loadBuffOverlaySettings,
     makeBuffAlertRule,
+    moveBuffRule,
+    orderedBuffAlertRules,
     parseConditionStack,
     resolveBuffExpiresAt,
     saveBuffOverlaySettings,
@@ -2409,10 +2414,7 @@ const playerBuffSearchResults = computed<PlayerBuffDefinition[]>(() => {
         .slice(0, 20);
 });
 
-const configuredBuffAlertRules = computed<BuffAlertRule[]>(() =>
-    Object.values(buffOverlaySettings.value.rules)
-        .sort((a, b) => conditionDisplayName(a.ccId).localeCompare(conditionDisplayName(b.ccId), "zh-CN") || a.ccId - b.ccId),
-);
+const configuredBuffAlertRules = computed(() => orderedBuffAlertRules(buffOverlaySettings.value.rules));
 const buffAlertSearchResults = computed<PlayerBuffDefinition[]>(() => {
     const query = toSimplified(buffAlertInput.value.trim()).toLowerCase();
     if (!query) return [];
@@ -2807,11 +2809,25 @@ function toggleFavoriteCondition(ccId: number) {
     reminderProfileSettingsDirty.value = true;
 }
 
+function setBuffAlertOrder(ordered: BuffAlertRule[]) {
+    ordered.forEach((rule, index) => { rule.order = index; });
+}
+
+function moveBuffAlertRule(index: number, direction: -1 | 1) {
+    const rules = [...configuredBuffAlertRules.value];
+    if (!moveBuffRule(rules, index, direction)) return;
+    setBuffAlertOrder(rules);
+    markBuffAlertSettingsDirty();
+    publishBuffOverlayState();
+}
+
 function addBuffAlertRule(selectedId: number) {
     const ccId = Number(selectedId);
     if (!Number.isInteger(ccId) || ccId < 0) return;
     if (!buffOverlaySettings.value.rules[ccId]) {
-        buffOverlaySettings.value.rules[ccId] = makeBuffAlertRule(ccId);
+        const rule = makeBuffAlertRule(ccId);
+        setBuffAlertOrder([...configuredBuffAlertRules.value, rule]);
+        buffOverlaySettings.value.rules[ccId] = rule;
     }
     if (!isStackOnlyBuffAlertCondition(ccId)) {
         buffOverlaySettings.value.rules[ccId].overlayEnabled = true;
@@ -5110,7 +5126,7 @@ function publishBuffOverlayState() {
     processBuffSoundAlerts();
     const now = Date.now() / 1000;
     const items: BuffOverlayItem[] = [];
-    for (const rule of Object.values(buffOverlaySettings.value.rules)) {
+    for (const rule of configuredBuffAlertRules.value) {
         if (!rule.overlayEnabled) continue;
         const active = findActiveBuffCondition(rule.ccId);
         if (active) {
@@ -6833,9 +6849,6 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
 .debuff-alert-identity .condition-icon-wrap { grid-row: 1 / 3; }
 .debuff-alert-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .debuff-alert-identity small { color: #adb3a7; font-size: 8px; }
-.debuff-order-controls { display: inline-flex; gap: 2px; }
-.debuff-order-controls button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; color: #e6e9e2; background: linear-gradient(#464941, #282a26); border: 1px solid #62685a; cursor: pointer; }
-.debuff-order-controls button:disabled { color: #666b62; border-color: #3c4038; cursor: default; }
 .debuff-warning-toggle, .debuff-warning-seconds, .debuff-sound-toggle, .debuff-sound-choice { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .debuff-sound-choice select { min-width: 110px; }
 @media (max-width: 1080px) {
@@ -7264,6 +7277,30 @@ function ellipsize(ctx: CanvasRenderingContext2D, value: string, maxWidth: numbe
     padding: 7px;
     background: #33362f;
     border: 1px solid #242620;
+}
+
+.buff-alert-rule-list { container-type: inline-size; }
+.buff-alert-editor { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.buff-alert-rule-heading {
+    display: grid;
+    grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) auto;
+    grid-template-areas: "identity status actions";
+    align-items: center;
+    gap: 4px 12px;
+}
+.buff-alert-rule-heading > .buff-alert-identity { grid-area: identity; }
+.buff-alert-rule-heading > .buff-alert-runtime-status {
+    grid-area: status;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    overflow-wrap: anywhere;
+}
+.buff-alert-actions { grid-area: actions; display: flex; align-items: center; gap: 6px; }
+.buff-alert-editor > .reminder-rule-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+@container (max-width: 520px) {
+    .buff-alert-rule-heading { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "identity actions" "status status"; }
 }
 
 .skill-cooldown-builtin-rule {

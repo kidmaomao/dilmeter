@@ -5,7 +5,13 @@ import { createServer } from "vite";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const server = await createServer({ configFile: false, root, logLevel: "error", server: { middlewareMode: true, hmr: false, ws: false }, optimizeDeps: { noDiscovery: true, include: [] } });
 try {
- const { makeHealerMember, makeHealerRule, makeHealerSettings, cloneHealerSettings, healerTemplateFromMember, applyHealerTemplate } = await server.ssrLoadModule("/src/healerMonitorTypes.ts");
+ const { healerStatusBadge, makeHealerMember, makeHealerRule, makeHealerSettings, cloneHealerSettings, healerTemplateFromMember, applyHealerTemplate } = await server.ssrLoadModule("/src/healerMonitorTypes.ts");
+ for (const [value, expected] of [['0s','0'],['32s','32'],['125s','125'],['999s','999'],['1000s','16m'],['1380s','23m'],['59999s','999m'],['60000s','16h'],['生效','生效']]) {
+  assert.equal(healerStatusBadge({state:'active', value}), expected);
+ }
+ assert.equal(healerStatusBadge({state:'unknown', value:'未观测'}), '?');
+ assert.equal(healerStatusBadge({state:'missing', value:'补充'}), '!');
+ assert.equal(healerStatusBadge({state:'missing', value:'死亡丢失'}), '死亡');
  const source = makeHealerMember({ id: 'first-session-id', name: 'FirstPlayer' }, 0);
  source.favorite = true; source.health = true; source.healthSettings.threshold = 35;
  source.healthSettings.repeatCount = 3; source.healthSettings.repeatIntervalSeconds = 7;
@@ -40,7 +46,9 @@ try {
  second.buffSettings.rules[0].sound.name = 'changed';
  assert.equal(template.buffSettings.rules[0].warningSeconds, 25);
  assert.equal(template.buffSettings.rules[0].sound.name, '自定义音乐.mp3', 'applying a template must not share nested rules or sounds');
- const settings = makeHealerSettings(); settings.templates = [template]; settings.opacityPercent = 55;
+ const settings = makeHealerSettings();
+ assert.equal(settings.version, 4); assert.equal(settings.iconSize, 28);
+ settings.templates = [template]; settings.opacityPercent = 55;
  const saved = cloneHealerSettings(JSON.parse(JSON.stringify(settings)));
  assert.equal(saved.templates[0].name, '队友1'); assert.equal(saved.opacityPercent, 55);
  assert.equal(saved.members.length, 0, 'templates do not automatically select players');

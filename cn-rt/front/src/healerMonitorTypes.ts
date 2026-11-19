@@ -41,15 +41,26 @@ export interface HealerMonitorState {
  dungeonSession: number; temporaryMembers?: HealerMemberChoice[];
 }
 export interface HealerCard { skillId?: number; key: string; memberKey: string; name: string; title: string; value: string; ccId: number; category: string; state: string; flash: boolean; x: number; y: number }
+export function healerStatusBadge(card: Pick<HealerCard, 'state' | 'value'>): string {
+ if (card.state === 'unknown' || card.value === '未观测') return '?';
+ if (card.value === '死亡丢失') return '死亡';
+ if (card.state === 'missing') return '!';
+ if (!/^\d+s$/.test(card.value)) return card.value;
+ const seconds = Number.parseInt(card.value, 10);
+ if (seconds < 1000) return String(seconds);
+ const minutes = Math.floor(seconds / 60);
+ return minutes < 1000 ? minutes + 'm' : Math.floor(minutes / 60) + 'h';
+}
+
 export interface HealerTeamRow {
  key: string; name: string; partySlot?: number; skills?: HealerCard[]; buffs?: HealerCard[];
  health?: HealerCard; mana?: HealerCard; curtain?: string;
 }
 export interface HealerOverlayGroup {
  key: string; kind: 'team'; x: number; y: number; width: number; height: number;
- nameWidth?: number; cellWidth?: number; columns?: number; rows?: HealerTeamRow[];
+ nameWidth?: number; cellWidth?: number; cellHeight?: number; columns?: number; rows?: HealerTeamRow[];
 }
-export interface HealerOverlayFrame { groups: HealerOverlayGroup[]; x: number; y: number; width: number; height: number; fontSize: number; iconSize: number; scalePercent: number; opacityPercent: number; preview: boolean; updatedAt: number }
+export interface HealerOverlayFrame { groups: HealerOverlayGroup[]; x: number; y: number; width: number; height: number; fontSize: number; iconSize: number; scalePercent: number; dpiPercent: number; opacityPercent: number; preview: boolean; updatedAt: number }
 export const makeHealerSound = (kind: string): HealerSound => ({ kind, soundId: '', name: '' });
 export const makeHealerRule = (ccId: number, name: string, warning = 10): HealerBuffRule => ({
  ccId, name, warningSeconds: warning, overlayEnabled: true, flashEnabled: true,
@@ -65,7 +76,7 @@ export const makeHealerMember = (member: Pick<HealerMemberState, 'id' | 'name'>,
 });
 export const makeHealerSelf = (): HealerMemberChoice => ({ ...makeHealerMember({ id: '', name: '自身角色' }, 0), self: true, key: 'self', favorite: true, mana: true, manaSettings: makeHealerMana() });
 export const healerTemplateSummary = (template: HealerMemberTemplate): string => `${template.health ? `血量 ≤${template.healthSettings.threshold}%` : '血量关闭'} · ${template.buffSettings.rules.length} 个 Buff · ${template.skillSettings.rules.length} 个技能`;
-export const makeHealerSettings = (): HealerSettings => ({ version: 3, enabled: false, autoAddInDungeon: false, autoAddTemplateId: '', volume: 70, iconSize: 20, opacityPercent: 100, templates: [], soundEnabled: true, text: { enabled: true, fontSize: 16, scalePercent: 100, x: 600, y: 180, width: 660 }, members: [] });
+export const makeHealerSettings = (): HealerSettings => ({ version: 4, enabled: false, autoAddInDungeon: false, autoAddTemplateId: '', volume: 70, iconSize: 28, opacityPercent: 100, templates: [], soundEnabled: true, text: { enabled: true, fontSize: 16, scalePercent: 100, x: 600, y: 180, width: 660 }, members: [] });
 export const cloneHealerSettings = (value: HealerSettings): HealerSettings => JSON.parse(JSON.stringify({
  ...value, autoAddInDungeon: value.autoAddInDungeon ?? false, autoAddTemplateId: value.autoAddTemplateId ?? '',
  opacityPercent: value.opacityPercent ?? 100,

@@ -7,21 +7,21 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
 type healerOverlayGroup struct {
-	Key       string          `json:"key"`
-	Kind      string          `json:"kind"`
-	X         int             `json:"x"`
-	Y         int             `json:"y"`
-	Width     int             `json:"width"`
-	Height    int             `json:"height"`
-	NameWidth int             `json:"nameWidth,omitempty"`
-	CellWidth int             `json:"cellWidth,omitempty"`
-	Columns   int             `json:"columns,omitempty"`
-	Rows      []healerTeamRow `json:"rows,omitempty"`
+	Key        string          `json:"key"`
+	Kind       string          `json:"kind"`
+	X          int             `json:"x"`
+	Y          int             `json:"y"`
+	Width      int             `json:"width"`
+	Height     int             `json:"height"`
+	NameWidth  int             `json:"nameWidth,omitempty"`
+	CellWidth  int             `json:"cellWidth,omitempty"`
+	CellHeight int             `json:"cellHeight,omitempty"`
+	Columns    int             `json:"columns,omitempty"`
+	Rows       []healerTeamRow `json:"rows,omitempty"`
 }
 
 type healerTeamRow struct {
@@ -42,6 +42,7 @@ type healerOverlayFrame struct {
 	Width          int                  `json:"width"`
 	Height         int                  `json:"height"`
 	ScalePercent   int                  `json:"scalePercent"`
+	DPIPercent     int                  `json:"dpiPercent"`
 	FontSize       int                  `json:"fontSize"`
 	IconSize       int                  `json:"iconSize"`
 	OpacityPercent int                  `json:"opacityPercent"`
@@ -49,13 +50,19 @@ type healerOverlayFrame struct {
 	UpdatedAt      int64                `json:"updatedAt"`
 }
 
-func healerRuntimeMonitor() *healerMonitor {
+func currentNativeReminderRuntime() *nativeReminderRuntime {
 	nativeReminderRuntimeHolder.RLock()
 	defer nativeReminderRuntimeHolder.RUnlock()
-	if nativeReminderRuntimeHolder.runtime == nil {
-		return nil
-	}
-	return nativeReminderRuntimeHolder.runtime.healer
+	return nativeReminderRuntimeHolder.runtime
+}
+
+func (runtime *nativeReminderRuntime) healerOverlaySnapshot(nowMs int64) healerOverlayFrame {
+	runtime.settingsMu.RLock()
+	configuredDPI := runtime.settings.Buff.DPIPercent
+	runtime.settingsMu.RUnlock()
+	frame := runtime.healer.overlaySnapshot(nowMs)
+	frame.DPIPercent = healerOverlayDPI(configuredDPI)
+	return frame
 }
 
 func handleHealerOverlay(w http.ResponseWriter, r *http.Request) {
@@ -68,14 +75,14 @@ func handleHealerOverlay(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	h := healerRuntimeMonitor()
-	if h == nil {
+	runtime := currentNativeReminderRuntime()
+	if runtime == nil || runtime.healer == nil {
 		http.Error(w, "healer monitor unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(h.overlaySnapshot(time.Now().UnixMilli()))
+	_ = json.NewEncoder(w).Encode(runtime.healerOverlaySnapshot(time.Now().UnixMilli()))
 }
 
 // Previews never change selected members, saved settings, or sound latches.
@@ -89,8 +96,8 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	h := healerRuntimeMonitor()
-	if h == nil {
+	runtime := currentNativeReminderRuntime()
+	if runtime == nil || runtime.healer == nil {
 		http.Error(w, "healer monitor unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -108,6 +115,7 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid preview", http.StatusBadRequest)
 		return
 	}
+	h := runtime.healer
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if request.Stop {
@@ -120,7 +128,7 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.previewText = normalizeHealerText(request.Text)
-	h.previewIconSize = clampNativeReminderInt(request.IconSize, 16, 80, 20)
+	h.previewIconSize = clampNativeReminderInt(request.IconSize, 16, 80, healerDefaultIconSize)
 	h.previewOpacityPercent = h.settings.OpacityPercent
 	if request.OpacityPercent != nil {
 		h.previewOpacityPercent = clampNativeReminderInt(*request.OpacityPercent, 20, 100, 100)
@@ -141,10 +149,14 @@ func handleHealerTextPreview(w http.ResponseWriter, r *http.Request) {
 				if !*rule.OverlayEnabled {
 					continue
 				}
-				h.previewCards = append(h.previewCards, healerCard{Key: "preview-" + rule.Name, MemberKey: member.Key, Name: member.Name, Title: rule.Name, Value: []string{"1380s", "24s", "生效"}[index%3], Category: "buff", State: "active", CCID: rule.CCID, X: member.BuffSettings.Overlay.X, Y: member.BuffSettings.Overlay.Y})
+				h.previewCards = append(h.previewCards, healerCard{Key: fmt.Sprintf("preview-buff-%d", rule.CCID), MemberKey: member.Key, Name: member.Name, Title: rule.Name, Value: []string{"1380s", "24s", "生效"}[index%3], Category: "buff", State: "active", CCID: rule.CCID, X: member.BuffSettings.Overlay.X, Y: member.BuffSettings.Overlay.Y})
+			}
+			skillExamples := [...]struct{ value, state string }{
+				{"就绪", "ready"}, {"24s", "cooling"}, {"未观测", "unknown"},
 			}
 			for index, rule := range member.SkillSettings.Rules {
-				h.previewCards = append(h.previewCards, healerCard{Key: fmt.Sprintf("preview-skill-%d", rule.SkillID), MemberKey: member.Key, Name: member.Name, Title: rule.Name, Value: []string{"就绪", "24s", "未观测"}[index%3], Category: "skill", State: "ready", SkillID: rule.SkillID, X: member.BuffSettings.Overlay.X, Y: member.BuffSettings.Overlay.Y})
+				example := skillExamples[index%len(skillExamples)]
+				h.previewCards = append(h.previewCards, healerCard{Key: fmt.Sprintf("preview-skill-%d", rule.SkillID), MemberKey: member.Key, Name: member.Name, Title: rule.Name, Value: example.value, Category: "skill", State: example.state, SkillID: rule.SkillID, X: member.BuffSettings.Overlay.X, Y: member.BuffSettings.Overlay.Y})
 			}
 			if len(h.previewCards) == 0 {
 				http.Error(w, "请先添加需要显示的 Buff 或技能", http.StatusBadRequest)
@@ -166,12 +178,9 @@ func (h *healerMonitor) textSnapshotLocked(nowMs int64) (healerTextSettings, []h
 		cards := h.previewCards
 		if cards == nil {
 			cards = []healerCard{
-				{Key: "sample-health", MemberKey: "self", Name: "自身角色", Title: "血量", Category: "health", Value: "76%"},
-				{Key: "sample-mana", MemberKey: "self", Name: "自身角色", Title: "魔法值", Category: "mana", Value: "62%"},
-				{Key: "sample-skill", MemberKey: "sample-2", Name: "小月亮", Title: "崩坏波动", Category: "skill", SkillID: 59005, Value: "24s", State: "cooling"},
-				{Key: "sample-curtain", MemberKey: "sample-2", Name: "小月亮", Category: "curtain", Value: "2480"},
-				{Key: "sample-buff", MemberKey: "sample-2", Name: "小月亮", Title: "战争序曲", Category: "music", CCID: 680, Value: "132s", State: "active"},
-				{Key: "sample-health-2", MemberKey: "sample-2", Name: "小月亮", Title: "血量", Category: "health", Value: "93%"},
+				{Key: "sample-skill", MemberKey: "sample-2", Name: "七罪", Title: "崩坏波动", Category: "skill", SkillID: 59005, Value: "未观测", State: "unknown"},
+				{Key: "sample-buff", MemberKey: "sample-2", Name: "七罪", Title: "战争序曲", Category: "music", CCID: 680, Value: "32s", State: "active"},
+				{Key: "sample-buff-3", MemberKey: "sample-3", Name: "月牙", Title: "战争序曲", Category: "music", CCID: 680, Value: "125s", State: "active"},
 			}
 		}
 		return h.previewText, append([]healerCard(nil), cards...), true
@@ -194,6 +203,14 @@ func (h *healerMonitor) overlaySnapshot(nowMs int64) healerOverlayFrame {
 	var members []healerMemberState
 	if preview {
 		iconSize = h.previewIconSize
+		if h.previewCards == nil {
+			mana, health := 99.9, 100.0
+			members = []healerMemberState{
+				{Key: "self", Name: "小月亮", PartySlot: 1, showHealth: true, showMana: true, ManaPercent: &mana},
+				{Key: "sample-2", Name: "七罪", PartySlot: 2, showHealth: true, HealthPercent: &health},
+				{Key: "sample-3", Name: "月牙", PartySlot: 3, showHealth: true},
+			}
+		}
 	} else if h.liveOverlay(nowMs) {
 		members = h.state.Members
 	}
@@ -209,7 +226,7 @@ func buildHealerOverlayFrame(settings healerTextSettings, iconSize int, cards []
 	frame := healerOverlayFrame{
 		OpacityPercent: 100, Groups: []healerOverlayGroup{}, Preview: preview, UpdatedAt: nowMs, Width: 1, Height: 1,
 		ScalePercent: clampNativeReminderInt(settings.ScalePercent, 50, 200, 100),
-		FontSize:     clampNativeReminderInt(settings.FontSize, 12, 72, 16), IconSize: clampNativeReminderInt(iconSize, 16, 80, 20),
+		FontSize:     clampNativeReminderInt(settings.FontSize, 12, 72, 16), IconSize: clampNativeReminderInt(iconSize, 16, 80, healerDefaultIconSize),
 	}
 	team := healerOverlayGroup{Key: "team", Kind: "team", X: settings.X, Y: settings.Y}
 	indices := make(map[string]int)
@@ -276,8 +293,8 @@ func buildHealerOverlayFrame(settings healerTextSettings, iconSize int, cards []
 	layoutHealerTeam(&team, frame.FontSize, frame.IconSize, settings.Width)
 	frame.Groups = append(frame.Groups, team)
 
-	// The WebView scales the entire panel from its top left. Give the native
-	// window the matching scaled dimensions, plus room for its shadow.
+	// Layout dimensions and shadow margins are logical pixels. The team X/Y
+	// anchor stays in physical desktop coordinates, including on secondary monitors.
 	const windowMargin = 12
 	frame.X, frame.Y = team.X-windowMargin, team.Y-windowMargin
 	frame.Width = (team.Width*frame.ScalePercent+99)/100 + 2*windowMargin
@@ -306,49 +323,31 @@ func healerResourceBar(percent *float64, title string) *healerCard {
 // Match the padding, row heights and gaps in HealerOverlayVisual.vue so the
 // native window contains all rows, including status grids that wrap.
 func layoutHealerTeam(group *healerOverlayGroup, fontSize, iconSize, widthLimit int) {
-	const panelPaddingX, panelPaddingY, rowPaddingY = 8, 4, 4
-	const nameGap, cellGap, vitalsGap = 8, 4, 3
+	const panelPaddingX, panelPaddingY, rowPaddingY = 6, 3, 4
+	const nameplatePadding, nameGap, cellGap, statusGap, manaGap = 4, 4, 2, 4, 2
+	const defaultWidth, preferredColumns = 224, 6
 	textSize := max(10, fontSize*3/4)
-	group.CellWidth = iconSize + cellGap + healerLabelWidth("死亡丢失", textSize)
-	maxCards := 0
+	// Width depends only on appearance settings, including the space for a full shield value.
+	preferredWidth := max(defaultWidth, 2*panelPaddingX+fontSize+preferredColumns*iconSize+(preferredColumns-1)*cellGap)
+	shieldWidth := healerLabelWidth("9,223,372,036,854,775,807", textSize)
+	group.Width = max(min(preferredWidth, clampNativeReminderInt(widthLimit, 280, 1600, 660)), 2*(panelPaddingX+nameplatePadding)+fontSize+nameGap+shieldWidth)
+	innerWidth := group.Width - 2*panelPaddingX
+	group.NameWidth = innerWidth - 2*nameplatePadding
+	group.CellWidth = iconSize
+	// The dark caption spans the bottom edge, leaving most of the square artwork visible.
+	group.CellHeight = iconSize + min(iconSize/4, (textSize+2)/2)
+	group.Columns = max(1, (innerWidth-fontSize+cellGap)/(iconSize+cellGap))
+	group.Height = 2 * panelPaddingY
 	for _, row := range group.Rows {
-		name := row.Name
-		if row.PartySlot > 0 {
-			name = strconv.Itoa(row.PartySlot) + "  " + name
-		}
-		group.NameWidth = max(group.NameWidth, healerLabelWidth(name, fontSize))
-		maxCards = max(maxCards, len(row.Skills)+len(row.Buffs))
-	}
-	group.NameWidth = min(group.NameWidth, fontSize*8)
-	group.Width = panelPaddingX*2 + group.NameWidth
-	group.Height = panelPaddingY * 2
-	group.Columns = min(max(1, maxCards), 4, max(1, (widthLimit-group.Width-nameGap+cellGap)/(group.CellWidth+cellGap)))
-	if maxCards > 0 {
-		group.Width += nameGap + group.Columns*group.CellWidth + (group.Columns-1)*cellGap
-	}
-	for _, row := range group.Rows {
-		cards := len(row.Skills) + len(row.Buffs)
-		height := fontSize + 4
-		if cards > 0 {
-			rows := (cards + group.Columns - 1) / group.Columns
-			height = rows*max(iconSize, height) + (rows-1)*cellGap
-		}
-		vitals := 0
-		if row.Health != nil || row.Curtain != "" {
-			vitals++
-		}
+		height := fontSize + 8
 		if row.Mana != nil {
-			vitals++
+			height += manaGap + textSize + 6
 		}
-		if vitals > 0 {
-			group.Width = max(group.Width, 156)
-			height += cellGap + vitals*max(14, textSize+4) + (vitals-1)*vitalsGap
+		if count := len(row.Skills) + len(row.Buffs); count > 0 {
+			lines := (count + group.Columns - 1) / group.Columns
+			height += statusGap + lines*group.CellHeight + (lines-1)*cellGap
 		}
-		if row.Curtain != "" {
-			commas := (len(row.Curtain) - 1) / 3
-			group.Width = max(group.Width, panelPaddingX*2+healerLabelWidth(row.Curtain+strings.Repeat(",", commas), textSize))
-		}
-		group.Height += rowPaddingY*2 + height
+		group.Height += 2*rowPaddingY + height
 	}
 }
 

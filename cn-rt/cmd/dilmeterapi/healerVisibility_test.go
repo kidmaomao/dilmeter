@@ -123,7 +123,7 @@ func TestHealerMusicSnapshotAfterMapChange(t *testing.T) {
 	if !member.Active || member.Overture.State != "active" || member.Overture.RemainingSeconds == nil || *member.Overture.RemainingSeconds != 580 || len(runtime.healer.state.Cards) != 2 {
 		t.Fatalf("map entry lost active music: member=%+v cards=%+v", member, runtime.healer.state.Cards)
 	}
-	if card := runtime.healer.state.Cards[1]; card.CCID != 192 || card.State != "missing" || card.Value != "补充" || member.Vivace.State != "unknown" {
+	if card := runtime.healer.state.Cards[1]; card.CCID != 192 || card.State != "unknown" || card.Value != "未观测" || member.Vivace.State != "unknown" {
 		t.Fatalf("map entry did not restore the configured unobserved music slot: %+v", card)
 	}
 	if len(*sounds) != 0 {

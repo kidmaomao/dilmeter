@@ -37,7 +37,7 @@ var logger = util.NewLogger("dilmeterapi")
 var packetLogFilename = ""
 var BuildVariant = "release"
 var AppName = "DilmeterCN"
-var AppVersion = "1.6.5"
+var AppVersion = "1.6.7"
 var resourcePackSessionVersion = time.Now().Unix()
 
 func main() {

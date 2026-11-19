@@ -287,13 +287,15 @@ func TestHealerTextIndependentOfSoundAndPreview(t *testing.T) {
 	h.previewText = healerTextSettings{FontSize: 48, X: 10, Y: 20, Width: 800}
 	h.previewUntilMs = 108_000
 	frame := h.overlaySnapshot(101_000)
-	if !frame.Preview || frame.FontSize != 48 || len(frame.Groups) != 1 || len(frame.Groups[0].Rows) != 2 {
+	if !frame.Preview || frame.FontSize != 48 || len(frame.Groups) != 1 || len(frame.Groups[0].Rows) != 3 {
 		t.Fatalf("preview did not use draft appearance: %+v", frame)
 	}
-	self, teammate := frame.Groups[0].Rows[0], frame.Groups[0].Rows[1]
-	if self.Key != "self" || self.Health == nil || self.Mana == nil || teammate.Health == nil ||
-		teammate.Mana != nil || teammate.Curtain == "" || len(teammate.Skills) != 1 {
-		t.Fatalf("preview did not show self mana and teammate life, curtain and skill: %+v", frame.Groups[0].Rows)
+	rows := frame.Groups[0].Rows
+	self, second, third := rows[0], rows[1], rows[2]
+	if self.PartySlot != 1 || self.Key != "self" || self.Health == nil || self.Health.Value != "—" || self.Mana == nil || self.Mana.Value != "99.9%" ||
+		second.PartySlot != 2 || second.Health == nil || second.Health.Value != "100%" || second.Mana != nil || len(second.Skills) != 1 || second.Skills[0].State != "unknown" || len(second.Buffs) != 1 || second.Buffs[0].Value != "32s" ||
+		third.PartySlot != 3 || third.Health == nil || third.Health.Value != "—" || len(third.Buffs) != 1 || third.Buffs[0].Value != "125s" {
+		t.Fatalf("unexpected team preview: %+v", rows)
 	}
 	if _, lines, preview := h.textSnapshot(108_000); preview || len(lines) != 0 {
 		t.Fatal("preview did not expire")
@@ -301,6 +303,18 @@ func TestHealerTextIndependentOfSoundAndPreview(t *testing.T) {
 	h.settings.Text.Enabled = true
 	if _, lines, _ := h.textSnapshot(110_000); len(lines) != 0 {
 		t.Fatal("stale text survived stopped runtime")
+	}
+}
+
+func TestHealerIconSizeUpgradesPreviousDefaults(t *testing.T) {
+	for _, tc := range []struct{ version, before, want int }{
+		{0, 0, 28}, {0, 30, 28}, {2, 20, 20}, {2, 30, 28}, {3, 20, 28}, {3, 30, 30},
+		{3, 16, 16}, {3, 48, 48}, {4, 20, 20}, {4, 28, 28},
+	} {
+		s := normalizeHealerSettings(healerSettings{Version: tc.version, IconSize: tc.before})
+		if s.IconSize != tc.want || s.Version != 4 || normalizeHealerSettings(s).IconSize != tc.want {
+			t.Fatalf("v%d icon size %d should normalize to %d, got %d (v%d)", tc.version, tc.before, tc.want, s.IconSize, s.Version)
+		}
 	}
 }
 

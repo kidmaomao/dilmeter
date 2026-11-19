@@ -61,6 +61,7 @@ type nativeBuffSettings struct {
 
 type nativeBuffRule struct {
 	CCID                  uint32 `json:"ccId"`
+	Order                 int    `json:"order"`
 	Name                  string `json:"name"`
 	IconURL               string `json:"iconUrl"`
 	OverlayEnabled        bool   `json:"overlayEnabled"`
@@ -2300,7 +2301,12 @@ func sortedNativeBuffRules(rules map[uint32]nativeBuffRule) []nativeBuffRule {
 	for _, rule := range rules {
 		result = append(result, rule)
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].CCID < result[j].CCID })
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Order != result[j].Order {
+			return result[i].Order < result[j].Order
+		}
+		return result[i].CCID < result[j].CCID
+	})
 	return result
 }
 
@@ -2347,6 +2353,7 @@ func normalizeNativeReminderSettings(settings nativeReminderSettings) nativeRemi
 	}
 	for id, rule := range settings.Buff.Rules {
 		rule.CCID = id
+		rule.Order = max(0, rule.Order)
 		rule.DurationMode = nativeDurationMode(rule.DurationMode)
 		rule.ManualDurationSeconds = clampNativeReminderInt(rule.ManualDurationSeconds, 1, 86400, 60)
 		rule.FlashThresholdSeconds = clampNativeReminderInt(rule.FlashThresholdSeconds, 1, 3600, 10)

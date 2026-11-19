@@ -7,7 +7,7 @@ import (
 
 func TestHealerStatusGridFitsAllCardsAndKeepsWidth(t *testing.T) {
 	for _, fontSize := range []int{12, 16, 24, 72} {
-		for _, iconSize := range []int{16, 30, 80} {
+		for _, iconSize := range []int{16, 28, 30, 80} {
 			cards := []healerCard{}
 			for _, kind := range []string{"buff", "skill"} {
 				for i := range 16 {
@@ -21,7 +21,9 @@ func TestHealerStatusGridFitsAllCardsAndKeepsWidth(t *testing.T) {
 				t.Fatalf("missing status icons: %+v", group)
 			}
 			rows := (len(cards) + group.Columns - 1) / group.Columns
-			if group.Height != 16+rows*max(fontSize+4, iconSize)+(rows-1)*4 || frame.Height < group.Height+24 {
+			captionExtension := min(iconSize/4, (max(10, fontSize*3/4)+2)/2)
+			expectedHeight := 6 + 8 + fontSize + 8 + 4 + rows*(iconSize+captionExtension) + (rows-1)*2
+			if group.Height != expectedHeight || group.CellWidth != iconSize || group.CellHeight != iconSize+captionExtension || frame.Height != group.Height+24 {
 				t.Fatalf("wrapped rows clipped at font=%d icon=%d: %+v", fontSize, iconSize, frame)
 			}
 			for i := range cards {
@@ -30,6 +32,32 @@ func TestHealerStatusGridFitsAllCardsAndKeepsWidth(t *testing.T) {
 			after := buildHealerOverlayFrame(text, iconSize, cards, nil, false, 1100).Groups[0]
 			if after.Width != group.Width || after.Height != group.Height {
 				t.Fatal("status/countdown change moved the grid")
+			}
+		}
+	}
+}
+
+func TestHealerTeamWrapsOneHorizontalStripAtFixedWidth(t *testing.T) {
+	for _, limit := range []int{280, 660} {
+		base := healerOverlayGroup{Rows: []healerTeamRow{{Name: "短", PartySlot: 1}}}
+		layoutHealerTeam(&base, 16, 28, limit)
+		for _, tc := range []struct{ skills, buffs, rows int }{
+			{0, 0, 0}, {1, 0, 1}, {0, 2, 1}, {1, 1, 1}, {6, 0, 1}, {0, 6, 1}, {3, 3, 1}, {3, 4, 2}, {6, 6, 2}, {6, 7, 3}, {16, 16, 6},
+		} {
+			member := healerTeamRow{Name: "带有很长名字的队友", PartySlot: 16, Skills: make([]healerCard, tc.skills), Buffs: make([]healerCard, tc.buffs)}
+			team := healerOverlayGroup{Rows: []healerTeamRow{member}}
+			layoutHealerTeam(&team, 16, 28, limit)
+			stripHeight := 0
+			if tc.rows > 0 {
+				stripHeight = 4 + tc.rows*35 + (tc.rows-1)*2
+			}
+			if team.Columns != 6 || team.Width != 224 || team.Width != base.Width || team.NameWidth != base.NameWidth || team.Height != base.Height+stripHeight {
+				t.Fatalf("width limit %d, %d skills / %d Buffs: got %d columns and %dx%d", limit, tc.skills, tc.buffs, team.Columns, team.Width, team.Height)
+			}
+			team.Rows = append(team.Rows, healerTeamRow{Name: "新队友", Health: &healerCard{}, Mana: &healerCard{}, Curtain: "9223372036854775807"})
+			layoutHealerTeam(&team, 16, 28, limit)
+			if team.Width != base.Width || team.Height != base.Height+stripHeight+52 {
+				t.Fatalf("a shield and mana row should add 52 pixels of height at the same width: %+v", team)
 			}
 		}
 	}
